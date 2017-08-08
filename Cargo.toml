@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Jeff Weiss <jweiss@polysync.io>"]
 
 [dependencies]
-getopts = "0.2"
+clap = "2"
 git2 = "0.6"
 gpgme = "0.6"
 lazy_static = "0.2"
