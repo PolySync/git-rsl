@@ -35,7 +35,6 @@ fn main() {
                             (@arg branch: ... +required "Branch(es) to securely fetch or push (example: master)")
                             ).get_matches();
 
-    println!("matches: {:?}", matches);
     let remote = matches.value_of("remote").unwrap().clone();
     let branches: Vec<&str> = matches.values_of("branch").unwrap().collect();
     if program == "git-securefetch" || matches.is_present("fetch") {
