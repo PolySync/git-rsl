@@ -1,7 +1,8 @@
 #[macro_use]
 extern crate clap;
-
+extern crate crypto;
 extern crate git2;
+extern crate rand;
 
 use std::env;
 
@@ -10,7 +11,6 @@ use git2::Repository;
 mod common;
 mod push;
 mod fetch;
-
 
 fn discover_repo() -> Result<Repository, git2::Error> {
     let current_dir = env::current_dir().unwrap();
@@ -36,8 +36,10 @@ fn main() {
                             ).get_matches();
 
     println!("matches: {:?}", matches);
+    let remote = matches.value_of("remote").unwrap().clone();
+    let branches: Vec<&str> = matches.values_of("branch").unwrap().collect();
     if program == "git-securefetch" || matches.is_present("fetch") {
-        fetch::secure_fetch(&repo);
+        fetch::secure_fetch(&repo, remote, branches);
         return;
     } else if program == "git-securepush" || matches.is_present("push") {
         push::secure_push(&repo);
