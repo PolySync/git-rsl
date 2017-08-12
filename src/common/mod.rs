@@ -19,8 +19,7 @@ const RSL_BRANCH: &'static str = "RSL";
 const NONCE_BRANCH: &'static str = "RSL_NONCE";
 const REFLOG_MSG: &'static str = "Retrieve RSL branchs from remote";
 
-pub fn retrieve_rsl_and_nonce_bag_from_remote_repo<'repo>(repo: &'repo Repository, remote: &mut Remote) -> (Reference<'repo>, HashSet<Nonce>) {
-
+pub fn fetch(repo: &Repository, remote: &mut Remote, ref_names: &[&str], reflog_msg: Option<&str>) -> Result<(), ::git2::Error> {
     let cfg = repo.config().unwrap();
     let remote_copy = remote.clone();
     let url = remote_copy.url().unwrap();
@@ -32,8 +31,11 @@ pub fn retrieve_rsl_and_nonce_bag_from_remote_repo<'repo>(repo: &'repo Repositor
         opts.remote_callbacks(cb);
 
         remote.fetch(&[RSL_BRANCH, NONCE_BRANCH], Some(&mut opts), Some(REFLOG_MSG))
-    });
+    })
+}
+pub fn retrieve_rsl_and_nonce_bag_from_remote_repo<'repo>(repo: &'repo Repository, remote: &mut Remote) -> (Reference<'repo>, HashSet<Nonce>) {
 
+    fetch(repo, remote, &[RSL_BRANCH, NONCE_BRANCH], Some(REFLOG_MSG));
     let remote_name = remote.name().unwrap();
     let remote_rsl_ref_name = format!("{}/{}", remote_name, RSL_BRANCH);
     let remote_rsl = match repo.find_reference(&remote_rsl_ref_name) {
@@ -44,7 +46,7 @@ pub fn retrieve_rsl_and_nonce_bag_from_remote_repo<'repo>(repo: &'repo Repositor
             println!("Please run git-rsl --push");
             println!("If you have already done this, then this remote may be compromised.");
             println!("  {}", e);
-            process::exit(99);
+            process::exit(10);
         }
     };
 
@@ -57,7 +59,7 @@ pub fn retrieve_rsl_and_nonce_bag_from_remote_repo<'repo>(repo: &'repo Repositor
             println!("Please run git-rsl --push");
             println!("If you have already done this, then this remote may be compromised.");
             println!("  {}", e);
-            process::exit(98);
+            process::exit(11);
         }
     };
 

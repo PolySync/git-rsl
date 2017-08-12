@@ -29,7 +29,7 @@ pub fn secure_fetch<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<
             remote_rsl = fetch_local_remote_rsl;
             nonce_bag = fetch_local_nonce_bag;
 
-            match remote.fetch(&ref_names.clone(), None, None) {
+            match common::fetch(repo, &mut remote, &ref_names, None) {
                 Ok(_) => (),
                 Err(e) => {
                     println!("Error: unable to fetch reference {} from remote {}", &ref_names.clone().join(", "), &remote_name);
