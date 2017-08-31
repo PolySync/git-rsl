@@ -6,7 +6,7 @@ use std::process;
 use std::vec::Vec;
 
 use git2;
-use git2::{Cred, FetchOptions, Oid, ProxyOptions, Reference, Remote, RemoteCallbacks, Repository};
+use git2::{Cred, FetchOptions, Oid, ProxyOptions, Reference, Remote, RemoteCallbacks, Repository, Revwalk};
 use rand::Rng;
 
 mod push_entry;
@@ -86,14 +86,67 @@ pub fn validate_rsl(repo: &Repository, remote_rsl: &Reference, nonce_bag: &HashS
         return false;
     }
 
-    let local_rsl = local_rsl_from_repo(repo).unwrap();
-    let mut current_push_entry = PushEntry::from(&local_rsl);
+    let local_rsl = match local_rsl_from_repo(repo) {
+        Some(reference) => reference,
+        None => {
+            println!("Warning: No local RSL branch");
+            return false;
+        },
+    };
+    let local_oid = local_rsl.target().unwrap();
+    let remote_oid = remote_rsl.target().unwrap();
+
+    if !repo.graph_descendant_of(remote_oid, local_oid).unwrap_or(false) {
+        println!("Error: No path to get from Local RSL to Remote RSL");
+        return false;
+    }
+
+    let last_local_push_entry = PushEntry::from_ref(&local_rsl).unwrap();
+    let mut last_hash = last_local_push_entry.hash();
+
+    let mut revwalk: Revwalk = repo.revwalk().unwrap();
+    revwalk.push(remote_oid);
+    revwalk.set_sorting(git2::SORT_REVERSE);
+    revwalk.hide(local_oid);
+    let remaining = revwalk.map(|oid| oid.unwrap());
+
+    let result = remaining.fold(Some(last_hash), |prev_hash, oid| {
+        let current_push_entry = PushEntry::from_oid(oid).unwrap();
+        let current_prev_hash = current_push_entry.prev_hash();
+        let current_hash = current_push_entry.hash();
+        if prev_hash == Some(current_prev_hash) {
+            Some(current_hash)
+        } else {
+            None
+        }
+    });
+
+    if result != None { return false; }
 
 
-    true
+    verify_signature(remote_oid)
+
 }
 
-fn local_rsl_from_repo(repo: &Repository) -> Option<Reference> {
+fn verify_signature(oid: Oid) -> bool {
+    return false
+}
+
+fn for_each_commit_from<F>(repo: &Repository, local: Oid, remote: Oid, f: F)
+    where F: Fn(Oid) -> ()
+{
+    let mut revwalk: Revwalk = repo.revwalk().unwrap();
+    revwalk.push(remote);
+    revwalk.set_sorting(git2::SORT_REVERSE);
+    revwalk.hide(local);
+    let remaining = revwalk.map(|oid| oid.unwrap());
+
+    for oid in remaining {
+        f(oid)
+    }
+}
+
+pub fn local_rsl_from_repo(repo: &Repository) -> Option<Reference> {
     match repo.find_reference(RSL_BRANCH) {
         Ok(r) => Some(r),
         Err(_) => None,
@@ -104,7 +157,7 @@ pub fn last_push_entry_for(repo: &Repository, remote: &Remote, reference: &str) 
     let fully_qualified_ref_name = format!("{}/{}", remote.name().unwrap(), reference);
     //TODO Actually walk the commits and look for the most recent for the branch we're interested
     //in
-    Some(PushEntry::new(repo, &fully_qualified_ref_name))
+    Some(PushEntry::new(repo, &fully_qualified_ref_name, String::from("")))
 }
 
 //TODO implement

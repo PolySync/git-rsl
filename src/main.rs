@@ -41,7 +41,7 @@ fn main() {
         fetch::secure_fetch(&repo, remote, branches);
         return;
     } else if program == "git-securepush" || matches.is_present("push") {
-        push::secure_push(&repo);
+        push::secure_push(&repo, remote, branches);
         return;
     }
 }

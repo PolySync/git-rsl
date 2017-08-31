@@ -19,16 +19,20 @@ pub struct PushEntry {
 
 impl PushEntry {
     //TODO Implement
-    pub fn new(repo: &Repository, branch_str: &str) -> PushEntry {
+    pub fn new(repo: &Repository, branch_str: &str, prev: String) -> PushEntry {
         let branch = repo.find_reference(branch_str);
         PushEntry {
             related_commits: Vec::new(),
             branch: String::from(branch_str),
             head: None,
-            prev_hash: String::from(""),
+            prev_hash: prev,
             nonce_bag: HashSet::new(),
             signature: String::from(""),
         }
+    }
+
+    pub fn prev_hash(&self) -> String {
+        self.prev_hash.clone()
     }
 
     pub fn hash(&self) -> String {
@@ -51,8 +55,15 @@ impl PushEntry {
         }
     }
 
+    pub fn from_ref(reference: &Reference) -> Option<PushEntry> {
+        match reference.target() {
+            Some(oid) => PushEntry::from_oid(oid),
+            None => None,
+        }
+    }
+
     //TODO implement
-    pub fn from(reference: &Reference) -> Option<PushEntry> {
+    pub fn from_oid(oid: Oid) -> Option<PushEntry> {
         Some( PushEntry {
             related_commits: Vec::new(),
             branch: String::from(""),
