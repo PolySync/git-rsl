@@ -22,10 +22,6 @@ const REFLOG_MSG: &'static str = "Retrieve RSL branchs from remote";
 
 pub fn rsl_init<'repo>(repo: &'repo Repository, remote: &mut Remote) -> (Branch<'repo>, Branch<'repo>){
 
-    //DEBUG
-    println!("First commit = {:?}", find_first_commit(repo));
-    //
-
     // make branch
     // TODO: figure out a way to orphan branch; .branch() needs a commit ref.
     let initial_commit = match find_first_commit(repo) {
