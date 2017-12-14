@@ -6,7 +6,8 @@ use std::process;
 use std::vec::Vec;
 
 use git2;
-use git2::{Cred, FetchOptions, Oid, ProxyOptions, Reference, Remote, RemoteCallbacks, Repository, Revwalk};
+use git2::{Cred, FetchOptions, PushOptions, Oid, ProxyOptions, Reference, Branch, RemoteCallbacks, Remote, Repository, Revwalk};
+use git2::BranchType;
 use rand::Rng;
 
 mod push_entry;
@@ -18,6 +19,16 @@ pub use self::nonce::HasNonce;
 const RSL_BRANCH: &'static str = "RSL";
 const NONCE_BRANCH: &'static str = "RSL_NONCE";
 const REFLOG_MSG: &'static str = "Retrieve RSL branchs from remote";
+
+pub fn rsl_init<'repo>(repo: &'repo Repository, remote: &mut Remote) -> (Branch<'repo>, Branch<'repo>){
+    // make branch
+    // TODO: figure out a way to orphan branch; .branch() needs a commit ref.
+    let initial_commit = repo.find_commit(Oid::from_str("134e253f2850089bb37607f21b619231c12f90d4").unwrap()).unwrap();
+    let rsl = repo.branch("RSL", &initial_commit, false).unwrap();
+    let nonce = repo.branch("RSL_NONCE", &initial_commit, false).unwrap();
+    push(repo, remote, &[&rsl.name().unwrap().unwrap(), &nonce.name().unwrap().unwrap()]);
+    (rsl, nonce)
+}
 
 pub fn fetch(repo: &Repository, remote: &mut Remote, ref_names: &[&str], reflog_msg: Option<&str>) -> Result<(), ::git2::Error> {
     let cfg = repo.config().unwrap();
@@ -33,39 +44,44 @@ pub fn fetch(repo: &Repository, remote: &mut Remote, ref_names: &[&str], reflog_
         remote.fetch(&[RSL_BRANCH, NONCE_BRANCH], Some(&mut opts), Some(REFLOG_MSG))
     })
 }
-pub fn retrieve_rsl_and_nonce_bag_from_remote_repo<'repo>(repo: &'repo Repository, remote: &mut Remote) -> (Reference<'repo>, HashSet<Nonce>) {
+
+pub fn push(repo: &Repository, remote: &mut Remote, ref_names: &[&str]) -> Result<(), git2::Error> {
+    let cfg = repo.config().unwrap();
+    let remote_copy = remote.clone();
+    let url = remote_copy.url().unwrap();
+
+    with_authentication(url, &cfg, |f| {
+        let mut cb = RemoteCallbacks::new();
+        cb.credentials(f);
+        let mut opts = PushOptions::new();
+        opts.remote_callbacks(cb);
+
+        //remote.connect(Direction::Push)?;
+        remote.push(&[RSL_BRANCH, NONCE_BRANCH], Some(&mut opts))
+    })
+}
+
+pub fn retrieve_rsl_and_nonce_bag_from_remote_repo<'repo>(repo: &'repo Repository, mut remote: &mut Remote) -> (Reference<'repo>, HashSet<Nonce>) {
 
     fetch(repo, remote, &[RSL_BRANCH, NONCE_BRANCH], Some(REFLOG_MSG));
-    let remote_name = remote.name().unwrap();
-    let remote_rsl_ref_name = format!("{}/{}", remote_name, RSL_BRANCH);
-    let remote_rsl = match repo.find_reference(&remote_rsl_ref_name) {
-        Ok(r) => r,
-        Err(e) => {
-            println!("Error: could not find remote Reference State Log Push Entry branch '{}'", remote_rsl_ref_name);
-            println!("This remote has not been initialized with a Reference State Log Push Entry branch");
-            println!("Please run git-rsl --push");
-            println!("If you have already done this, then this remote may be compromised.");
-            println!("  {}", e);
-            process::exit(10);
-        }
+    let (remote_rsl, remote_nonce) = match (
+            repo.find_branch(RSL_BRANCH, BranchType::Remote),
+            repo.find_branch(NONCE_BRANCH, BranchType::Remote),
+            repo.find_branch(RSL_BRANCH, BranchType::Local),
+            repo.find_branch(NONCE_BRANCH, BranchType::Local)
+        ) {
+            (Err(_), Err(_), Err(_), Err(_)) => rsl_init(repo, &mut remote),
+            (Ok(rsl), Ok(nonce), Err(_), Err(_)) => (rsl, nonce),
+            (Err(_), Err(_), Ok(_), Ok(_)) => process::exit(10), // something compromised. rsl got deleted remotely
+            (Ok(rsl), Ok(nonce), Ok(_), Ok(_)) => (rsl, nonce),
+            (Ok(_), Err(_), _, _) => process::exit(10),
+            (Err(_), Ok(_), _, _) => process::exit(10),
+            (_, _, Ok(_), Err(_)) => process::exit(10),
+            (_, _, Err(_), Ok(_)) => process::exit(10)
     };
 
-    let remote_nonce_ref_name = format!("{}/{}", remote_name, NONCE_BRANCH);
-    let remote_nonce = match repo.find_reference(&remote_nonce_ref_name) {
-        Ok(r) => r,
-        Err(e) => {
-            println!("Error: could not find remote Reference State Log Nonce branch '{}'", remote_nonce_ref_name);
-            println!("This remote has not been initialized with a Reference State Log Nonce branch");
-            println!("Please run git-rsl --push");
-            println!("If you have already done this, then this remote may be compromised.");
-            println!("  {}", e);
-            process::exit(11);
-        }
-    };
-
-    let nonce_bag = read_nonce_bag(&remote_nonce);
-
-    (remote_rsl, nonce_bag)
+    let nonce_bag = read_nonce_bag(&remote_nonce.into_reference());
+    (remote_rsl.into_reference(), nonce_bag)
 }
 
 pub fn store_in_remote_repo(repo: &Repository, remote: &Remote, nonce_bag: &HashSet<Nonce>) -> bool {
