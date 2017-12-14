@@ -6,7 +6,7 @@ use std::process;
 use std::vec::Vec;
 
 use git2;
-use git2::{Cred, FetchOptions, PushOptions, Oid, ProxyOptions, Reference, Branch, RemoteCallbacks, Remote, Repository, Revwalk};
+use git2::{Cred, FetchOptions, PushOptions, Oid, ProxyOptions, Reference, Branch, Commit, RemoteCallbacks, Remote, Repository, Revwalk};
 use git2::BranchType;
 use rand::Rng;
 
@@ -21,11 +21,21 @@ const NONCE_BRANCH: &'static str = "RSL_NONCE";
 const REFLOG_MSG: &'static str = "Retrieve RSL branchs from remote";
 
 pub fn rsl_init<'repo>(repo: &'repo Repository, remote: &mut Remote) -> (Branch<'repo>, Branch<'repo>){
+
+    //DEBUG
+    println!("First commit = {:?}", find_first_commit(repo));
+    //
+
     // make branch
     // TODO: figure out a way to orphan branch; .branch() needs a commit ref.
-    let initial_commit = repo.find_commit(Oid::from_str("134e253f2850089bb37607f21b619231c12f90d4").unwrap()).unwrap();
+    let initial_commit = match find_first_commit(repo) {
+        Ok(r) => r,
+        Err(r) => process::exit(10),
+    };
+
     let rsl = repo.branch("RSL", &initial_commit, false).unwrap();
     let nonce = repo.branch("RSL_NONCE", &initial_commit, false).unwrap();
+
     push(repo, remote, &[&rsl.name().unwrap().unwrap(), &nonce.name().unwrap().unwrap()]);
     (rsl, nonce)
 }
@@ -62,6 +72,8 @@ pub fn push(repo: &Repository, remote: &mut Remote, ref_names: &[&str]) -> Resul
 }
 
 pub fn retrieve_rsl_and_nonce_bag_from_remote_repo<'repo>(repo: &'repo Repository, mut remote: &mut Remote) -> (Reference<'repo>, HashSet<Nonce>) {
+
+
 
     fetch(repo, remote, &[RSL_BRANCH, NONCE_BRANCH], Some(REFLOG_MSG));
     let (remote_rsl, remote_nonce) = match (
@@ -159,6 +171,20 @@ fn for_each_commit_from<F>(repo: &Repository, local: Oid, remote: Oid, f: F)
 
     for oid in remaining {
         f(oid)
+    }
+}
+
+fn find_first_commit(repo: &Repository) -> Result<Commit, git2::Error> {
+    let mut revwalk: Revwalk = repo.revwalk().expect("Failed to make revwalk");
+    revwalk.push_head();
+    // Result<oid> || Result<option>
+    let result = match revwalk.last() { // option<Oid>
+        Some(r) => r, // option<result<oid, err>> => result<oid, err>
+        None => Err(git2::Error::from_str("Couldn't find commit")), // option
+    };
+    match result { // result = result<oid>
+        Ok(r) => repo.find_commit(r), // result<oid> => Result<commit, error>
+        Err(e) => Err(e) // result<error> => result<error>
     }
 }
 
