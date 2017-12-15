@@ -3,6 +3,7 @@ use std::cmp::PartialEq;
 use std::fs::File;
 use std::hash::{Hash, Hasher};
 use std::io::{Read, Write, Error};
+use std::fs::OpenOptions;
 
 use git2::Repository;
 use rand::os::OsRng;
@@ -14,8 +15,6 @@ pub enum NonceError {
     NoNonceFile(::std::io::Error),
     NonceReadError(::std::io::Error),
     NonceWriteError(::std::io::Error),
-    NonceCreateError(::std::io::Error),
-
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -65,7 +64,6 @@ impl Rand for Nonce {
 pub trait HasNonce {
     fn read_nonce(&self) -> Result<Nonce, NonceError>;
     fn write_nonce(&self, nonce: Nonce) -> Result<(), NonceError>;
-    fn create_nonce_file(&self) -> Result<File, Error>;
 }
 
 
@@ -73,16 +71,12 @@ impl HasNonce for Repository {
 
     fn read_nonce(&self) -> Result<Nonce, NonceError> {
         let mut bytes: [u8; 32] = [0; 32];
-        let nonce_path = self.path().join("NONCE");
-        let mut f = match File::open(&nonce_path) { // f
-            Ok(f) => Ok(f),
-            Err(e) => self.create_nonce_file(),
-        };
-        let mut fi = match f {
+        let nonce_path = &self.path().join("NONCE");
+        let mut f = match OpenOptions::new().read(true).write(true).create(true).open(&nonce_path) {
             Ok(f) => f,
-            Err(e) => return Err(NonceError::NonceCreateError(e))
+            Err(e) => return Err(NonceError::NonceReadError(e)),
         };
-        match fi.read_exact(&mut bytes) {
+        match f.read_exact(&mut bytes) {
             Ok(_) => Ok(Nonce { bytes: bytes }),
             Err(e) => Err(NonceError::NonceReadError(e)),
         }
@@ -91,27 +85,17 @@ impl HasNonce for Repository {
 
     fn write_nonce(&self, nonce: Nonce) -> Result<(), NonceError> {
         let nonce_path = self.path().join("NONCE");
-        let mut f = match File::open(&nonce_path) {
-            Ok(f) => Ok(f),
-            Err(e) => self.create_nonce_file(),
-        };
-        let mut fi = match f {
+        let mut f = match OpenOptions::new().write(true).create(true).open(&nonce_path) {
             Ok(f) => f,
-            Err(e) => return Err(NonceError::NonceCreateError(e))
+            Err(e) => return Err(NonceError::NonceReadError(e)),
         };
 
-        match fi.write_all(&nonce.bytes) {
+        match f.write_all(&nonce.bytes) {
             Ok(_) => Ok(()),
             Err(e) => Err(NonceError::NonceWriteError(e)),
 
         }
     }
-
-    fn create_nonce_file(&self) -> Result<File, Error> {
-        let nonce_path = self.path().join("NONCE");
-        File::create(nonce_path)
-    }
-
 }
 // fn generate_nonce(repo: &Repository) -> [u8; 32] {
 //     let mut nonce_buffer: [u8; 32] = [0; 32];
