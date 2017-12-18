@@ -58,12 +58,22 @@ pub fn push(repo: &Repository, remote: &mut Remote, ref_names: &[&str]) -> Resul
 
     with_authentication(url, &cfg, |f| {
         let mut cb = RemoteCallbacks::new();
-        cb.credentials(f);
+        cb.credentials(|a,b,c| f(a,b,c));
         let mut opts = PushOptions::new();
         opts.remote_callbacks(cb);
 
-        //remote.connect(Direction::Push)?;
-        remote.push(&[RSL_BRANCH, NONCE_BRANCH], Some(&mut opts))
+        let mut refs: Vec<String> = ref_names
+            .to_vec()
+            .iter()
+            .map(|name: &&str| format!("refs/heads/{}:refs/heads/{}", name.to_string(), name.to_string()))
+            .collect();
+
+        let mut refs_ref: Vec<&str> = vec![];
+        for name in &refs {
+            refs_ref.push(&name)
+        }
+
+        remote.push(&refs_ref, Some(&mut opts));
     })
 }
 
