@@ -60,7 +60,6 @@ impl HasNonceBag for Repository {
             Err(e) => return Err(NonceBagError::NonceBagCheckoutError(e)),
         };
         let current_branch_name = current_branch.name().unwrap();
-
         self.set_head(remote_nonce.name().unwrap());
 
         let nonce_bag_path = &self.path().join("NONCE_BAG");

@@ -3,6 +3,8 @@ use std::cmp::PartialEq;
 use std::fs::File;
 use std::hash::{Hash, Hasher};
 use std::io::{Read, Write, Error};
+use std::io::{self, BufRead};
+
 use std::fs::OpenOptions;
 
 use git2::Repository;
@@ -19,7 +21,7 @@ pub enum NonceError {
 
 #[derive(Debug, Copy, Clone)]
 pub struct Nonce {
-    bytes: [u8; 32],
+    pub bytes: [u8; 32],
 }
 
 impl Nonce {
@@ -30,6 +32,16 @@ impl Nonce {
         };
 
         Ok(rng.gen())
+    }
+
+    pub fn from_str(string: &str) -> Result<Nonce, NonceError> {
+        let mut bytes: [u8; 32] = [0; 32];
+        let mut cursor = io::Cursor::new(string);
+
+        match cursor.read_exact(&mut bytes) {
+            Ok(_) => Ok(Nonce { bytes }),
+            Err(e) => Err(NonceError::NonceReadError(e)),
+        }
     }
 }
 

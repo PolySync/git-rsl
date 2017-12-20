@@ -15,6 +15,8 @@ pub fn secure_push<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<&
         },
     };
 
+    //let mut refs = ref_names.iter().filter_map(|name| &repo.find_reference(name).ok());
+
     'push: loop {
         let (remote_rsl, nonce_bag) = common::retrieve_rsl_and_nonce_bag_from_remote_repo(repo, &mut remote);
 
@@ -45,6 +47,14 @@ pub fn secure_push<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<&
 
         if common::store_in_remote_repo(repo, &remote, &nonce_bag) {
             //TODO push local related_commits
+            match common::push(repo, &mut remote, &ref_names) {
+                Ok(_) => (),
+                Err(e) => {
+                    println!("Error: unable to push reference(s) {} to remote {}", &ref_names.clone().join(", "), &remote_name);
+                    println!("  {}", e);
+                    process::exit(51);
+                },
+            };
             //TODO localRSL = RemoteRSL
             break 'push;
         }

@@ -5,8 +5,9 @@ use std::vec::Vec;
 use git2::{Reference, Repository};
 
 use common;
-use common::Nonce;
+use common::{Nonce, NonceBag};
 use common::nonce::{HasNonce, NonceError};
+use common::nonce_bag::{HasNonceBag, NonceBagError};
 
 pub fn secure_fetch<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<&str>) {
     let mut remote = match repo.find_remote(remote_name) {
@@ -19,7 +20,7 @@ pub fn secure_fetch<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<
     };
 
     let mut remote_rsl: Reference;
-    let mut nonce_bag: HashSet<Nonce>;
+    let mut nonce_bag: NonceBag;
 
     //TODO paper algo uses spin lock here, probably a better alternative
 
@@ -48,8 +49,8 @@ pub fn secure_fetch<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<
 
         match repo.read_nonce() {
             Ok(current_nonce) => {
-                if nonce_bag.contains(&current_nonce) {
-                    nonce_bag.remove(&current_nonce);
+                if nonce_bag.bag.contains(&current_nonce) {
+                    nonce_bag.bag.remove(&current_nonce);
                 }
             },
             _ => (),
@@ -74,6 +75,7 @@ pub fn secure_fetch<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<
                 process::exit(99);
             },
         }
+
         nonce_bag.insert(new_nonce);
 
         if common::store_in_remote_repo(repo, &remote, &nonce_bag) {
@@ -93,4 +95,3 @@ pub fn secure_fetch<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<
 fn all_push_entries_in_fetch_head(repo: &Repository, push_entries: &Vec<Option<common::PushEntry>>) -> bool {
     false
 }
-

@@ -1,3 +1,10 @@
+
+//extern crate serde;
+//extern crate serde_json;
+//use serde_json::Error;
+// #[macro_use]
+// extern crate serde_derive;
+
 use std::collections::HashSet;
 use std::fmt;
 use std::vec::Vec;
@@ -8,6 +15,7 @@ use git2::{Oid, Reference, Repository};
 
 use common::Nonce;
 
+//#[derive(Serialize, Deserialize)]
 pub struct PushEntry {
     related_commits: Vec<Oid>,
     branch: String,
@@ -43,16 +51,18 @@ impl PushEntry {
         hasher.result_str()
     }
 
-    //TODO implement
-    pub fn from_str(string: String) -> PushEntry {
-        PushEntry {
+    //TODO implement done?
+    pub fn from_str(string: String) -> Option<PushEntry> {
+    //    let p: PushEntry = serde_json::from_str(string)?;
+
+        Some( PushEntry {
             related_commits: Vec::new(),
             branch: String::from(""),
             head: None,
             prev_hash: String::from(""),
             nonce_bag: HashSet::new(),
             signature: String::from(""),
-        }
+        })
     }
 
     pub fn from_ref(reference: &Reference) -> Option<PushEntry> {
@@ -64,6 +74,9 @@ impl PushEntry {
 
     //TODO implement
     pub fn from_oid(oid: Oid) -> Option<PushEntry> {
+
+        //let p: PushEntry = serde_json::from_str(string)?;
+
         Some( PushEntry {
             related_commits: Vec::new(),
             branch: String::from(""),

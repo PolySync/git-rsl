@@ -1,3 +1,5 @@
+
+
 extern crate crypto;
 extern crate rand;
 
@@ -12,9 +14,12 @@ use rand::Rng;
 
 mod push_entry;
 pub mod nonce;
+pub mod nonce_bag;
 pub use self::push_entry::PushEntry;
 pub use self::nonce::Nonce;
 pub use self::nonce::HasNonce;
+pub use self::nonce_bag::NonceBag;
+pub use self::nonce_bag::HasNonceBag;
 
 const RSL_BRANCH: &'static str = "RSL";
 const NONCE_BRANCH: &'static str = "RSL_NONCE";
@@ -30,10 +35,17 @@ pub fn rsl_init<'repo>(repo: &'repo Repository, remote: &mut Remote) -> (Branch<
     };
 
     let rsl = repo.branch("RSL", &initial_commit, false).unwrap();
-    let nonce = repo.branch("RSL_NONCE", &initial_commit, false).unwrap();
+    let nonce_branch = repo.branch("RSL_NONCE", &initial_commit, false).unwrap();
 
-    push(repo, remote, &[&rsl.name().unwrap().unwrap(), &nonce.name().unwrap().unwrap()]);
-    (rsl, nonce)
+    push(repo, remote, &[&rsl.name().unwrap().unwrap(), &nonce_branch.name().unwrap().unwrap()]);
+
+    let nonce = match Nonce::new() {
+        Ok(n) => n,
+        Err(e) => process::exit(10)
+    };
+    println!("nonce: {:?}", nonce);
+    repo.write_nonce(nonce);
+    (rsl, nonce_branch)
 }
 
 pub fn fetch(repo: &Repository, remote: &mut Remote, ref_names: &[&str], reflog_msg: Option<&str>) -> Result<(), ::git2::Error> {
@@ -42,12 +54,13 @@ pub fn fetch(repo: &Repository, remote: &mut Remote, ref_names: &[&str], reflog_
     let url = remote_copy.url().unwrap();
 
     with_authentication(url, &cfg, |f| {
+
         let mut cb = RemoteCallbacks::new();
         cb.credentials(f);
         let mut opts = FetchOptions::new();
         opts.remote_callbacks(cb);
 
-        remote.fetch(&[RSL_BRANCH, NONCE_BRANCH], Some(&mut opts), Some(REFLOG_MSG))
+        remote.fetch(&ref_names, Some(&mut opts), Some(REFLOG_MSG))
     })
 }
 
@@ -73,13 +86,11 @@ pub fn push(repo: &Repository, remote: &mut Remote, ref_names: &[&str]) -> Resul
             refs_ref.push(&name)
         }
 
-        remote.push(&refs_ref, Some(&mut opts));
+        remote.push(&refs_ref, Some(&mut opts))
     })
 }
 
-pub fn retrieve_rsl_and_nonce_bag_from_remote_repo<'repo>(repo: &'repo Repository, mut remote: &mut Remote) -> (Reference<'repo>, HashSet<Nonce>) {
-
-
+pub fn retrieve_rsl_and_nonce_bag_from_remote_repo<'repo>(repo: &'repo Repository, mut remote: &mut Remote) -> (Reference<'repo>, NonceBag) {
 
     fetch(repo, remote, &[RSL_BRANCH, NONCE_BRANCH], Some(REFLOG_MSG));
     let (remote_rsl, remote_nonce) = match (
@@ -98,15 +109,22 @@ pub fn retrieve_rsl_and_nonce_bag_from_remote_repo<'repo>(repo: &'repo Repositor
             (_, _, Err(_), Ok(_)) => process::exit(10)
     };
 
-    let nonce_bag = read_nonce_bag(&remote_nonce.into_reference());
+    let nonce_bag = match repo.read_nonce_bag(&remote_nonce.into_reference()) {
+        Ok(n) => n,
+        Err(e) => process::exit(10),
+    };
+
     (remote_rsl.into_reference(), nonce_bag)
 }
 
-pub fn store_in_remote_repo(repo: &Repository, remote: &Remote, nonce_bag: &HashSet<Nonce>) -> bool {
+pub fn store_in_remote_repo(repo: &Repository, remote: &Remote, nonce_bag: &NonceBag) -> bool {
     false
 }
 
-pub fn validate_rsl(repo: &Repository, remote_rsl: &Reference, nonce_bag: &HashSet<Nonce>) -> bool {
+pub fn validate_rsl(repo: &Repository, remote_rsl: &Reference, nonce_bag: &NonceBag) -> bool {
+    println!("remote_rsl = {:?}", &remote_rsl.name());
+    println!("nonce bag = {:?}", &nonce_bag);
+
     let repo_nonce = match repo.read_nonce() {
         Ok(nonce) => nonce,
         Err(e) => {
@@ -116,7 +134,7 @@ pub fn validate_rsl(repo: &Repository, remote_rsl: &Reference, nonce_bag: &HashS
             return false;
         },
     };
-    if !nonce_bag.contains(&repo_nonce) /* TODO: && repo_nonce not in remote_rsl.push_after(local_rsl*/ {
+    if !nonce_bag.bag.contains(&repo_nonce) /* TODO: && repo_nonce not in remote_rsl.push_after(local_rsl*/ {
         return false;
     }
 
@@ -214,20 +232,7 @@ pub fn reset_local_rsl_to_remote_rsl(repo: &Repository) {
 
 //TODO implement
 fn is_push_entry(nonce_branch: &Reference) -> bool {
-    true
-}
-
-fn read_nonce_bag(remote_nonce: &Reference) -> HashSet<Nonce> {
-    if is_push_entry(remote_nonce) {
-        HashSet::new()
-    } else {
-        //TODO actually read the contents of the nonce bag from the commit
-        let existing_nonce = rand::random::<Nonce>();
-        let mut set = HashSet::new();
-        set.insert(existing_nonce);
-        set
-    }
-
+    false
 }
 
 fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
@@ -310,6 +315,7 @@ fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
         Err(git2::Error::from_str("no authentication available"))
     });
 
+
     // Ok, so if it looks like we're going to be doing ssh authentication, we
     // want to try a few different usernames as one wasn't specified in the URL
     // for us to use. In order, we'll try:
@@ -340,6 +346,8 @@ fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
             let mut attempts = 0;
             res = f(&mut |_url, username, allowed| {
                 if allowed.contains(git2::USERNAME) {
+                    println!("username: {}", &s);
+
                     return git2::Cred::username(&s);
                 }
                 if allowed.contains(git2::SSH_KEY) {
@@ -352,6 +360,7 @@ fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
                 }
                 Err(git2::Error::from_str("no authentication available"))
             });
+
 
             // If we made two attempts then that means:
             //
