@@ -95,3 +95,11 @@ impl fmt::Display for PushEntry {
         write!(f, "Unimplemented")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn it_works(){
+        
+    }
+}
