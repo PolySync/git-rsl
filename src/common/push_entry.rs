@@ -1,10 +1,3 @@
-
-//extern crate serde;
-//extern crate serde_json;
-//use serde_json::Error;
-// #[macro_use]
-// extern crate serde_derive;
-
 use std::collections::HashSet;
 use std::fmt;
 use std::vec::Vec;
@@ -14,6 +7,8 @@ use crypto::sha3::Sha3;
 use git2::{Oid, Reference, Repository};
 
 use common::Nonce;
+
+use serde_json::Error;
 
 //#[derive(Serialize, Deserialize)]
 pub struct PushEntry {
@@ -100,6 +95,6 @@ impl fmt::Display for PushEntry {
 mod tests {
     #[test]
     fn it_works(){
-        
+
     }
 }
