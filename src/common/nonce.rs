@@ -160,3 +160,69 @@ impl HasNonce for Repository {
 //         },
 //     }
 // }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+    use std::env;
+    use common::fs_extra;
+    use common::fs_extra::dir::*;
+    use common::fs_extra::error::*;
+
+    fn setup() -> Repository {
+        let mut fixture_dir = env::current_dir().unwrap();
+        &fixture_dir.push("fixtures/.git");
+        let path_to = Path::new("/tmp/rsl_test");
+        create_all(&path_to, true);
+
+        let mut options = CopyOptions::new();
+        options.overwrite = true;
+
+        let res = copy(fixture_dir, path_to, &options);
+
+        match Repository::open(&path_to) {
+            Ok(repo) => repo,
+            Err(e) => panic!("setup failed: {:?}", e),
+        }
+    }
+
+    fn teardown() -> Result<()> {
+        let tmp_dir = Path::new("/tmp/rsl_test");
+        match remove(tmp_dir) {
+            Ok(()) => Ok(()),
+            Err(e) => Err(e),
+        }
+    }
+
+    #[test]
+    fn equality(){
+        let nonce1 = Nonce { bytes: [224, 251, 50, 63, 34, 58, 207, 35, 15, 74, 137, 143, 176, 178, 92, 226, 103, 114, 220, 224, 180, 21, 241, 2, 213, 252, 126, 245, 137, 245, 119, 45] };
+        let nonce2 = Nonce { bytes: [224, 251, 50, 63, 34, 58, 207, 35, 15, 74, 137, 143, 176, 178, 92, 226, 103, 114, 220, 224, 180, 21, 241, 2, 213, 252, 126, 245, 137, 245, 119, 45] };
+
+        assert_eq!(nonce1, nonce2)
+    }
+
+    #[test]
+    fn inequality(){
+        let nonce1 = Nonce { bytes: [124, 251, 50, 63, 34, 58, 207, 35, 15, 74, 137, 143, 176, 178, 92, 226, 103, 114, 220, 224, 180, 21, 241, 2, 213, 252, 126, 245, 137, 245, 119, 45] };
+        let nonce2 = Nonce { bytes: [224, 251, 50, 63, 34, 58, 207, 35, 15, 74, 137, 143, 176, 178, 92, 226, 103, 114, 220, 224, 180, 21, 241, 2, 213, 252, 126, 245, 137, 245, 119, 45] };
+
+        assert_ne!(nonce1, nonce2)
+    }
+
+    #[test]
+    fn write_nonce() {
+        let repo = setup();
+        let nonce1 = Nonce { bytes: [124, 251, 50, 63, 34, 58, 207, 35, 15, 74, 137, 143, 176, 178, 92, 226, 103, 114, 220, 224, 180, 21, 241, 2, 213, 252, 126, 245, 137, 245, 119, 45] };
+        repo.write_nonce(nonce1);
+        let mut f = File::open("/tmp/rsl_test/.git/NONCE")
+                    .expect("file not found");
+        let mut contents = vec![];
+        let string = f.read_to_end(&mut contents)
+                    .expect("something went wrong reading the file");
+        println!("string: {:?}", contents);
+        assert_eq!(contents, nonce1.bytes);
+        teardown();
+    }
+}
