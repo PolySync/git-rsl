@@ -9,7 +9,7 @@ use std::fs::OpenOptions;
 
 use git2::Repository;
 use rand::os::OsRng;
-use rand::{Rand, Rng};
+use rand::{Rand, Rng, thread_rng};
 
 #[derive(Debug)]
 pub enum NonceError {
@@ -177,10 +177,10 @@ mod tests {
     fn setup() -> Repository {
         let mut fixture_dir = env::current_dir().unwrap();
         &fixture_dir.push("fixtures/.git");
-
-        let path_to = Path::new("/tmp/rsl_test");
+        let suffix: String = thread_rng().gen_ascii_chars().take(12).collect();
+        let dir_name = format!("/tmp/rsl_test{}", suffix);
+        let path_to = Path::new(&dir_name);
         create_all(&path_to, true);
-
         let mut options = CopyOptions::new();
         options.overwrite = true;
 
@@ -192,11 +192,11 @@ mod tests {
         }
     }
 
-    fn teardown() -> Result<()> {
-        let tmp_dir = Path::new("/tmp/rsl_test");
-        match remove(tmp_dir) {
+    fn teardown(repo: &Repository) -> Result<()> {
+        let path = repo.path().parent().unwrap();
+        match fs::remove_dir_all(&path) {
             Ok(()) => Ok(()),
-            Err(e) => Err(e),
+            Err(e) => panic!("Teardown failed: {:?}", e),
         }
     }
 
@@ -216,13 +216,14 @@ mod tests {
     fn write_nonce() {
         let repo = setup();
         repo.write_nonce(FAKE_NONCE);
-        let mut f = File::open("/tmp/rsl_test/.git/NONCE")
+        let nonce_file = &repo.path().join("NONCE");
+        let mut f = File::open(&nonce_file)
                     .expect("file not found");
         let mut contents = vec![];
         let string = f.read_to_end(&mut contents)
                     .expect("something went wrong reading the file");
         assert_eq!(contents, FAKE_NONCE.bytes);
-        teardown();
+        teardown(&repo);
     }
 
     #[test]
@@ -231,6 +232,6 @@ mod tests {
         let nonce = repo.read_nonce().unwrap();
         let nonce2 = Nonce { bytes: [168, 202, 85, 60, 50, 231, 189, 13, 197, 149, 177, 98, 8, 162, 2, 25, 211, 51, 159, 84, 228, 203, 184, 235, 219, 10, 118, 213, 97, 190, 187, 239] };
         assert_eq!(nonce, nonce2);
-        teardown();
+        teardown(&repo);
     }
 }
