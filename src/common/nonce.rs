@@ -1,5 +1,6 @@
 use std::cmp::Eq;
 use std::cmp::PartialEq;
+use std::fmt;
 use std::fs::File;
 use std::hash::{Hash, Hasher};
 use std::io::{Read, Write, Error};
@@ -11,15 +12,25 @@ use git2::Repository;
 use rand::os::OsRng;
 use rand::{Rand, Rng, thread_rng};
 
+use serde_json::{self};
+use serde::ser::{Serialize, Serializer, SerializeSeq, SerializeMap};
+
 #[derive(Debug)]
 pub enum NonceError {
     NoRandomNumberGenerator(::std::io::Error),
     NoNonceFile(::std::io::Error),
     NonceReadError(::std::io::Error),
     NonceWriteError(::std::io::Error),
+    JsonError(serde_json::Error),
 }
 
-#[derive(Debug, Copy, Clone)]
+impl From<serde_json::Error> for NonceError {
+    fn from(error: serde_json::Error) -> Self {
+        NonceError::JsonError(error)
+    }
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct Nonce {
     pub bytes: [u8; 32],
 }
@@ -37,11 +48,15 @@ impl Nonce {
     pub fn from_str(string: &str) -> Result<Nonce, NonceError> {
         let mut bytes: [u8; 32] = [0; 32];
         let mut cursor = io::Cursor::new(string);
-
         match cursor.read_exact(&mut bytes) {
             Ok(_) => Ok(Nonce { bytes }),
             Err(e) => Err(NonceError::NonceReadError(e)),
         }
+    }
+
+    pub fn from_json(string: &str) -> Result<Nonce, NonceError> {
+        let result = serde_json::from_str(string)?;
+        Ok(result)
     }
 }
 
@@ -69,6 +84,13 @@ impl Rand for Nonce {
         let mut random_bytes: [u8; 32] = [0; 32];
         rng.fill_bytes(&mut random_bytes);
         Nonce { bytes: random_bytes }
+    }
+}
+
+impl fmt::Display for Nonce {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let text: String = serde_json::to_string(self).unwrap();
+        write!(f, "{}", text)
     }
 }
 
@@ -233,5 +255,19 @@ mod tests {
         let nonce2 = Nonce { bytes: [168, 202, 85, 60, 50, 231, 189, 13, 197, 149, 177, 98, 8, 162, 2, 25, 211, 51, 159, 84, 228, 203, 184, 235, 219, 10, 118, 213, 97, 190, 187, 239] };
         assert_eq!(nonce, nonce2);
         teardown(&repo);
+    }
+
+    #[test]
+    fn to_string(){
+        let serialized = "{\"bytes\":[224,251,50,63,34,58,207,35,15,74,137,143,176,178,92,226,103,114,220,224,180,21,241,2,213,252,126,245,137,245,119,45]}";
+        assert_eq!(&FAKE_NONCE.to_string(), &serialized)
+
+    }
+
+    #[test]
+    fn from_json(){
+        let serialized = "{\"bytes\":[224,251,50,63,34,58,207,35,15,74,137,143,176,178,92,226,103,114,220,224,180,21,241,2,213,252,126,245,137,245,119,45]}";
+        let deserialized = Nonce::from_json(&serialized).unwrap();
+        assert_eq!(&deserialized, &FAKE_NONCE)
     }
 }
