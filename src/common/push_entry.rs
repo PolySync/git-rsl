@@ -49,7 +49,7 @@ impl Serialize for PushEntry {
 impl PushEntry {
     //TODO Implement
     pub fn new(repo: &Repository, branch_str: &str, prev: String) -> PushEntry {
-        let branch = repo.find_reference(branch_str);
+        let _branch = repo.find_reference(branch_str);
         PushEntry {
             related_commits: Vec::new(),
             branch: String::from(branch_str),
@@ -73,7 +73,7 @@ impl PushEntry {
     }
 
     //TODO implement done?
-    pub fn from_str(string: String) -> Option<PushEntry> {
+    pub fn from_str(_string: String) -> Option<PushEntry> {
     //    let p: PushEntry = serde_json::from_str(string)?;
 
         Some( PushEntry {
@@ -94,7 +94,7 @@ impl PushEntry {
     }
 
     //TODO implement
-    pub fn from_oid(oid: Oid) -> Option<PushEntry> {
+    pub fn from_oid(_oid: Oid) -> Option<PushEntry> {
 
         //let p: PushEntry = serde_json::from_str(string)?;
 

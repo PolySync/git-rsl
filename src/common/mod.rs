@@ -29,7 +29,7 @@ pub fn rsl_init<'repo>(repo: &'repo Repository, remote: &mut Remote) -> (Branch<
     // TODO: figure out a way to orphan branch; .branch() needs a commit ref.
     let initial_commit = match find_first_commit(repo) {
         Ok(r) => r,
-        Err(r) => process::exit(10),
+        Err(_) => process::exit(10),
     };
 
     let rsl = repo.branch("RSL", &initial_commit, false).unwrap();
@@ -39,14 +39,14 @@ pub fn rsl_init<'repo>(repo: &'repo Repository, remote: &mut Remote) -> (Branch<
 
     let nonce = match Nonce::new() {
         Ok(n) => n,
-        Err(e) => process::exit(10)
+        Err(_) => process::exit(10)
     };
     println!("nonce: {:?}", nonce);
     repo.write_nonce(nonce);
     (rsl, nonce_branch)
 }
 
-pub fn fetch(repo: &Repository, remote: &mut Remote, ref_names: &[&str], reflog_msg: Option<&str>) -> Result<(), ::git2::Error> {
+pub fn fetch(repo: &Repository, remote: &mut Remote, ref_names: &[&str], _reflog_msg: Option<&str>) -> Result<(), ::git2::Error> {
     let cfg = repo.config().unwrap();
     let remote_copy = remote.clone();
     let url = remote_copy.url().unwrap();
@@ -109,13 +109,13 @@ pub fn retrieve_rsl_and_nonce_bag_from_remote_repo<'repo>(repo: &'repo Repositor
 
     let nonce_bag = match repo.read_nonce_bag(&remote_nonce.into_reference()) {
         Ok(n) => n,
-        Err(e) => process::exit(10),
+        Err(_) => process::exit(10),
     };
 
     (remote_rsl.into_reference(), nonce_bag)
 }
 
-pub fn store_in_remote_repo(repo: &Repository, remote: &Remote, nonce_bag: &NonceBag) -> bool {
+pub fn store_in_remote_repo(_repo: &Repository, _remote: &Remote, _nonce_bag: &NonceBag) -> bool {
     false
 }
 
@@ -178,7 +178,7 @@ pub fn validate_rsl(repo: &Repository, remote_rsl: &Reference, nonce_bag: &Nonce
 
 }
 
-fn verify_signature(oid: Oid) -> bool {
+fn verify_signature(_oid: Oid) -> bool {
     return false
 }
 
@@ -225,11 +225,11 @@ pub fn last_push_entry_for(repo: &Repository, remote: &Remote, reference: &str) 
 }
 
 //TODO implement
-pub fn reset_local_rsl_to_remote_rsl(repo: &Repository) {
+pub fn reset_local_rsl_to_remote_rsl(_repo: &Repository) {
 }
 
 //TODO implement
-fn is_push_entry(nonce_branch: &Reference) -> bool {
+fn is_push_entry(_nonce_branch: &Reference) -> bool {
     false
 }
 

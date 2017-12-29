@@ -1,7 +1,7 @@
 use std::cmp::Eq;
 use std::cmp::PartialEq;
 use std::fmt;
-use std::fs::{File, OpenOptions};
+use std::fs::OpenOptions;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Read, Write};
 

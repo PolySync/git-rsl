@@ -42,7 +42,7 @@ pub fn secure_push<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<&
         let latest_push_entry = PushEntry::from_oid(remote_oid).unwrap();
         let prev_hash = latest_push_entry.hash();
         //TODO change this to be all ref_names
-        let new_push_entry = PushEntry::new(repo, ref_names.first().unwrap(), prev_hash);
+        let _new_push_entry = PushEntry::new(repo, ref_names.first().unwrap(), prev_hash);
 
         if common::store_in_remote_repo(repo, &remote, &nonce_bag) {
             //TODO push local related_commits

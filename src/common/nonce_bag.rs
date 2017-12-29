@@ -1,7 +1,6 @@
 use std::cmp::Eq;
 use std::cmp::PartialEq;
-use std::hash::Hasher;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::fs::OpenOptions;
 use std::collections::HashSet;
 
@@ -54,12 +53,12 @@ impl NonceBag {
 
 
 impl PartialEq for NonceBag {
-    fn eq(&self, other: &NonceBag) -> bool {
+    fn eq(&self, _other: &NonceBag) -> bool {
         // not implemented
         false
     }
 
-    fn ne(&self, other: &NonceBag) -> bool {
+    fn ne(&self, _other: &NonceBag) -> bool {
         // Not implemented
         false
     }
@@ -95,7 +94,7 @@ impl HasNonceBag for Repository {
             Err(e) => return Err(e)
         };
         let file = BufReader::new(&f);
-        for (num, line) in file.lines().enumerate() {
+        for (_num, line) in file.lines().enumerate() {
              let l = line.unwrap();
              let existing_nonce = match Nonce::from_str(&l) {
                  Ok(n) => n,
@@ -116,7 +115,7 @@ impl HasNonceBag for Repository {
          for nonce in &nonce_bag.bag {
              match f.write(&nonce.bytes) {
                  Ok(32) => (),
-                 Ok(e) => panic!("what the hell is wrong with ur nonce bag"),
+                 Ok(_e) => panic!("what the hell is wrong with ur nonce bag"),
                  Err(e) => return Err(NonceBagError::NonceBagWriteError(e)),
              };
          }

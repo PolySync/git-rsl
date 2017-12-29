@@ -5,8 +5,6 @@ use std::fs;
 use fs_extra::dir::*;
 use fs_extra::error::*;
 
-use std::io::Read;
-
 use git2::Repository;
 use rand::{Rng, thread_rng};
 

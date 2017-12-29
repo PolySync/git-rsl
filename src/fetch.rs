@@ -94,6 +94,6 @@ pub fn secure_fetch<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<
     common::reset_local_rsl_to_remote_rsl(repo);
 }
 
-fn all_push_entries_in_fetch_head(repo: &Repository, push_entries: &Vec<Option<common::PushEntry>>) -> bool {
+fn all_push_entries_in_fetch_head(_repo: &Repository, _push_entries: &Vec<Option<common::PushEntry>>) -> bool {
     false
 }
