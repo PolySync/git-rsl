@@ -3,14 +3,12 @@
 extern crate crypto;
 extern crate rand;
 
-use std::collections::HashSet;
 use std::process;
 use std::vec::Vec;
 
 use git2;
-use git2::{Cred, FetchOptions, PushOptions, Oid, ProxyOptions, Reference, Branch, Commit, RemoteCallbacks, Remote, Repository, Revwalk};
+use git2::{FetchOptions, PushOptions, Oid, Reference, Branch, Commit, RemoteCallbacks, Remote, Repository, Revwalk};
 use git2::BranchType;
-use rand::Rng;
 
 mod push_entry;
 pub mod nonce;

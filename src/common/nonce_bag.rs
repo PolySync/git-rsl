@@ -1,25 +1,18 @@
 use std::cmp::Eq;
 use std::cmp::PartialEq;
-use std::fs::File;
-use std::hash::{Hash, Hasher};
-use std::io::{Read, Write, Error};
+use std::hash::Hasher;
+use std::io::{Read, Write};
 use std::fs::OpenOptions;
 use std::collections::HashSet;
 
 use std::io::BufReader;
 use std::io::BufRead;
 
-use git2::{Oid, Reference, Repository};
-
-use rand::os::OsRng;
-use rand::{Rand, Rng};
+use git2::{Reference, Repository};
+use serde_json;
 
 use common::Nonce;
-
 use common::nonce::NonceError;
-
-use serde_json::{self};
-use serde::ser::{Serialize, Serializer, SerializeSeq, SerializeMap};
 
 #[derive(Debug)]
 pub enum NonceBagError {
@@ -58,6 +51,24 @@ impl NonceBag {
         Ok(result)
     }
 }
+
+
+impl PartialEq for NonceBag {
+    fn eq(&self, other: &NonceBag) -> bool {
+        // not implemented
+        false
+    }
+
+    fn ne(&self, other: &NonceBag) -> bool {
+        // Not implemented
+        false
+    }
+}
+
+impl Eq for NonceBag {
+    // Not implemented
+}
+
 
 pub trait HasNonceBag {
     fn read_nonce_bag(&self, &Reference) -> Result<NonceBag, NonceBagError>;

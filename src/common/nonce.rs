@@ -1,19 +1,15 @@
 use std::cmp::Eq;
 use std::cmp::PartialEq;
 use std::fmt;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::hash::{Hash, Hasher};
-use std::io::{Read, Write, Error};
-use std::io::{self, BufRead};
-
-use std::fs::OpenOptions;
+use std::io::{self, Read, Write};
 
 use git2::Repository;
 use rand::os::OsRng;
-use rand::{Rand, Rng, thread_rng};
+use rand::{Rand, Rng};
 
-use serde_json::{self};
-use serde::ser::{Serialize, Serializer, SerializeSeq, SerializeMap};
+use serde_json;
 
 #[derive(Debug)]
 pub enum NonceError {
@@ -187,9 +183,6 @@ impl HasNonce for Repository {
 mod tests {
     use utils::test_helper::*;
     use super::*;
-    use std::path::Path;
-    use std::env;
-    use std::fs;
 
     const FAKE_NONCE: Nonce = Nonce { bytes: [224, 251, 50, 63, 34, 58, 207, 35, 15, 74, 137, 143, 176, 178, 92, 226, 103, 114, 220, 224, 180, 21, 241, 2, 213, 252, 126, 245, 137, 245, 119, 45] };
 
@@ -207,7 +200,7 @@ mod tests {
 
     #[test]
     fn write_nonce() {
-        let repo = setup();
+        let repo = setup().unwrap();
         repo.write_nonce(FAKE_NONCE);
         let nonce_file = &repo.path().join("NONCE");
         let mut f = File::open(&nonce_file)
@@ -221,7 +214,7 @@ mod tests {
 
     #[test]
     fn read_nonce() {
-        let repo = setup();
+        let repo = setup().unwrap();
         let nonce = repo.read_nonce().unwrap();
         let nonce2 = Nonce { bytes: [168, 202, 85, 60, 50, 231, 189, 13, 197, 149, 177, 98, 8, 162, 2, 25, 211, 51, 159, 84, 228, 203, 184, 235, 219, 10, 118, 213, 97, 190, 187, 239] };
         assert_eq!(nonce, nonce2);

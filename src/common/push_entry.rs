@@ -8,7 +8,7 @@ use git2::{Oid, Reference, Repository};
 
 use common::Nonce;
 
-use serde_json::{self, Error};
+use serde_json;
 use serde::ser::{Serialize, Serializer, SerializeStruct};
 
 

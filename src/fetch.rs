@@ -1,13 +1,11 @@
-use std::collections::HashSet;
 use std::process;
 use std::vec::Vec;
 
 use git2::{Reference, Repository};
 
 use common;
-use common::{Nonce, NonceBag};
+use common::NonceBag;
 use common::nonce::{HasNonce, NonceError};
-use common::nonce_bag::{HasNonceBag, NonceBagError};
 
 pub fn secure_fetch<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<&str>) {
     let mut remote = match repo.find_remote(remote_name) {
@@ -30,6 +28,10 @@ pub fn secure_fetch<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<
             remote_rsl = fetch_local_remote_rsl;
             nonce_bag = fetch_local_nonce_bag;
 
+            // reject if one of the branches has no rsl push entry
+            //for entry in ref_names {
+            //    match last_push_entry_for(&entry)
+            //}
             match common::fetch(repo, &mut remote, &ref_names, None) {
                 Ok(_) => (),
                 Err(e) => {

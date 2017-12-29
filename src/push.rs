@@ -2,8 +2,7 @@ use git2::Repository;
 
 use std::process;
 
-use common;
-use common::{Nonce, PushEntry};
+use common::{self, PushEntry};
 
 pub fn secure_push<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<&str>) {
     let mut remote = match repo.find_remote(remote_name) {
