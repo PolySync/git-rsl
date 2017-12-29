@@ -18,6 +18,9 @@ use common::Nonce;
 
 use common::nonce::NonceError;
 
+use serde_json::{self};
+use serde::ser::{Serialize, Serializer, SerializeSeq, SerializeMap};
+
 #[derive(Debug)]
 pub enum NonceBagError {
     NoNonceBagFile(::std::io::Error),
@@ -29,7 +32,7 @@ pub enum NonceBagError {
 }
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NonceBag {
     pub bag: HashSet<Nonce>,
 }
@@ -44,6 +47,15 @@ impl NonceBag {
             true => Ok(()),
             false => Err(NonceBagError::NonceBagInsertError())
         }
+    }
+
+    pub fn from_json(string: &str) -> Result<NonceBag, NonceError> {
+        let result = serde_json::from_str(string)?;
+        Ok(result)
+    }
+    pub fn to_json(&self) -> Result<String, NonceError> {
+        let result = serde_json::to_string(self)?;
+        Ok(result)
     }
 }
 
@@ -82,9 +94,9 @@ impl HasNonceBag for Repository {
          }
          &self.set_head(&current_branch_name);
          Ok(nonce_bag)
-     }
+    }
 
-     fn write_nonce_bag(&self, nonce_bag: NonceBag) -> Result<(), NonceBagError> {
+    fn write_nonce_bag(&self, nonce_bag: NonceBag) -> Result<(), NonceBagError> {
          let nonce_bag_path = self.path().join("NONCE_BAG");
          let mut f = match OpenOptions::new().write(true).create(true).open(&nonce_bag_path) {
              Ok(f) => f,
@@ -98,5 +110,34 @@ impl HasNonceBag for Repository {
              };
          }
          Ok(())
-     }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const NONCE1: Nonce = Nonce {bytes: [145,161,65,251,112,184,238,36,105,54,150,202,74,26,148,121,106,40,239,155,31,232,49,251,215,71,200,240,105,73,0,84]};
+    const NONCE2: Nonce = Nonce { bytes: [100,223,169,31,154,84,127,151,178,254,47,129,230,74,10,10,170,13,31,199,167,68,28,149,131,10,110,201,71,146,214,78]};
+    const NONCE3: Nonce = Nonce { bytes: [165,36,170,43,1,62,34,53,25,160,177,19,87,62,189,151,168,134,196,85,33,237,9,52,198,39,79,32,180,145,165,132]};
+    // fails 5/6 times because of no ordering in the bag
+    #[test]
+    fn serialize() {
+        let mut bag = NonceBag::new().unwrap();
+        bag.bag.insert(NONCE1);
+        bag.bag.insert(NONCE2);
+        bag.bag.insert(NONCE3);
+        let serialized = String::from("{\"bag\":[{\"bytes\":[145,161,65,251,112,184,238,36,105,54,150,202,74,26,148,121,106,40,239,155,31,232,49,251,215,71,200,240,105,73,0,84]},{\"bytes\":[100,223,169,31,154,84,127,151,178,254,47,129,230,74,10,10,170,13,31,199,167,68,28,149,131,10,110,201,71,146,214,78]},{\"bytes\":[165,36,170,43,1,62,34,53,25,160,177,19,87,62,189,151,168,134,196,85,33,237,9,52,198,39,79,32,180,145,165,132]}]}");
+        let result = NonceBag::to_json(&bag).unwrap();
+        assert_eq!(&result, &serialized)
+    }
+
+    #[test]
+    fn deserialize() {
+        let serialized = "{\"bag\":[{\"bytes\":[145,161,65,251,112,184,238,36,105,54,150,202,74,26,148,121,106,40,239,155,31,232,49,251,215,71,200,240,105,73,0,84]},{\"bytes\":[100,223,169,31,154,84,127,151,178,254,47,129,230,74,10,10,170,13,31,199,167,68,28,149,131,10,110,201,71,146,214,78]},{\"bytes\":[165,36,170,43,1,62,34,53,25,160,177,19,87,62,189,151,168,134,196,85,33,237,9,52,198,39,79,32,180,145,165,132]}]}";
+        let nonce_bag = NonceBag::from_json(&serialized).unwrap();
+        assert!(nonce_bag.bag.contains(&NONCE1));
+        assert!(nonce_bag.bag.contains(&NONCE2));
+        assert!(nonce_bag.bag.contains(&NONCE3));
+    }
  }
