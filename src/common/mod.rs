@@ -2,7 +2,6 @@
 
 extern crate crypto;
 extern crate rand;
-extern crate fs_extra;
 
 use std::collections::HashSet;
 use std::process;

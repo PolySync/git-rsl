@@ -5,6 +5,7 @@ extern crate git2;
 extern crate rand;
 extern crate serde;
 extern crate serde_json;
+extern crate fs_extra;
 #[macro_use]
 extern crate serde_derive;
 
@@ -15,6 +16,7 @@ use git2::Repository;
 mod common;
 mod push;
 mod fetch;
+mod utils;
 
 fn discover_repo() -> Result<Repository, git2::Error> {
     let current_dir = env::current_dir().unwrap();
