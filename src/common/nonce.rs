@@ -26,7 +26,7 @@ impl From<serde_json::Error> for NonceError {
     }
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Eq, PartialEq, Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct Nonce {
     pub bytes: [u8; 32],
 }
@@ -54,19 +54,6 @@ impl Nonce {
         let result = serde_json::from_str(string)?;
         Ok(result)
     }
-}
-
-impl PartialEq for Nonce {
-    fn eq(&self, other: &Nonce) -> bool {
-        self.bytes == other.bytes
-    }
-
-    fn ne(&self, other: &Nonce) -> bool {
-        self.bytes != other.bytes
-    }
-}
-
-impl Eq for Nonce {
 }
 
 impl Hash for Nonce {
