@@ -1,8 +1,8 @@
-use git2::Repository;
+use git2::{Reference, Repository};
 
 use std::process;
 
-use common::{self, PushEntry};
+use common::{self, PushEntry, NonceBag};
 
 pub fn secure_push<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<&str>) {
     let mut remote = match repo.find_remote(remote_name) {
@@ -14,10 +14,16 @@ pub fn secure_push<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<&
         },
     };
 
+    let mut remote_rsl: Reference;
+    let mut nonce_bag: NonceBag;
+
     //let mut refs = ref_names.iter().filter_map(|name| &repo.find_reference(name).ok());
 
     'push: loop {
-        let (remote_rsl, nonce_bag) = common::retrieve_rsl_and_nonce_bag_from_remote_repo(repo, &mut remote);
+        let (remote_rsl, nonce_bag) = match common::retrieve_rsl_and_nonce_bag_from_remote_repo(repo, &mut remote) {
+            Some((rsl, bag)) => (rsl, bag),
+            None => common::rsl_init(repo, &mut remote),
+        };
 
         if !common::validate_rsl(repo, &remote_rsl, &nonce_bag) {
             println!("Error: invalid remote RSL");

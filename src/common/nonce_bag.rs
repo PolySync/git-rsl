@@ -53,7 +53,7 @@ impl NonceBag {
 
 pub trait HasNonceBag {
     fn read_nonce_bag(&self, &Reference) -> Result<NonceBag, NonceBagError>;
-    fn write_nonce_bag(&self, nonce_bag: NonceBag) -> Result<(), NonceBagError>;
+    fn write_nonce_bag(&self, nonce_bag: &NonceBag) -> Result<(), NonceBagError>;
 }
 
 impl HasNonceBag for Repository {
@@ -88,7 +88,7 @@ impl HasNonceBag for Repository {
          Ok(nonce_bag)
     }
 
-    fn write_nonce_bag(&self, nonce_bag: NonceBag) -> Result<(), NonceBagError> {
+    fn write_nonce_bag(&self, nonce_bag: &NonceBag) -> Result<(), NonceBagError> {
          let nonce_bag_path = self.path().join("NONCE_BAG");
          let mut f = match OpenOptions::new().write(true).create(true).open(&nonce_bag_path) {
              Ok(f) => f,

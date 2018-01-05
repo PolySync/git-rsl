@@ -24,9 +24,12 @@ pub fn secure_fetch<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<
 
     'store: loop {
         'fetch: loop {
-            let (fetch_local_remote_rsl, fetch_local_nonce_bag) = common::retrieve_rsl_and_nonce_bag_from_remote_repo(repo, &mut remote);
-            remote_rsl = fetch_local_remote_rsl;
-            nonce_bag = fetch_local_nonce_bag;
+            let (fetch_remote_rsl, mut fetch_nonce_bag) = match common::retrieve_rsl_and_nonce_bag_from_remote_repo(repo, &mut remote) {
+                Some((rsl, bag)) => (rsl, bag),
+                None => common::rsl_init(repo, &mut remote),
+            };
+            remote_rsl = fetch_remote_rsl;
+            nonce_bag = fetch_nonce_bag;
 
             // reject if one of the branches has no rsl push entry
             //for entry in ref_names {

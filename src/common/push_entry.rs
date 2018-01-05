@@ -13,14 +13,14 @@ use serde::ser::{Serialize, Serializer, SerializeStruct};
 
 
 //#[derive(Deserialize)]
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct PushEntry {
-    related_commits: Vec<Oid>,
-    branch: String,
-    head: Option<Oid>,
-    prev_hash: String,
-    nonce_bag: HashSet<Nonce>,
-    signature: String,
+    pub related_commits: Vec<Oid>,
+    pub branch: String,
+    pub head: Option<Oid>,
+    pub prev_hash: String,
+    pub nonce_bag: HashSet<Nonce>,
+    pub signature: String,
 }
 
 impl Serialize for PushEntry {

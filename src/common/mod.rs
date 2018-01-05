@@ -20,22 +20,30 @@ pub use self::nonce_bag::NonceBag;
 pub use self::nonce_bag::HasNonceBag;
 
 const RSL_BRANCH: &'static str = "RSL";
-const NONCE_BRANCH: &'static str = "RSL_NONCE";
 const REFLOG_MSG: &'static str = "Retrieve RSL branchs from remote";
 
-pub fn rsl_init<'repo>(repo: &'repo Repository, remote: &mut Remote) -> (Branch<'repo>, Branch<'repo>){
+pub fn rsl_init<'repo>(repo: &'repo Repository, remote: &mut Remote) -> (Reference<'repo>, NonceBag) {
 
-    // make branch
+    // validate that RSL does not exist locally or remotely
+    let remote_rsl = match (repo.find_branch(RSL_BRANCH, BranchType::Remote), repo.find_branch(RSL_BRANCH, BranchType::Local)) {
+        (Ok(_), _) => panic!("RSL exists remotely. Something is wrong."),
+        (_, Ok(_)) => panic!("Local RSL detected. something is wrong."),
+        (Err(_), Err(_)) => (),
+    };
+
     // TODO: figure out a way to orphan branch; .branch() needs a commit ref.
     let initial_commit = match find_first_commit(repo) {
         Ok(r) => r,
         Err(_) => process::exit(10),
     };
-
     let rsl = repo.branch("RSL", &initial_commit, false).unwrap();
-    let nonce_branch = repo.branch("RSL_NONCE", &initial_commit, false).unwrap();
+    let nonce_bag = match NonceBag::new() {
+        Ok(n) => n,
+        Err(e) => panic!("Couldn't initialize nonce bag: {:?}", e)
+    };
+    repo.write_nonce_bag(&nonce_bag);
 
-    push(repo, remote, &[&rsl.name().unwrap().unwrap(), &nonce_branch.name().unwrap().unwrap()]);
+    push(repo, remote, &[&rsl.name().unwrap().unwrap()]);
 
     let nonce = match Nonce::new() {
         Ok(n) => n,
@@ -43,7 +51,7 @@ pub fn rsl_init<'repo>(repo: &'repo Repository, remote: &mut Remote) -> (Branch<
     };
     println!("nonce: {:?}", nonce);
     repo.write_nonce(nonce);
-    (rsl, nonce_branch)
+    (rsl.into_reference(), nonce_bag)
 }
 
 pub fn fetch(repo: &Repository, remote: &mut Remote, ref_names: &[&str], _reflog_msg: Option<&str>) -> Result<(), ::git2::Error> {
@@ -88,31 +96,20 @@ pub fn push(repo: &Repository, remote: &mut Remote, ref_names: &[&str]) -> Resul
     })
 }
 
-pub fn retrieve_rsl_and_nonce_bag_from_remote_repo<'repo>(repo: &'repo Repository, mut remote: &mut Remote) -> (Reference<'repo>, NonceBag) {
+pub fn retrieve_rsl_and_nonce_bag_from_remote_repo<'repo>(repo: &'repo Repository, mut remote: &mut Remote) -> Option<(Reference<'repo>, NonceBag)> {
 
-    fetch(repo, remote, &[RSL_BRANCH, NONCE_BRANCH], Some(REFLOG_MSG));
-    let (remote_rsl, remote_nonce) = match (
-            repo.find_branch(RSL_BRANCH, BranchType::Remote),
-            repo.find_branch(NONCE_BRANCH, BranchType::Remote),
-            repo.find_branch(RSL_BRANCH, BranchType::Local),
-            repo.find_branch(NONCE_BRANCH, BranchType::Local)
-        ) {
-            (Err(_), Err(_), Err(_), Err(_)) => rsl_init(repo, &mut remote),
-            (Ok(rsl), Ok(nonce), Err(_), Err(_)) => (rsl, nonce),
-            (Err(_), Err(_), Ok(_), Ok(_)) => process::exit(10), // something compromised. rsl got deleted remotely
-            (Ok(rsl), Ok(nonce), Ok(_), Ok(_)) => (rsl, nonce),
-            (Ok(_), Err(_), _, _) => process::exit(10),
-            (Err(_), Ok(_), _, _) => process::exit(10),
-            (_, _, Ok(_), Err(_)) => process::exit(10),
-            (_, _, Err(_), Ok(_)) => process::exit(10)
-    };
+    fetch(repo, remote, &[RSL_BRANCH], Some(REFLOG_MSG));
+    let remote_rsl = match repo.find_branch(RSL_BRANCH, BranchType::Remote) {
+            Err(e) => return None,
+            Ok(rsl) => (rsl.into_reference())
+        };
 
-    let nonce_bag = match repo.read_nonce_bag(&remote_nonce.into_reference()) {
+    let nonce_bag = match repo.read_nonce_bag(&remote_rsl) {
         Ok(n) => n,
         Err(_) => process::exit(10),
     };
 
-    (remote_rsl.into_reference(), nonce_bag)
+    Some((remote_rsl, nonce_bag))
 }
 
 pub fn store_in_remote_repo(_repo: &Repository, _remote: &Remote, _nonce_bag: &NonceBag) -> bool {
