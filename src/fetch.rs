@@ -43,11 +43,9 @@ pub fn secure_fetch<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<
                     process::exit(51);
                 },
             };
-            let latest_push_entries = &ref_names.clone().into_iter().map(|ref_name| {
-                common::last_push_entry_for(repo, &remote, ref_name)
-            }).collect();
 
-            if all_push_entries_in_fetch_head(repo, latest_push_entries) {
+
+            if common::all_push_entries_in_fetch_head(&repo, &ref_names) {
                 break 'fetch;
             }
         }
@@ -95,8 +93,4 @@ pub fn secure_fetch<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<
     }
 
     common::reset_local_rsl_to_remote_rsl(repo);
-}
-
-fn all_push_entries_in_fetch_head(_repo: &Repository, _push_entries: &Vec<Option<common::PushEntry>>) -> bool {
-    false
 }

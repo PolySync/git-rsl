@@ -5,6 +5,9 @@ extern crate rand;
 
 use std::process;
 use std::vec::Vec;
+use std::collections::HashSet;
+use std::iter::FromIterator;
+
 
 use git2;
 use git2::{FetchOptions, PushOptions, Oid, Reference, Branch, Commit, RemoteCallbacks, Remote, Repository, Revwalk};
@@ -112,6 +115,27 @@ pub fn retrieve_rsl_and_nonce_bag_from_remote_repo<'repo>(repo: &'repo Repositor
     Some((remote_rsl, nonce_bag))
 }
 
+
+pub fn all_push_entries_in_fetch_head(repo: &Repository, ref_names: &Vec<&str>) -> bool {
+
+    let mut latest_push_entries: &Vec<git2::Oid> = &ref_names.clone().into_iter().filter_map(|ref_name| {
+        match last_push_entry_for(repo, ref_name) {
+            Some(pe) => pe.head,
+            None => None,
+        }
+    }).collect();
+    let mut fetch_heads : &Vec<git2::Oid> = &ref_names.clone().into_iter().filter_map(|ref_name| {
+        match repo.find_branch(ref_name, BranchType::Remote) {
+            Ok(branch) => branch.get().target(),
+            Err(_) => None
+        }
+    }).collect();
+    let h1: HashSet<&git2::Oid> = HashSet::from_iter(latest_push_entries);
+    let h2: HashSet<&git2::Oid> = HashSet::from_iter(fetch_heads);
+
+    h2.is_subset(&h1)
+}
+
 pub fn store_in_remote_repo(_repo: &Repository, _remote: &Remote, _nonce_bag: &NonceBag) -> bool {
     false
 }
@@ -214,11 +238,11 @@ pub fn local_rsl_from_repo(repo: &Repository) -> Option<Reference> {
     }
 }
 
-pub fn last_push_entry_for(repo: &Repository, remote: &Remote, reference: &str) -> Option<PushEntry> {
-    let fully_qualified_ref_name = format!("{}/{}", remote.name().unwrap(), reference);
+
+pub fn last_push_entry_for(repo: &Repository, reference: &str) -> Option<PushEntry> {
     //TODO Actually walk the commits and look for the most recent for the branch we're interested
     //in
-    Some(PushEntry::new(repo, &fully_qualified_ref_name, String::from("")))
+    Some(PushEntry::new(repo, reference, String::from("")))
 }
 
 //TODO implement
