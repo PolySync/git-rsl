@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::fmt;
 use std::vec::Vec;
 
+
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
 use git2::{self, Oid, Reference, Repository, ObjectType};
@@ -79,6 +80,29 @@ impl PushEntry {
         hasher.result_str()
     }
 
+    pub fn commit_to_rsl(&self, repo: &Repository) -> Result<git2::Oid, git2::Error> {
+        let mut index = repo.index()?;
+        index.add_path(&repo.path().join("NONCE_BAG"))?;
+        let oid = index.write_tree()?;
+        let signature = repo.signature().unwrap();
+        let message = self.to_string();
+        let parent_commit_ref = match repo.find_reference("RSL") {
+            Ok(r) => r,
+            Err(e) => panic!("couldn't find parent commit: {}", e),
+        };
+        let parent_commit = match parent_commit_ref.peel_to_commit() {
+            Ok(c) => c,
+            Err(e) => panic!("couldn't find parent commit: {}", e),
+        };
+        let tree = repo.find_tree(oid)?;
+        repo.commit(Some("RSL"), //  point HEAD to our new commit
+            &signature, // author
+            &signature, // committer
+            &message, // commit message
+            &tree, // tree
+            &[&parent_commit]) // parents
+    }
+
     //TODO implement done?
     pub fn from_str(string: &str) -> Option<PushEntry> {
         match serde_json::from_str(string) {
@@ -154,5 +178,31 @@ mod tests {
         };
         let serialized = "{\n  \"branch\": \"branch_name\",\n  \"related_commits\": [\n    \"decbf2be529ab6557d5429922251e5ee36519817\",\n    \"decbf2be529ab6557d5429922251e5ee36519817\"\n  ],\n  \"head\": \"\",\n  \"prev_hash\": \"fwjjk42ofw093j\",\n  \"nonce_bag\": [],\n  \"signature\": \"gpg signature\"\n}";
         assert_eq!(&entry.to_string(), &serialized)
+    }
+
+    #[test]
+    fn from_oid() {
+        let repo = setup().unwrap();
+
+
+        teardown(&repo);
+    }
+
+    #[test]
+    fn to_commit() {
+        let repo = setup().unwrap();
+        let oid = Oid::from_str("decbf2be529ab6557d5429922251e5ee36519817").unwrap();
+        let entry = PushEntry {
+                //related_commits: vec![oid.to_owned(), oid.to_owned()],
+                branch: String::from("branch_name"),
+                head: repo.head().unwrap().target().unwrap(),
+                prev_hash: String::from("fwjjk42ofw093j"),
+                nonce_bag: NonceBag::new(),
+                signature: String::from("gpg signature"),
+        };
+        let oid = entry.commit_to_rsl(&repo).unwrap();
+        let obj = repo.find_commit(oid).unwrap();
+        assert_eq!(&obj.message().unwrap(), &"hello");
+        teardown(&repo);
     }
 }
