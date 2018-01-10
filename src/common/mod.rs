@@ -150,9 +150,8 @@ pub fn validate_rsl(repo: &Repository, remote_rsl: &Reference, nonce_bag: &Nonce
             return false;
         },
     };
-    if !nonce_bag.bag.contains(&repo_nonce) /* TODO: && repo_nonce not in remote_rsl.push_after(local_rsl*/ {
-        return false;
-    }
+
+
 
     let local_rsl = match local_rsl_from_repo(repo) {
         Some(reference) => reference,
@@ -181,6 +180,16 @@ pub fn validate_rsl(repo: &Repository, remote_rsl: &Reference, nonce_bag: &Nonce
     let result = remaining.fold(Some(last_hash), |prev_hash, oid| {
         let current_push_entry = PushEntry::from_oid(&repo, oid).unwrap();
         let current_prev_hash = current_push_entry.prev_hash();
+
+        // TODOne? if current prev_hash == local_oid (that is, this is the first push entry after the last recorded one), then check if repo_nonce in PushEntry::from_oid(oid.parent_commit) or noncebag contains repo_nonce; return false if neither holds
+        //if current_prev_hash == last_local_push_entry.hash() {
+
+            // validate nonce bag (lines 1-2):
+            // TODO does this take care of when there haven't been any new entries or only one new entry?
+            //if !nonce_bag.bag.contains(&repo_nonce) && !current_push_entry.nonce_bag.bag.contains(&repo_nonce) { // repo nonce not in remote nonce bag && repo_nonce not in remote_rsl.push_after(local_rsl){
+            //    None;
+            //}
+        //}
         let current_hash = current_push_entry.hash();
         if prev_hash == Some(current_prev_hash) {
             Some(current_hash)
