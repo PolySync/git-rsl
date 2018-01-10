@@ -6,6 +6,8 @@ use std::collections::HashSet;
 
 use std::io::BufReader;
 use std::io::BufRead;
+use std::path::Path;
+
 
 use git2::{Reference, Repository};
 use serde_json;
@@ -30,8 +32,8 @@ pub struct NonceBag {
 }
 
 impl NonceBag {
-    pub fn new() -> Result<NonceBag, NonceBagError> {
-        Ok(NonceBag {bag: HashSet::new()})
+    pub fn new() -> NonceBag {
+            NonceBag {bag: HashSet::new()}
     }
 
     pub fn insert(&mut self, nonce: Nonce) -> Result<(), NonceBagError> {
@@ -71,10 +73,7 @@ impl HasNonceBag for Repository {
             Ok(f) => f,
             Err(e) => return Err(NonceBagError::NonceBagReadError(e)),
         };
-        let mut nonce_bag = match NonceBag::new() {
-            Ok(b) => b,
-            Err(e) => return Err(e)
-        };
+        let mut nonce_bag = NonceBag::new();
         let file = BufReader::new(&f);
         for (_num, line) in file.lines().enumerate() {
              let l = line.unwrap();
@@ -114,7 +113,7 @@ mod tests {
     const NONCE3: Nonce = Nonce { bytes: [165,36,170,43,1,62,34,53,25,160,177,19,87,62,189,151,168,134,196,85,33,237,9,52,198,39,79,32,180,145,165,132]};
 
     fn bag_a() -> NonceBag {
-        let mut bag = NonceBag::new().unwrap();
+        let mut bag = NonceBag::new();
         bag.bag.insert(NONCE1);
         bag.bag.insert(NONCE2);
         bag.bag.insert(NONCE3);
