@@ -2,7 +2,8 @@ use git2::{Reference, Repository};
 
 use std::process;
 
-use common::{self, PushEntry, NonceBag};
+use common::{self, PushEntry};
+use common::nonce_bag::{NonceBag, HasNonceBag};
 
 pub fn secure_push<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<&str>) {
     let mut remote = match repo.find_remote(remote_name) {
@@ -45,10 +46,10 @@ pub fn secure_push<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<&
 
         let remote_oid = remote_rsl.target().unwrap();
 
-        let latest_push_entry = PushEntry::from_oid(remote_oid).unwrap();
+        let latest_push_entry = PushEntry::from_oid(&repo, remote_oid).unwrap();
         let prev_hash = latest_push_entry.hash();
         //TODO change this to be all ref_names
-        let _new_push_entry = PushEntry::new(repo, ref_names.first().unwrap(), prev_hash);
+        let _new_push_entry = PushEntry::new(repo, ref_names.first().unwrap(), prev_hash, nonce_bag.clone());
 
         if common::store_in_remote_repo(repo, &remote, &nonce_bag) {
             //TODO push local related_commits

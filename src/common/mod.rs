@@ -40,10 +40,7 @@ pub fn rsl_init<'repo>(repo: &'repo Repository, remote: &mut Remote) -> (Referen
         Err(_) => process::exit(10),
     };
     let rsl = repo.branch("RSL", &initial_commit, false).unwrap();
-    let nonce_bag = match NonceBag::new() {
-        Ok(n) => n,
-        Err(e) => panic!("Couldn't initialize nonce bag: {:?}", e)
-    };
+    let nonce_bag = NonceBag::new();
     repo.write_nonce_bag(&nonce_bag);
 
     push(repo, remote, &[&rsl.name().unwrap().unwrap()]);
@@ -120,7 +117,7 @@ pub fn all_push_entries_in_fetch_head(repo: &Repository, ref_names: &Vec<&str>) 
 
     let mut latest_push_entries: &Vec<git2::Oid> = &ref_names.clone().into_iter().filter_map(|ref_name| {
         match last_push_entry_for(repo, ref_name) {
-            Some(pe) => pe.head,
+            Some(pe) => Some(pe.head),
             None => None,
         }
     }).collect();
@@ -172,7 +169,7 @@ pub fn validate_rsl(repo: &Repository, remote_rsl: &Reference, nonce_bag: &Nonce
         return false;
     }
 
-    let last_local_push_entry = PushEntry::from_ref(&local_rsl).unwrap();
+    let last_local_push_entry = PushEntry::from_ref(repo, &local_rsl).unwrap();
     let mut last_hash = last_local_push_entry.hash();
 
     let mut revwalk: Revwalk = repo.revwalk().unwrap();
@@ -182,7 +179,7 @@ pub fn validate_rsl(repo: &Repository, remote_rsl: &Reference, nonce_bag: &Nonce
     let remaining = revwalk.map(|oid| oid.unwrap());
 
     let result = remaining.fold(Some(last_hash), |prev_hash, oid| {
-        let current_push_entry = PushEntry::from_oid(oid).unwrap();
+        let current_push_entry = PushEntry::from_oid(&repo, oid).unwrap();
         let current_prev_hash = current_push_entry.prev_hash();
         let current_hash = current_push_entry.hash();
         if prev_hash == Some(current_prev_hash) {
@@ -242,7 +239,7 @@ pub fn local_rsl_from_repo(repo: &Repository) -> Option<Reference> {
 pub fn last_push_entry_for(repo: &Repository, reference: &str) -> Option<PushEntry> {
     //TODO Actually walk the commits and look for the most recent for the branch we're interested
     //in
-    Some(PushEntry::new(repo, reference, String::from("")))
+    Some(PushEntry::new(repo, reference, String::from(""), NonceBag::new()))
 }
 
 //TODO implement
