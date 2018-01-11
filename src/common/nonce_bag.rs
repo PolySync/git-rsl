@@ -43,11 +43,11 @@ impl NonceBag {
         }
     }
 
-    pub fn from_json(string: &str) -> Result<NonceBag, NonceError> {
+    pub fn from_str(string: &str) -> Result<NonceBag, NonceError> {
         let result = serde_json::from_str(string)?;
         Ok(result)
     }
-    pub fn to_json(&self) -> Result<String, NonceError> {
+    pub fn to_string(&self) -> Result<String, NonceError> {
         let result = serde_json::to_string(self)?;
         Ok(result)
     }
@@ -131,19 +131,19 @@ mod tests {
         bag.bag.remove(&NONCE1);
         assert_ne!(bag, bag_a());
     }
-    // fails 5/6 times because of no ordering in the bag
+
     #[test]
-    fn serialize() {
+    fn to_string_and_back() {
         let mut bag = bag_a();
-        let serialized = String::from("{\"bag\":[{\"bytes\":[145,161,65,251,112,184,238,36,105,54,150,202,74,26,148,121,106,40,239,155,31,232,49,251,215,71,200,240,105,73,0,84]},{\"bytes\":[100,223,169,31,154,84,127,151,178,254,47,129,230,74,10,10,170,13,31,199,167,68,28,149,131,10,110,201,71,146,214,78]},{\"bytes\":[165,36,170,43,1,62,34,53,25,160,177,19,87,62,189,151,168,134,196,85,33,237,9,52,198,39,79,32,180,145,165,132]}]}");
-        let result = NonceBag::to_json(&bag).unwrap();
-        assert_eq!(&result, &serialized)
+        let result = NonceBag::to_string(&bag).unwrap();
+        let bag2 = NonceBag::from_str(&result).unwrap();
+        assert_eq!(bag, bag2)
     }
 
     #[test]
-    fn deserialize() {
+    fn from_str() {
         let serialized = "{\"bag\":[{\"bytes\":[145,161,65,251,112,184,238,36,105,54,150,202,74,26,148,121,106,40,239,155,31,232,49,251,215,71,200,240,105,73,0,84]},{\"bytes\":[100,223,169,31,154,84,127,151,178,254,47,129,230,74,10,10,170,13,31,199,167,68,28,149,131,10,110,201,71,146,214,78]},{\"bytes\":[165,36,170,43,1,62,34,53,25,160,177,19,87,62,189,151,168,134,196,85,33,237,9,52,198,39,79,32,180,145,165,132]}]}";
-        let nonce_bag = NonceBag::from_json(&serialized).unwrap();
+        let nonce_bag = NonceBag::from_str(&serialized).unwrap();
         assert!(nonce_bag.bag.contains(&NONCE1));
         assert!(nonce_bag.bag.contains(&NONCE2));
         assert!(nonce_bag.bag.contains(&NONCE3));
