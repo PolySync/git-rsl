@@ -103,7 +103,6 @@ impl PushEntry {
             &[&parent_commit]) // parents
     }
 
-    //TODO implement done?
     pub fn from_str(string: &str) -> Option<PushEntry> {
         match serde_json::from_str(string) {
             Ok(p) => Some(p),
@@ -148,9 +147,7 @@ mod tests {
     use utils::test_helper::*;
 
     #[test]
-    fn fmt(){
-        let repo = setup().unwrap();
-
+    fn to_string_and_back() {
         let oid = Oid::from_str("decbf2be529ab6557d5429922251e5ee36519817").unwrap();
         let entry = PushEntry {
                 //related_commits: vec![oid.to_owned(), oid.to_owned()],
@@ -160,14 +157,14 @@ mod tests {
                 nonce_bag: NonceBag::new(),
                 signature: String::from("gpg signature"),
         };
-        let serialized = "{\n  \"branch\": \"branch_name\",\n  \"related_commits\": [\n    \"decbf2be529ab6557d5429922251e5ee36519817\",\n    \"decbf2be529ab6557d5429922251e5ee36519817\"\n  ],\n  \"head\": \"\",\n  \"prev_hash\": \"fwjjk42ofw093j\",\n  \"nonce_bag\": [],\n  \"signature\": \"gpg signature\"\n}";      assert_eq!(&entry.to_string(), &serialized);
-        teardown(&repo);
-
+        let serialized = &entry.to_string();
+        let deserialized = PushEntry::from_str(&serialized).unwrap();
+        assert_eq!(entry, deserialized)
     }
 
     #[test]
-    fn to_string() {
-        let oid = Oid::from_str("decbf2be529ab6557d5429922251e5ee36519817").unwrap();
+    fn from_string() {
+        let string = "{\n  \"branch\": \"branch_name\",\n  \"head\": {\n    \"raw\": {\n      \"id\": [\n        222,\n        203,\n        242,\n        190,\n        82,\n        154,\n        182,\n        85,\n        125,\n        84,\n        41,\n        146,\n        34,\n        81,\n        229,\n        238,\n        54,\n        81,\n        152,\n        23\n      ]\n    }\n  },\n  \"prev_hash\": \"fwjjk42ofw093j\",\n  \"nonce_bag\": {\n    \"bag\": []\n  },\n  \"signature\": \"gpg signature\"\n}";
         let entry = PushEntry {
                 //related_commits: vec![oid.to_owned(), oid.to_owned()],
                 branch: String::from("branch_name"),
@@ -176,15 +173,25 @@ mod tests {
                 nonce_bag: NonceBag::new(),
                 signature: String::from("gpg signature"),
         };
-        let serialized = "{\n  \"branch\": \"branch_name\",\n  \"related_commits\": [\n    \"decbf2be529ab6557d5429922251e5ee36519817\",\n    \"decbf2be529ab6557d5429922251e5ee36519817\"\n  ],\n  \"head\": \"\",\n  \"prev_hash\": \"fwjjk42ofw093j\",\n  \"nonce_bag\": [],\n  \"signature\": \"gpg signature\"\n}";
-        assert_eq!(&entry.to_string(), &serialized)
+        let deserialized = PushEntry::from_str(&string).unwrap();
+
+        assert_eq!(deserialized, entry)
     }
+
 
     #[test]
     fn from_oid() {
         let repo = setup().unwrap();
-
-
+        let oid = Oid::from_str("71903a0394016f5970eb6359be0f272b69f391b4").unwrap();
+        let entry = PushEntry {
+                //related_commits: vec![oid.to_owned(), oid.to_owned()],
+                branch: String::from("branch_name"),
+                head: Oid::from_str("decbf2be529ab6557d5429922251e5ee36519817").unwrap(),
+                prev_hash: String::from("fwjjk42ofw093j"),
+                nonce_bag: NonceBag::new(),
+                signature: String::from("gpg signature"),
+        };
+        assert_eq!(PushEntry::from_oid(&repo, oid).unwrap(), entry);
         teardown(&repo);
     }
 
