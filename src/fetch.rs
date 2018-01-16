@@ -8,33 +8,35 @@ use common::NonceBag;
 use common::nonce::{HasNonce, NonceError};
 
 pub fn secure_fetch<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<&str>) {
-    let mut remote = match repo.find_remote(remote_name) {
-        Ok(r) => r,
-        Err(e) => {
-            println!("Error: unable to find remote named {}", remote_name);
-            println!("  {}", e);
-            process::exit(50);
-        },
-    };
 
-    let mut remote_rsl: Reference;
+    let mut remote_rsl: RSL;
+    let mut local_rsl: RSL
     let mut nonce_bag: NonceBag;
+    let mut nonce: Nonce;
 
     //TODO paper algo uses spin lock here, probably a better alternative
 
     'store: loop {
         'fetch: loop {
-            let (fetch_remote_rsl, mut fetch_nonce_bag) = match common::retrieve_rsl_and_nonce_bag_from_remote_repo(repo, &mut remote) {
-                Some((rsl, bag)) => (rsl, bag),
-                None => common::rsl_init(repo, &mut remote),
-            };
-            remote_rsl = fetch_remote_rsl;
-            nonce_bag = fetch_nonce_bag;
 
-            // reject if one of the branches has no rsl push entry
-            //for entry in ref_names {
-            //    match last_push_entry_for(&entry)
+            //let original_branch = common::prep_workspace(&repo);
+
+            repo.fetch_rsl();
+            repo.rsl_init_if_needed();
+
+            let (remote_rsl, local_rsl, nonce_bag, nonce) = match repo.read_rsl() {
+                Ok((a,b,c,d) -> (a,b,c,d),
+                Err(e) -> panic!("Couldn't read RSL {:?}", e),
+            }
+
+            // TODO reject if one of the branches has no rsl push entry
+            //for branch in ref_names {
+            //    match last_push_entry_for(&branch) {
+            //        branch.head.oid => ok
+            //        _ => error
+            //    }
             //}
+
             match common::fetch(repo, &mut remote, &ref_names, None) {
                 Ok(_) => (),
                 Err(e) => {
@@ -44,19 +46,14 @@ pub fn secure_fetch<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<
                 },
             };
 
-
             if common::all_push_entries_in_fetch_head(&repo, &ref_names) {
                 break 'fetch;
             }
         }
 
-        match repo.read_nonce() {
-            Ok(current_nonce) => {
-                if nonce_bag.bag.contains(&current_nonce) {
-                    nonce_bag.bag.remove(&current_nonce);
-                }
-            },
-            _ => (),
+        // update nonce bag
+        if nonce_bag.bag.contains(nonce) {
+            nonce_bag.remove(&nonce);
         };
 
         let new_nonce = common::Nonce::new().unwrap();
@@ -80,17 +77,18 @@ pub fn secure_fetch<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<
         }
 
         nonce_bag.insert(new_nonce);
-
-        if common::store_in_remote_repo(repo, &remote, &nonce_bag) {
+        repo.commit_nonce_bag(nonce_bag);
+        if repo.push_rsl() {
             break 'store;
         }
 
     }
 
-    if !common::validate_rsl(repo, &remote_rsl, &nonce_bag) {
+    if !common::validate_rsl(repo, &remote_rsl, &local_rsl, &nonce_bag, &nonce) {
         println!("Error: invalid remote RSL");
         process::exit(-1);
     }
 
+    // fast forward fetched refs
     common::reset_local_rsl_to_remote_rsl(repo);
 }

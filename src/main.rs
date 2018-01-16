@@ -42,7 +42,18 @@ fn main() {
                             (@arg branch: ... +required "Branch(es) to securely fetch or push (example: master)")
                             ).get_matches();
 
-    let remote = matches.value_of("remote").unwrap().clone();
+    let remote_name = matches.value_of("remote").unwrap().clone();
+    let mut remote = match repo.find_remote(remote_name) {
+        Ok(r) => r,
+        Err(e) => {
+            println!("Error: unable to find remote named {}", remote_name);
+            println!("  {}", e);
+            process::exit(50);
+        },
+    };
+
+    // TODO: stash any changes in index and working tree
+
     let branches: Vec<&str> = matches.values_of("branch").unwrap().collect();
     if program == "git-securefetch" || matches.is_present("fetch") {
         fetch::secure_fetch(&repo, remote, branches);
@@ -51,4 +62,6 @@ fn main() {
         push::secure_push(&repo, remote, branches);
         return;
     }
+
+    // TODO unstash any changes and return to original branch
 }

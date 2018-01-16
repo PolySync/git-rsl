@@ -37,7 +37,7 @@ impl Nonce {
             Ok(rng) => rng,
             Err(e) => return Err(NonceError::NoRandomNumberGenerator(e)),
         };
-
+        
         Ok(rng.gen())
     }
 

@@ -15,12 +15,16 @@ use serde_json;
 use common::Nonce;
 use common::nonce::NonceError;
 
+const NONCE_BAG_PATH: &'static str = "NONCE_BAG";
+
+
 #[derive(Debug)]
 pub enum NonceBagError {
     NoNonceBagFile(::std::io::Error),
     NonceBagReadError(::std::io::Error),
     NonceBagWriteError(::std::io::Error),
     NonceBagInsertError(),
+    NonceBagUpdateError(),
     NonceBagCheckoutError(::git2::Error),
     InvalidNonceBag(NonceError)
 }
@@ -43,6 +47,13 @@ impl NonceBag {
         }
     }
 
+    pub fn remove(&mut self, nonce: Nonce) -> Result<(), NonceBagError> {
+        match.self.bag.remove(nonce) {
+            true -> Ok(),
+            false -> NonceBagError::NonceBagUpdateError()
+        }
+    }
+
     pub fn from_str(string: &str) -> Result<NonceBag, NonceError> {
         let result = serde_json::from_str(string)?;
         Ok(result)
@@ -60,7 +71,7 @@ pub trait HasNonceBag {
 
 impl HasNonceBag for Repository {
 
-    fn read_nonce_bag(&self, remote_nonce: &Reference) -> Result<NonceBag, NonceBagError> {
+    pub fn read_nonce_bag(&self, remote_nonce: &Reference) -> Result<NonceBag, NonceBagError> {
         let current_branch = match self.head() {
             Ok(b) => b,
             Err(e) => return Err(NonceBagError::NonceBagCheckoutError(e)),
@@ -68,7 +79,7 @@ impl HasNonceBag for Repository {
         let current_branch_name = current_branch.name().unwrap();
         self.set_head(remote_nonce.name().unwrap());
 
-        let nonce_bag_path = &self.path().join("NONCE_BAG");
+        let nonce_bag_path = &self.path().join(NONCE_BAG_PATH);
         let mut f = match OpenOptions::new().read(true).write(true).create(true).open(&nonce_bag_path) {
             Ok(f) => f,
             Err(e) => return Err(NonceBagError::NonceBagReadError(e)),
@@ -87,7 +98,7 @@ impl HasNonceBag for Repository {
          Ok(nonce_bag)
     }
 
-    fn write_nonce_bag(&self, nonce_bag: &NonceBag) -> Result<(), NonceBagError> {
+    pub fn write_nonce_bag(&self, nonce_bag: &NonceBag) -> Result<(), NonceBagError> {
          let nonce_bag_path = self.path().join("NONCE_BAG");
          let mut f = match OpenOptions::new().write(true).create(true).open(&nonce_bag_path) {
              Ok(f) => f,
@@ -100,7 +111,30 @@ impl HasNonceBag for Repository {
                  Err(e) => return Err(NonceBagError::NonceBagWriteError(e)),
              };
          }
-         Ok(())
+         &self.commit_nonce_bag;
+    }
+
+    fn commit_nonce_bag(&self) -> Result<()> {
+        let mut index = self.index()?;
+        index.add_path(self.path().join(NONCE_BAG_PATH))?;
+        let oid = index.write_tree()?;
+        let signature = self.signature().unwrap();
+        let message = "Update nonce bag";
+        let parent_commit_ref = match self.find_reference(RSL_BRANCH) {
+            Ok(r) => r,
+            Err(e) => panic!("couldn't find parent commit: {}", e),
+        };
+        let parent_commit = match parent_commit_ref.peel_to_commit() {
+            Ok(c) => c,
+            Err(e) => panic!("couldn't find parent commit: {}", e),
+        };
+        let tree = self.find_tree(oid)?;
+        self.commit(Some(RSL_BRANCH), //  point HEAD to our new commit
+            &signature, // author
+            &signature, // committer
+            &message, // commit message
+            &tree, // tree
+            &[&parent_commit]) // parents
     }
 }
 

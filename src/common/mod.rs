@@ -96,21 +96,28 @@ pub fn push(repo: &Repository, remote: &mut Remote, ref_names: &[&str]) -> Resul
     })
 }
 
-pub fn retrieve_rsl_and_nonce_bag_from_remote_repo<'repo>(repo: &'repo Repository, mut remote: &mut Remote) -> Option<(Reference<'repo>, NonceBag)> {
-
-    fetch(repo, remote, &[RSL_BRANCH], Some(REFLOG_MSG));
-    let remote_rsl = match repo.find_branch(RSL_BRANCH, BranchType::Remote) {
-            Err(e) => return None,
-            Ok(rsl) => (rsl.into_reference())
-        };
-
-    let nonce_bag = match repo.read_nonce_bag(&remote_rsl) {
-        Ok(n) => n,
-        Err(_) => process::exit(10),
-    };
-
-    Some((remote_rsl, nonce_bag))
-}
+// pub fn retrieve_rsl_and_nonce_bag_from_remote_repo<'repo>(repo: &'repo Repository, mut remote: &mut Remote) -> Option<(Reference<'repo>, NonceBag)> {
+//
+//     fetch(repo, remote, &[RSL_BRANCH], Some(REFLOG_MSG));
+//     let remote_rsl = match repo.find_branch(RSL_BRANCH, BranchType::Remote) {
+//             Err(e) => return None,
+//             Ok(rsl) => (rsl.into_reference())
+//         };
+//
+//     let nonce_bag = match repo.read_nonce_bag(&remote_rsl) {
+//         Ok(n) => n,
+//         Err(_) => process::exit(10),
+//     };
+//
+//     let repo_nonce = match repo.read_nonce() {
+//         Ok(nonce) => nonce,
+//         Err(e) => {
+//             println!("Error: Couldn't read nonce: {:?}", e);
+//             return false;
+//         },
+//     };
+//     Some((remote_rsl, local_rsl, nonce_bag, repo_nonce))
+// }
 
 
 pub fn all_push_entries_in_fetch_head(repo: &Repository, ref_names: &Vec<&str>) -> bool {
@@ -133,55 +140,28 @@ pub fn all_push_entries_in_fetch_head(repo: &Repository, ref_names: &Vec<&str>) 
     h2.is_subset(&h1)
 }
 
-pub fn store_in_remote_repo(_repo: &Repository, _remote: &Remote, _nonce_bag: &NonceBag) -> bool {
-    false
-}
+pub fn validate_rsl(repo: &Repository, remote_rsl: &RSL, local_rsl: &RSL, nonce_bag: NonceBag, repo_nonce: Nonce) -> bool {
 
-pub fn validate_rsl(repo: &Repository, remote_rsl: &Reference, nonce_bag: &NonceBag) -> bool {
-    println!("remote_rsl = {:?}", &remote_rsl.name());
-    println!("nonce bag = {:?}", &nonce_bag);
-
-    let repo_nonce = match repo.read_nonce() {
-        Ok(nonce) => nonce,
-        Err(e) => {
-            //TODO Figure out what needs to happen when a nonce doeesn't exist because we're never
-            //fetched
-            println!("Error: Couldn't read nonce: {:?}", e);
-            return false;
-        },
-    };
-
-
-
-    let local_rsl = match local_rsl_from_repo(repo) {
-        Some(reference) => reference,
-        None => {
-            println!("Warning: No local RSL branch");
-            return false;
-        },
-    };
-    let local_oid = local_rsl.target().unwrap();
-    let remote_oid = remote_rsl.target().unwrap();
-
-    if !repo.graph_descendant_of(remote_oid, local_oid).unwrap_or(false) {
+    if !repo.graph_descendant_of(remote_rsl.head, local_rsl.head).unwrap_or(false) {
         println!("Error: No path to get from Local RSL to Remote RSL");
         return false;
     }
 
-    let last_local_push_entry = PushEntry::from_ref(repo, &local_rsl).unwrap();
-    let mut last_hash = last_local_push_entry.hash();
+    let mut last_hash = &local_rsl.last_push_entry.hash();
 
     let mut revwalk: Revwalk = repo.revwalk().unwrap();
-    revwalk.push(remote_oid);
+    revwalk.push(remote_rsl.head);
     revwalk.set_sorting(git2::SORT_REVERSE);
-    revwalk.hide(local_oid);
+    revwalk.hide(local_rsl.head);
+
     let remaining = revwalk.map(|oid| oid.unwrap());
 
     let result = remaining.fold(Some(last_hash), |prev_hash, oid| {
+        // TODO: handle errors when the commit is not a push entry
         let current_push_entry = PushEntry::from_oid(&repo, oid).unwrap();
         let current_prev_hash = current_push_entry.prev_hash();
 
-        // TODOne? if current prev_hash == local_oid (that is, this is the first push entry after the last recorded one), then check if repo_nonce in PushEntry::from_oid(oid.parent_commit) or noncebag contains repo_nonce; return false if neither holds
+        // if current prev_hash == local_rsl.head (that is, we have arrived at the first push entry after the last recorded one), then check if repo_nonce in PushEntry::from_oid(oid.parent_commit) or noncebag contains repo_nonce; return false if neither holds
         //if current_prev_hash == last_local_push_entry.hash() {
 
             // validate nonce bag (lines 1-2):
@@ -201,12 +181,12 @@ pub fn validate_rsl(repo: &Repository, remote_rsl: &Reference, nonce_bag: &Nonce
     if result != None { return false; }
 
 
-    verify_signature(remote_oid)
+    verify_signature(remote_rsl.head)
 
 }
 
 fn verify_signature(_oid: Oid) -> bool {
-    return false
+    return true
 }
 
 fn for_each_commit_from<F>(repo: &Repository, local: Oid, remote: Oid, f: F)
@@ -237,17 +217,25 @@ fn find_first_commit(repo: &Repository) -> Result<Commit, git2::Error> {
     }
 }
 
-pub fn local_rsl_from_repo(repo: &Repository) -> Option<Reference> {
-    match repo.find_reference(RSL_BRANCH) {
-        Ok(r) => Some(r),
-        Err(_) => None,
-    }
-}
+// pub fn local_rsl_from_repo(repo: &Repository) -> Option<Reference> {
+//     match repo.find_reference(RSL_BRANCH) {
+//         Ok(r) => Some(r),
+//         Err(_) => None,
+//     }
+// }
+
+
 
 
 pub fn last_push_entry_for(repo: &Repository, reference: &str) -> Option<PushEntry> {
     //TODO Actually walk the commits and look for the most recent for the branch we're interested
     //in
+
+    // this is where it might come in yuseful to keep track of the last push entry for a branch...
+    // for each ref, try to parse into a pushentry
+    /// if you can, check if that pushentry is for the branch
+    // if it is , return that pushentry. otherwise keep going
+    // if you get to then end of the walk, return false
     Some(PushEntry::new(repo, reference, String::from(""), NonceBag::new()))
 }
 
@@ -255,10 +243,7 @@ pub fn last_push_entry_for(repo: &Repository, reference: &str) -> Option<PushEnt
 pub fn reset_local_rsl_to_remote_rsl(_repo: &Repository) {
 }
 
-//TODO implement
-fn is_push_entry(_nonce_branch: &Reference) -> bool {
-    false
-}
+
 
 fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
                              -> Result<T, ::git2::Error>
