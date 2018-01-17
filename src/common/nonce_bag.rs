@@ -16,6 +16,9 @@ use common::Nonce;
 use common::nonce::NonceError;
 
 const NONCE_BAG_PATH: &'static str = "NONCE_BAG";
+const RSL_BRANCH: &'static str = "RSL";
+const REFLOG_MSG: &'static str = "Retrieve RSL branchs from remote";
+
 
 
 #[derive(Debug)]
@@ -48,9 +51,9 @@ impl NonceBag {
     }
 
     pub fn remove(&mut self, nonce: Nonce) -> Result<(), NonceBagError> {
-        match.self.bag.remove(nonce) {
-            true -> Ok(),
-            false -> NonceBagError::NonceBagUpdateError()
+        match self.bag.remove(nonce) {
+            true => Ok(),
+            false => NonceBagError::NonceBagUpdateError()
         }
     }
 
@@ -114,7 +117,7 @@ impl HasNonceBag for Repository {
          &self.commit_nonce_bag;
     }
 
-    fn commit_nonce_bag(&self) -> Result<()> {
+    fn commit_nonce_bag(&self) -> Result<(), NonceBagError> {
         let mut index = self.index()?;
         index.add_path(self.path().join(NONCE_BAG_PATH))?;
         let oid = index.write_tree()?;

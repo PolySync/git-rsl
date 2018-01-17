@@ -1,16 +1,17 @@
 use std::process;
 use std::vec::Vec;
 
-use git2::{Reference, Repository};
+use git2::{Reference, Repository, Remote};
 
 use common;
-use common::NonceBag;
-use common::nonce::{HasNonce, NonceError};
+use common::{NonceBag, HasNonceBag};
+use common::rsl::{RSL, HasRSL};
+use common::nonce::{Nonce, HasNonce, NonceError};
 
-pub fn secure_fetch<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<&str>) {
+pub fn secure_fetch<'repo>(repo: &Repository, remote: &Remote, ref_names: Vec<&str>) {
 
     let mut remote_rsl: RSL;
-    let mut local_rsl: RSL
+    let mut local_rsl: RSL;
     let mut nonce_bag: NonceBag;
     let mut nonce: Nonce;
 
@@ -25,9 +26,9 @@ pub fn secure_fetch<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<
             repo.rsl_init_if_needed();
 
             let (remote_rsl, local_rsl, nonce_bag, nonce) = match repo.read_rsl() {
-                Ok((a,b,c,d) -> (a,b,c,d),
-                Err(e) -> panic!("Couldn't read RSL {:?}", e),
-            }
+                Ok((a,b,c,d) => (a,b,c,d),
+                Err(e) => panic!("Couldn't read RSL {:?}", e),
+            };
 
             // TODO reject if one of the branches has no rsl push entry
             //for branch in ref_names {
@@ -40,7 +41,7 @@ pub fn secure_fetch<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<
             match common::fetch(repo, &mut remote, &ref_names, None) {
                 Ok(_) => (),
                 Err(e) => {
-                    println!("Error: unable to fetch reference {} from remote {}", &ref_names.clone().join(", "), &remote_name);
+                    println!("Error: unable to fetch reference {} from remote {}", &ref_names.clone().join(", "), &remote.name());
                     println!("  {}", e);
                     process::exit(51);
                 },
@@ -54,7 +55,7 @@ pub fn secure_fetch<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<
         // update nonce bag
         if nonce_bag.bag.contains(nonce) {
             nonce_bag.remove(&nonce);
-        };
+        }
 
         let new_nonce = common::Nonce::new().unwrap();
         match repo.write_nonce(new_nonce) {
@@ -74,14 +75,13 @@ pub fn secure_fetch<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<
                 println!("  {:?}", e);
                 process::exit(99);
             },
-        }
+        };
 
         nonce_bag.insert(new_nonce);
         repo.commit_nonce_bag(nonce_bag);
         if repo.push_rsl() {
             break 'store;
         }
-
     }
 
     if !common::validate_rsl(repo, &remote_rsl, &local_rsl, &nonce_bag, &nonce) {

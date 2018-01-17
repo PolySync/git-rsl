@@ -109,10 +109,6 @@ impl PushEntry {
         }
     }
 
-
-    }
-
-
 }
 
 impl fmt::Display for PushEntry {

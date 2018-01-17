@@ -16,16 +16,18 @@ use git2::BranchType;
 mod push_entry;
 pub mod nonce;
 pub mod nonce_bag;
+pub mod rsl;
 pub use self::push_entry::PushEntry;
 pub use self::nonce::Nonce;
 pub use self::nonce::HasNonce;
 pub use self::nonce_bag::NonceBag;
 pub use self::nonce_bag::HasNonceBag;
+pub use self::rsl::{RSL, HasRSL};
 
 const RSL_BRANCH: &'static str = "RSL";
 const REFLOG_MSG: &'static str = "Retrieve RSL branchs from remote";
 
-pub fn rsl_init<'repo>(repo: &'repo Repository, remote: &mut Remote) -> (Reference<'repo>, NonceBag) {
+pub fn rsl_init<'repo>(repo: &'repo Repository, remote: &mut Remote) -> (Reference<'repo>, NonceBag<'repo>) {
 
     // validate that RSL does not exist locally or remotely
     let remote_rsl = match (repo.find_branch(RSL_BRANCH, BranchType::Remote), repo.find_branch(RSL_BRANCH, BranchType::Local)) {

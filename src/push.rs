@@ -1,11 +1,13 @@
-use git2::{Reference, Repository};
+use git2::{Reference, Repository, Remote};
 
 use std::process;
 
 use common::{self, PushEntry};
+use common::rsl::{RSL, HasRSL};
 use common::nonce_bag::{NonceBag, HasNonceBag};
+use common::nonce::{Nonce, HasNonce, NonceError};
 
-pub fn secure_push<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<&str>) {
+pub fn secure_push<'repo>(repo: &Repository, remote: &mut Remote, ref_names: Vec<&str>) {
 
     let mut remote_rsl: RSL;
     let mut local_rsl: RSL;
@@ -40,22 +42,16 @@ pub fn secure_push<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<&
         //TODO change this to be all ref_names
         let new_push_entry = PushEntry::new(repo, ref_names.first().unwrap(), prev_hash, nonce_bag.clone());
         // TODO commit new pushentry
-        repo.commit_push_entry(new_push_entry).expect("Couldn't commit new push entry")
+        repo.commit_push_entry(new_push_entry).expect("Couldn't commit new push entry");
 
-
-        if common::store_in_remote_repo(repo, &remote, &repo.head()) {
-            // push local related_commits
-            match common::push(repo, &mut remote, &ref_names) {
-                Ok(_) => (),
-                Err(e) => {
-                    println!("Error: unable to push reference(s) {} to remote {}", &ref_names.clone().join(", "), &remote_name);
-                    println!("  {}", e);
-                    process::exit(51);
-                },
-            };
-            //TODO localRSL = RemoteRSL (fastforward)
-            break 'push;
-        }
-
+        match common::push(repo, &mut remote, &ref_names) {
+            Ok(_) => break 'push,
+            Err(e) => {
+                println!("Error: unable to push reference(s) {} to remote {}", &ref_names.clone().join(", "), &remote_name);
+                println!("  {}", e);
+                process::exit(51);
+            },
+        };
     }
+    //TODO localRSL = RemoteRSL (fastforward)
 }
