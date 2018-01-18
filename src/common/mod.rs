@@ -13,48 +13,47 @@ use git2;
 use git2::{FetchOptions, PushOptions, Oid, Reference, Branch, Commit, RemoteCallbacks, Remote, Repository, Revwalk};
 use git2::BranchType;
 
-mod push_entry;
+pub mod push_entry;
 pub mod nonce;
 pub mod nonce_bag;
 pub mod rsl;
+
 pub use self::push_entry::PushEntry;
-pub use self::nonce::Nonce;
-pub use self::nonce::HasNonce;
-pub use self::nonce_bag::NonceBag;
-pub use self::nonce_bag::HasNonceBag;
+pub use self::nonce::{Nonce, HasNonce};
+pub use self::nonce_bag::{NonceBag, HasNonceBag};
 pub use self::rsl::{RSL, HasRSL};
 
 const RSL_BRANCH: &'static str = "RSL";
 const REFLOG_MSG: &'static str = "Retrieve RSL branchs from remote";
 
-pub fn rsl_init<'repo>(repo: &'repo Repository, remote: &mut Remote) -> (Reference<'repo>, NonceBag<'repo>) {
-
-    // validate that RSL does not exist locally or remotely
-    let remote_rsl = match (repo.find_branch(RSL_BRANCH, BranchType::Remote), repo.find_branch(RSL_BRANCH, BranchType::Local)) {
-        (Ok(_), _) => panic!("RSL exists remotely. Something is wrong."),
-        (_, Ok(_)) => panic!("Local RSL detected. something is wrong."),
-        (Err(_), Err(_)) => (),
-    };
-
-    // TODO: figure out a way to orphan branch; .branch() needs a commit ref.
-    let initial_commit = match find_first_commit(repo) {
-        Ok(r) => r,
-        Err(_) => process::exit(10),
-    };
-    let rsl = repo.branch("RSL", &initial_commit, false).unwrap();
-    let nonce_bag = NonceBag::new();
-    repo.write_nonce_bag(&nonce_bag);
-
-    push(repo, remote, &[&rsl.name().unwrap().unwrap()]);
-
-    let nonce = match Nonce::new() {
-        Ok(n) => n,
-        Err(_) => process::exit(10)
-    };
-    println!("nonce: {:?}", nonce);
-    repo.write_nonce(nonce);
-    (rsl.into_reference(), nonce_bag)
-}
+// pub fn rsl_init<'repo>(repo: &'repo Repository, remote: &mut Remote) -> (Reference<'repo>, NonceBag) {
+//
+//     // validate that RSL does not exist locally or remotely
+//     let remote_rsl = match (repo.find_branch(RSL_BRANCH, BranchType::Remote), repo.find_branch(RSL_BRANCH, BranchType::Local)) {
+//         (Ok(_), _) => panic!("RSL exists remotely. Something is wrong."),
+//         (_, Ok(_)) => panic!("Local RSL detected. something is wrong."),
+//         (Err(_), Err(_)) => (),
+//     };
+//
+//     // TODO: figure out a way to orphan branch; .branch() needs a commit ref.
+//     let initial_commit = match find_first_commit(repo) {
+//         Ok(r) => r,
+//         Err(_) => process::exit(10),
+//     };
+//     let rsl = repo.branch("RSL", &initial_commit, false).unwrap();
+//     let nonce_bag = NonceBag::new();
+//     repo.write_nonce_bag(&nonce_bag);
+//
+//     push(repo, remote, &[&rsl.name().unwrap().unwrap()]);
+//
+//     let nonce = match Nonce::new() {
+//         Ok(n) => n,
+//         Err(_) => process::exit(10)
+//     };
+//     println!("nonce: {:?}", nonce);
+//     repo.write_nonce(nonce);
+//     (rsl.into_reference(), nonce_bag)
+// }
 
 pub fn fetch(repo: &Repository, remote: &mut Remote, ref_names: &[&str], _reflog_msg: Option<&str>) -> Result<(), ::git2::Error> {
     let cfg = repo.config().unwrap();
@@ -142,15 +141,17 @@ pub fn all_push_entries_in_fetch_head(repo: &Repository, ref_names: &Vec<&str>) 
     h2.is_subset(&h1)
 }
 
-pub fn validate_rsl(repo: &Repository, remote_rsl: &RSL, local_rsl: &RSL, nonce_bag: NonceBag, repo_nonce: Nonce) -> bool {
+pub fn validate_rsl(repo: &Repository, remote_rsl: &RSL, local_rsl: &RSL, nonce_bag: &NonceBag, repo_nonce: &Nonce) -> bool {
 
     if !repo.graph_descendant_of(remote_rsl.head, local_rsl.head).unwrap_or(false) {
         println!("Error: No path to get from Local RSL to Remote RSL");
         return false;
     }
 
-    let mut last_hash = &local_rsl.last_push_entry.hash();
-
+    let last_hash = match &local_rsl.last_push_entry {
+        Some(push_entry) => push_entry.hash(),
+        None => None, // the first push entry will have None as last_push_entry
+    };
     let mut revwalk: Revwalk = repo.revwalk().unwrap();
     revwalk.push(remote_rsl.head);
     revwalk.set_sorting(git2::SORT_REVERSE);
@@ -160,7 +161,7 @@ pub fn validate_rsl(repo: &Repository, remote_rsl: &RSL, local_rsl: &RSL, nonce_
 
     let result = remaining.fold(Some(last_hash), |prev_hash, oid| {
         // TODO: handle errors when the commit is not a push entry
-        let current_push_entry = PushEntry::from_oid(&repo, oid).unwrap();
+        let current_push_entry = PushEntry::from_oid(&repo, &oid).unwrap();
         let current_prev_hash = current_push_entry.prev_hash();
 
         // if current prev_hash == local_rsl.head (that is, we have arrived at the first push entry after the last recorded one), then check if repo_nonce in PushEntry::from_oid(oid.parent_commit) or noncebag contains repo_nonce; return false if neither holds

@@ -37,7 +37,7 @@ impl Nonce {
             Ok(rng) => rng,
             Err(e) => return Err(NonceError::NoRandomNumberGenerator(e)),
         };
-        
+
         Ok(rng.gen())
     }
 
@@ -80,7 +80,7 @@ impl fmt::Display for Nonce {
 
 pub trait HasNonce {
     fn read_nonce(&self) -> Result<Nonce, NonceError>;
-    fn write_nonce(&self, nonce: Nonce) -> Result<(), NonceError>;
+    fn write_nonce(&self, nonce: &Nonce) -> Result<(), NonceError>;
 }
 
 
@@ -100,14 +100,14 @@ impl HasNonce for Repository {
 
     }
 
-    fn write_nonce(&self, nonce: Nonce) -> Result<(), NonceError> {
+    fn write_nonce(&self, nonce: &Nonce) -> Result<(), NonceError> {
         let nonce_path = self.path().join("NONCE");
         let mut f = match OpenOptions::new().write(true).create(true).open(&nonce_path) {
             Ok(f) => f,
             Err(e) => return Err(NonceError::NonceReadError(e)),
         };
 
-        match f.write_all(&nonce.bytes) {
+        match f.write_all(nonce.bytes) {
             Ok(_) => Ok(()),
             Err(e) => Err(NonceError::NonceWriteError(e)),
 
@@ -189,7 +189,7 @@ mod tests {
     #[test]
     fn write_nonce() {
         let repo = setup().unwrap();
-        repo.write_nonce(FAKE_NONCE);
+        repo.write_nonce(&FAKE_NONCE);
         let nonce_file = &repo.path().join("NONCE");
         let mut f = File::open(&nonce_file)
                     .expect("file not found");

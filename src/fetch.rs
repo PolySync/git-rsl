@@ -22,11 +22,11 @@ pub fn secure_fetch<'repo>(repo: &Repository, remote: &Remote, ref_names: Vec<&s
 
             //let original_branch = common::prep_workspace(&repo);
 
-            repo.fetch_rsl();
-            repo.rsl_init_if_needed();
+            repo.fetch_rsl(&remote);
+            repo.init_rsl_if_needed(&mut remote);
 
             let (remote_rsl, local_rsl, nonce_bag, nonce) = match repo.read_rsl() {
-                Ok((a,b,c,d) => (a,b,c,d),
+                Ok((a,b,c,d)) => (a,b,c,d),
                 Err(e) => panic!("Couldn't read RSL {:?}", e),
             };
 
@@ -41,7 +41,7 @@ pub fn secure_fetch<'repo>(repo: &Repository, remote: &Remote, ref_names: Vec<&s
             match common::fetch(repo, &mut remote, &ref_names, None) {
                 Ok(_) => (),
                 Err(e) => {
-                    println!("Error: unable to fetch reference {} from remote {}", &ref_names.clone().join(", "), &remote.name());
+                    println!("Error: unable to fetch reference {} from remote {}", &ref_names.clone().join(", "), &remote.name().unwrap());
                     println!("  {}", e);
                     process::exit(51);
                 },
@@ -53,12 +53,12 @@ pub fn secure_fetch<'repo>(repo: &Repository, remote: &Remote, ref_names: Vec<&s
         }
 
         // update nonce bag
-        if nonce_bag.bag.contains(nonce) {
+        if nonce_bag.bag.contains(&nonce) {
             nonce_bag.remove(&nonce);
         }
 
         let new_nonce = common::Nonce::new().unwrap();
-        match repo.write_nonce(new_nonce) {
+        match repo.write_nonce(&new_nonce) {
             Ok(_) => (),
             Err(NonceError::NoNonceFile(e)) => {
                 println!("Error: unable to create nonce file.");
@@ -78,9 +78,10 @@ pub fn secure_fetch<'repo>(repo: &Repository, remote: &Remote, ref_names: Vec<&s
         };
 
         nonce_bag.insert(new_nonce);
-        repo.commit_nonce_bag(nonce_bag);
-        if repo.push_rsl() {
-            break 'store;
+        repo.write_nonce_bag(&nonce_bag);
+        match repo.push_rsl(&mut remote) {
+            Ok(()) => break 'store,
+            _ => (),
         }
     }
 

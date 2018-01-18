@@ -9,7 +9,8 @@ use std::io::BufRead;
 use std::path::Path;
 
 
-use git2::{Reference, Repository};
+use git2::{self, Reference, Repository, Oid, BranchType};
+use git2::Error;
 use serde_json;
 
 use common::Nonce;
@@ -29,7 +30,14 @@ pub enum NonceBagError {
     NonceBagInsertError(),
     NonceBagUpdateError(),
     NonceBagCheckoutError(::git2::Error),
-    InvalidNonceBag(NonceError)
+    InvalidNonceBag(NonceError),
+    GitError(git2::Error),
+}
+
+impl From<git2::Error> for NonceBagError {
+    fn from(error: git2::Error) -> Self {
+        NonceBagError::GitError(error)
+    }
 }
 
 
@@ -43,17 +51,17 @@ impl NonceBag {
             NonceBag {bag: HashSet::new()}
     }
 
-    pub fn insert(&mut self, nonce: Nonce) -> Result<(), NonceBagError> {
+    pub fn insert(&mut self, &nonce: Nonce) -> Result<(), NonceBagError> {
         match self.bag.insert(nonce) {
             true => Ok(()),
             false => Err(NonceBagError::NonceBagInsertError())
         }
     }
 
-    pub fn remove(&mut self, nonce: Nonce) -> Result<(), NonceBagError> {
+    pub fn remove(&mut self, nonce: &Nonce) -> Result<(), NonceBagError> {
         match self.bag.remove(nonce) {
-            true => Ok(),
-            false => NonceBagError::NonceBagUpdateError()
+            true => Ok(()),
+            false => Err(NonceBagError::NonceBagUpdateError())
         }
     }
 
@@ -68,19 +76,26 @@ impl NonceBag {
 }
 
 pub trait HasNonceBag {
-    fn read_nonce_bag(&self, &Reference) -> Result<NonceBag, NonceBagError>;
+    fn read_nonce_bag(&self) -> Result<NonceBag, NonceBagError>;
     fn write_nonce_bag(&self, nonce_bag: &NonceBag) -> Result<(), NonceBagError>;
 }
 
 impl HasNonceBag for Repository {
 
-    pub fn read_nonce_bag(&self, remote_nonce: &Reference) -> Result<NonceBag, NonceBagError> {
+    fn read_nonce_bag(&self) -> Result<NonceBag, NonceBagError> {
         let current_branch = match self.head() {
             Ok(b) => b,
             Err(e) => return Err(NonceBagError::NonceBagCheckoutError(e)),
         };
         let current_branch_name = current_branch.name().unwrap();
-        self.set_head(remote_nonce.name().unwrap());
+        let remote_nonce_branch = match self.find_branch(RSL_BRANCH, BranchType::Remote) {
+            Ok(branch) => branch,
+            Err(e) => return Err(NonceBagError::NonceBagCheckoutError(e)),
+        };
+        match self.set_head(remote_nonce_branch) {
+            Ok(()) => (),
+            Err(e) => return Err(NonceBagError::NonceBagCheckoutError(e)),
+        };
 
         let nonce_bag_path = &self.path().join(NONCE_BAG_PATH);
         let mut f = match OpenOptions::new().read(true).write(true).create(true).open(&nonce_bag_path) {
@@ -101,7 +116,7 @@ impl HasNonceBag for Repository {
          Ok(nonce_bag)
     }
 
-    pub fn write_nonce_bag(&self, nonce_bag: &NonceBag) -> Result<(), NonceBagError> {
+    fn write_nonce_bag(&self, nonce_bag: &NonceBag) -> Result<(), NonceBagError> {
          let nonce_bag_path = self.path().join("NONCE_BAG");
          let mut f = match OpenOptions::new().write(true).create(true).open(&nonce_bag_path) {
              Ok(f) => f,
@@ -114,12 +129,12 @@ impl HasNonceBag for Repository {
                  Err(e) => return Err(NonceBagError::NonceBagWriteError(e)),
              };
          }
-         &self.commit_nonce_bag;
+         commit_nonce_bag(self)
     }
 
-    fn commit_nonce_bag(&self) -> Result<(), NonceBagError> {
+    fn commit_nonce_bag(&self) -> Result<Oid, NonceBagError> {
         let mut index = self.index()?;
-        index.add_path(self.path().join(NONCE_BAG_PATH))?;
+        index.add_path(self.path().join(NONCE_BAG_PATH).as_ref())?;
         let oid = index.write_tree()?;
         let signature = self.signature().unwrap();
         let message = "Update nonce bag";
@@ -132,12 +147,15 @@ impl HasNonceBag for Repository {
             Err(e) => panic!("couldn't find parent commit: {}", e),
         };
         let tree = self.find_tree(oid)?;
-        self.commit(Some(RSL_BRANCH), //  point HEAD to our new commit
+        match self.commit(Some(RSL_BRANCH), //  point HEAD to our new commit
             &signature, // author
             &signature, // committer
             &message, // commit message
             &tree, // tree
-            &[&parent_commit]) // parents
+            &[&parent_commit]) { // parents
+                Ok(oid) => Ok(oid),
+                Err(e) => return Err(NonceBagError::GitError(e)),
+            }
     }
 }
 

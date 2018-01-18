@@ -4,10 +4,11 @@ use std::vec::Vec;
 
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
-use git2::{Oid, Reference, Repository, Remote, Revwalk, BranchType};
+use git2::{self, Oid, Reference, Repository, Remote, Revwalk, BranchType, Commit};
+use git2::Error;
 
-use common::Nonce;
-use common::NonceBag;
+use common::{self, Nonce, HasNonce};
+use common::{NonceBag, HasNonceBag};
 use common::PushEntry;
 
 const RSL_BRANCH: &'static str = "RSL";
@@ -16,24 +17,44 @@ const REFLOG_MSG: &'static str = "Retrieve RSL branchs from remote";
 #[derive(Debug)]
 pub enum RSLError {
     Problem(),
+    GitError(git2::Error)
 }
 
+impl From<git2::Error> for RSLError {
+    fn from(error: git2::Error) -> Self {
+        RSLError::GitError(error)
+    }
+}
 
 #[derive(Debug)]
 pub enum RSLType {
-    Local(LocalRSL),
-    Remote(RemoteRSL),
+    Local,
+    Remote,
 }
 
 #[derive(Debug)]
 pub struct RSL {
-    kind: RSLType,
-    //remote: Remote,
-    head: Oid,
-    last_push_entry: Option<PushEntry>,
+    pub kind: RSLType,
+    //remote: &'repo Remote,
+    pub head: Oid,
+    pub last_push_entry: Option<PushEntry>,
 }
 
 impl RSL {
+
+    fn find_first_commit(repo: &Repository) -> Result<Commit, git2::Error> {
+        let mut revwalk: Revwalk = repo.revwalk().expect("Failed to make revwalk");
+        revwalk.push_head();
+        // Result<oid> || Result<option>
+        let result = match revwalk.last() { // option<Oid>
+            Some(r) => r, // option<result<oid, err>> => result<oid, err>
+            None => Err(git2::Error::from_str("Couldn't find commit")), // option
+        };
+        match result { // result = result<oid>
+            Ok(r) => repo.find_commit(r), // result<oid> => Result<commit, error>
+            Err(e) => Err(e) // result<error> => result<error>
+        }
+    }
 
 }
 
@@ -41,32 +62,53 @@ pub trait HasRSL {
     fn read_rsl(&self) -> Result<(RSL, RSL, NonceBag, Nonce), RSLError>;
     fn read_local_rsl(&self) -> Result<RSL, RSLError>;
     fn read_remote_rsl(&self) -> Result<RSL, RSLError>;
-    fn init_rsl_if_needed(&self) -> Result<(RSL, RSL, NonceBag, Nonce), RSLError>;
-    fn rsl_init<'repo>(repo: &'repo Repository, remote: &mut Remote) -> Result<(&'repo RSL, &'repo RSL, &'repo NonceBag, &'repo Nonce), RSLError>;
-    fn fetch_rsl<'repo>(repo: &'repo Repository, remote: &mut Remote) -> Result<(), RSLError>;
-    fn push_rsl<'repo>(repo: &'repo Repository, remote: &mut Remote) -> Result, RSLError
-    fn commit_push_entry<'repo>(repo: &'repo Repository, push_entry: &PushEntry) -> Result<(), RSLError>
+    fn init_rsl_if_needed(&self, remote: &mut Remote) -> Result<(RSL, RSL, NonceBag, Nonce), RSLError>;
+    fn rsl_init(&self, remote: &mut Remote) -> Result<(RSL, RSL, NonceBag, Nonce), RSLError>;
+    fn fetch_rsl(&self, remote: &Remote) -> Result<(),
+     RSLError>;
+    fn commit_push_entry(&self, push_entry: &PushEntry) -> Result<Oid, RSLError>;
+    fn push_rsl(&self, remote: &mut Remote) -> Result<(), RSLError>;
 }
 
 impl HasRSL for Repository {
 
-    fn rsl_init(&self, remote: &mut Remote) -> Result<RSL, RSLError> {
+
+    fn find_last_push_entry(&self, tree_tip: &Oid) -> Option<PushEntry> {
+        let mut revwalk: Revwalk = self.revwalk().expect("Failed to make revwalk");
+        revwalk.push(tree_tip.clone());
+        //revwalk.set_sorting(git2::SORT_REVERSE);
+        let last_push_entry = None;
+        let mut current = Some(tree_tip);
+        while current != None {
+            match PushEntry::from_oid(self, &current.unwrap()){
+                Some(pe) => return Some(pe),
+                None => (),
+            }
+            current = revwalk.next().map_or(None, |res| res.ok().as_ref());
+        }
+        None
+    }
+
+    fn rsl_init(&self, remote: &mut Remote) -> Result<(RSL, RSL, NonceBag, Nonce), RSLError> {
 
 
         // TODO: figure out a way to orphan branch; .branch() needs a commit ref. For now, find first commit and use that as ancestor for RSL
-        let initial_commit = match find_first_commit(repo) {
+        let initial_commit = match RSL::find_first_commit(self) {
             Ok(r) => r,
             Err(e) => return Err(RSLError::Problem()),
         };
 
         // create new RSL branch
-        let rsl_ref = self.branch(RSL_BRANCH, &initial_commit, false).unwrap();
+        let rsl_branch = match self.branch(RSL_BRANCH, &initial_commit, false) {
+            Ok(branch) => branch.unwrap(), // this unwrap is ok I think
+            Err(e) => Err(RSLError::Problem()),
+        };
 
         // create new RSL
         let local_rsl = RSL {
-            kind: Local,
+            kind: RSLType::Local,
             //remote: remote,
-            head: rsl_ref,
+            head: rsl_branch,
             last_push_entry: None,
         };
 
@@ -75,41 +117,48 @@ impl HasRSL for Repository {
             Ok(n) => n,
             Err(_) => return Err(RSLError::Problem())
         };
-        repo.write_nonce(nonce);
+        self.write_nonce(nonce.clone());
 
         // create new nonce bag with initial nonce
         let nonce_bag = NonceBag::new();
-        nonce_bag.insert(&nonce);
+        nonce_bag.insert(nonce);
 
         //  nonce bag (inlcuding commit)
-        repo.commit_nonce_bag(&nonce_bag);
+        self.write_nonce_bag(&nonce_bag);
+        commit_nonce_bag(self);
 
         // push new rsl branch
-        repo.push_rsl();
+        self.push_rsl(remote);
 
-        let remote_rsl = match repo.fetch_rsl(&remote) {
-            () => (),
+        // put this in a loop ? with a max try timeout
+        match self.fetch_rsl(&remote) {
+            Ok(()) => (),
             Err(e) => return Err(e)
         };
 
-        Ok(remote_rsl, local_rsl, nonce_bag, nonce)
+        let remote_rsl = match self.read_remote_rsl() {
+            Ok(rsl) => rsl,
+            Err(e) => return Err(RSLError::Problem()),
+        };
+
+        Ok((remote_rsl, local_rsl, nonce_bag, nonce))
 
     }
 
     fn read_rsl(&self) -> Result<(RSL, RSL, NonceBag, Nonce), RSLError> {
-        let remote_rsl = match self.read_remote_rsl {
+        let remote_rsl = match self.read_remote_rsl() {
             Ok(rsl) => rsl,
             Err(e) => return Err(RSLError::Problem())
         };
-        let local_rsl = match self.read_local_rsl {
+        let local_rsl = match self.read_local_rsl() {
             Ok(rsl) => rsl,
             Err(e) => return Err(RSLError::Problem())
         };
-        let nonce_bag = match self.read_nonce_bag {
+        let nonce_bag = match self.read_nonce_bag() {
             Ok(nb) => nb,
             Err(e) => return Err(RSLError::Problem())
         };
-        let nonce = match self.read_nonce {
+        let nonce = match self.read_nonce() {
             Ok(n) => n,
             Err(e) => return Err(RSLError::Problem()),
         };
@@ -117,7 +166,7 @@ impl HasRSL for Repository {
     }
 
     fn read_local_rsl(&self) -> Result<RSL, RSLError> {
-        let kind = Local;
+        let kind = RSLType::Local;
         let reference = match self.find_branch(RSL_BRANCH, BranchType::Local) {
                 Err(e) => return Err(RSLError::Problem()),
                 Ok(rsl) => (rsl.into_reference()),
@@ -126,84 +175,77 @@ impl HasRSL for Repository {
             Some(oid) => oid,
             None => return Err(RSLError::Problem()),
         };
-        let last_push_entry = self.last_push_entry(&head);
+        let last_push_entry = self.find_last_push_entry(&head);
         Ok(RSL {kind, head, last_push_entry})
     }
 
     fn read_remote_rsl(&self) -> Result<RSL, RSLError> {
-        let kind = Remote;
+        let kind = RSLType::Remote;
         let reference = match self.find_branch(RSL_BRANCH, BranchType::Remote) {
-                Err(e) => Err(RSLError::Problem()),
+                Err(e) => return Err(RSLError::Problem()),
                 Ok(rsl) => (rsl.into_reference()),
         };
         let head = match reference.target() {
             Some(oid) => oid,
             None => return Err(RSLError::Problem()),
         };
-        let last_push_entry = self.last_push_entry(&head);
+        let last_push_entry = self.find_last_push_entry(&head);
         Ok(RSL {kind, head, last_push_entry})
     }
 
-    fn commit_push_entry(&self, push_entry; &PushEntry) -> Result<(), RSLError> {
+    fn commit_push_entry(&self, push_entry: &PushEntry) -> Result<Oid, RSLError> {
         let mut index = self.index()?;
         //index.add_path(self.path().join("NONCE_BAG"))?;
         let oid = index.write_tree()?;
         let signature = self.signature().unwrap();
         let message = push_entry.to_string();
-        let parent_commit_ref = match self.find_reference(RSL_BRAN) {
+        let parent_commit_ref = match self.find_reference(RSL_BRANCH) {
             Ok(r) => r,
-            Err(e) => Err(RSLError::Problem()),
+            Err(e) => return Err(RSLError::GitError(e)),
         };
         let parent_commit = match parent_commit_ref.peel_to_commit() {
             Ok(c) => c,
-            Err(e) => panic!("couldn't find parent commit: {}", e),
+            Err(e) => return Err(RSLError::GitError(e)),
         };
         let tree = self.find_tree(oid)?;
-        self.commit(Some("RSL"), //  point HEAD to our new commit
+        match self.commit(Some(RSL_BRANCH), //  point HEAD to our new commit
             &signature, // author
             &signature, // committer
             &message, // commit message
             &tree, // tree
-            &[&parent_commit]) // parents
+            &[&parent_commit]) { // parents
+                Ok(oid) => Ok(oid),
+                Err(e) => return Err(RSLError::GitError(e)),
+            }
+
     }
 
 
     fn fetch_rsl(&self, remote: &Remote) -> Result<(), RSLError> {
         // not sure the behavior here if the branch doesn't exist
-        common::fetch(self, remote, &[RSL_BRANCH], Some(REFLOG_MSG)) {
+        match common::fetch(self, remote, &[RSL_BRANCH], Some(REFLOG_MSG)) {
             Ok(()) => Ok(()),
-            Err(e) => return Err(q)
+            Err(e) => return Err(RSLError::GitError(e))
         }
     }
 
-    fn init_rsl_if_needed(&self) -> Result<(RSL, RSL, NonceBag, Nonce), RSLError> {
+    fn init_rsl_if_needed(&self, remote: &mut Remote) -> Result<(RSL, RSL, NonceBag, Nonce), RSLError> {
         // validate that RSL does not exist locally or remotely
-        let remote_rsl = match (self.find_branch(RSL_BRANCH, BranchType::Remote), self.find_branch(RSL_BRANCH, BranchType::Local)) {
+        match (self.find_branch(RSL_BRANCH, BranchType::Remote), self.find_branch(RSL_BRANCH, BranchType::Local)) {
             (Ok(_), _) => Err(RSLError::Problem()),
             (_, Ok(_)) => Err(RSLError::Problem()),
-            (Err(_), Err(_)) => (self.rsl_init()),
-        };
-    }
-
-    fn push_rsl(&self, rsl: &RSL) -> Result<(), RSLError> {
-        common::push(self, rsl.remote, &[RSL_BRANCH]);
-    }
-
-    fn last_push_entry(repo: &Repository, tree_tip: &Oid) -> Option<PushEntry> {
-        let mut revwalk: Revwalk = repo.revwalk().expect("Failed to make revwalk");
-        revwalk.push(tree_tip);
-        revwalk.set_sorting(git2::SORT_REVERSE);
-        let last_push_entry = None;
-        let mut current = tree_tip;
-        while current != None {
-            match PushEntry::from_oid(&repo, &current){
-                Some(pe) -> return pe,
-                None -> (),
-            }
-            current = revwalk.next();
+            (Err(_), Err(_)) => (self.rsl_init(remote)),
         }
-        None
     }
+
+    fn push_rsl(&self, remote: &mut Remote) -> Result<(), RSLError> {
+        match common::push(self, remote, &[RSL_BRANCH]) {
+            Ok(()) => Ok(()),
+            Err(e) => return Err(RSLError::GitError(e)),
+        }
+    }
+
+
 }
 
 #[cfg(test)]
@@ -223,7 +265,7 @@ mod tests {
                 nonce_bag: NonceBag::new(),
                 signature: String::from("gpg signature"),
         };
-        let oid = entry.commit_to_rsl(&repo).unwrap();
+        let oid = repo.commit_push_entry(&entry).unwrap();
         let obj = repo.find_commit(oid).unwrap();
         assert_eq!(&obj.message().unwrap(), &"hello");
         teardown(&repo);

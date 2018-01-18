@@ -18,8 +18,8 @@ pub fn secure_push<'repo>(repo: &Repository, remote: &mut Remote, ref_names: Vec
 
     'push: loop {
 
-        repo.fetch_rsl();
-        repo.rsl_init_if_needed();
+        repo.fetch_rsl(&remote);
+        repo.init_rsl_if_needed(&mut remote);
 
         let (remote_rsl, local_rsl, nonce_bag, nonce) = match repo.read_rsl() {
             Ok((a,b,c,d)) => (a,b,c,d),
@@ -27,7 +27,7 @@ pub fn secure_push<'repo>(repo: &Repository, remote: &mut Remote, ref_names: Vec
         };
 
 
-        if !common::validate_rsl(repo, remote_rsl, local_rsl, nonce_bag, nonce) {
+        if !common::validate_rsl(repo, &remote_rsl, &local_rsl, &nonce_bag, &nonce) {
             println!("Error: invalid remote RSL");
             process::exit(-1);
         }
@@ -36,18 +36,19 @@ pub fn secure_push<'repo>(repo: &Repository, remote: &mut Remote, ref_names: Vec
 
         // checkout remote rsl detached
         // make new push entry
-        let remote_oid = remote_rsl.target().unwrap();
-        let latest_push_entry = PushEntry::from_oid(&repo, remote_oid).unwrap();
-        let prev_hash = latest_push_entry.hash();
+        let prev_hash = match remote_rsl.last_push_entry {
+            Some(pe) => pe.hash(),
+            None => String::from(""),
+        };
         //TODO change this to be all ref_names
         let new_push_entry = PushEntry::new(repo, ref_names.first().unwrap(), prev_hash, nonce_bag.clone());
         // TODO commit new pushentry
-        repo.commit_push_entry(new_push_entry).expect("Couldn't commit new push entry");
+        repo.commit_push_entry(&new_push_entry).expect("Couldn't commit new push entry");
 
         match common::push(repo, &mut remote, &ref_names) {
             Ok(_) => break 'push,
             Err(e) => {
-                println!("Error: unable to push reference(s) {} to remote {}", &ref_names.clone().join(", "), &remote_name);
+                println!("Error: unable to push reference(s) {:?} to remote {:?}", &ref_names.clone().join(", "), &remote.name().unwrap());
                 println!("  {}", e);
                 process::exit(51);
             },

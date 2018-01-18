@@ -56,10 +56,10 @@ fn main() {
 
     let branches: Vec<&str> = matches.values_of("branch").unwrap().collect();
     if program == "git-securefetch" || matches.is_present("fetch") {
-        fetch::secure_fetch(&repo, remote, branches);
+        fetch::secure_fetch(&repo, &mut remote, branches);
         return;
     } else if program == "git-securepush" || matches.is_present("push") {
-        push::secure_push(&repo, remote, branches);
+        push::secure_push(&repo, &mut remote, branches);
         return;
     }
 

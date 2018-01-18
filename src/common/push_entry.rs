@@ -89,13 +89,13 @@ impl PushEntry {
 
     pub fn from_ref(repo: &Repository, reference: &Reference) -> Option<PushEntry> {
         match reference.target() {
-            Some(oid) => PushEntry::from_oid(repo, oid),
+            Some(oid) => PushEntry::from_oid(repo, &oid),
             None => None,
         }
     }
 
-    pub fn from_oid(repo: &Repository, oid: Oid) -> Option<PushEntry> {
-        let commit = match repo.find_commit(oid) {
+    pub fn from_oid(repo: &Repository, oid: &Oid) -> Option<PushEntry> {
+        let commit = match repo.find_commit(oid.clone()) {
             Ok(c) => c,
             Err(e) => panic!("couldn't find commit {:?}", oid),
         };
@@ -168,7 +168,7 @@ mod tests {
                 nonce_bag: NonceBag::new(),
                 signature: String::from("gpg signature"),
         };
-        assert_eq!(PushEntry::from_oid(&repo, oid).unwrap(), entry);
+        assert_eq!(PushEntry::from_oid(&repo, &oid).unwrap(), entry);
         teardown(&repo);
     }
 }
