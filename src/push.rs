@@ -7,7 +7,7 @@ use common::rsl::{RSL, HasRSL};
 use common::nonce_bag::{NonceBag, HasNonceBag};
 use common::nonce::{Nonce, HasNonce, NonceError};
 
-pub fn secure_push<'repo>(repo: &Repository, remote: &mut Remote, ref_names: Vec<&str>) {
+pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: Vec<&str>) {
 
     let mut remote_rsl: RSL;
     let mut local_rsl: RSL;
@@ -18,7 +18,7 @@ pub fn secure_push<'repo>(repo: &Repository, remote: &mut Remote, ref_names: Vec
 
     'push: loop {
 
-        repo.fetch_rsl(&remote);
+        repo.fetch_rsl(&mut remote);
         repo.init_rsl_if_needed(&mut remote);
 
         let (remote_rsl, local_rsl, nonce_bag, nonce) = match repo.read_rsl() {

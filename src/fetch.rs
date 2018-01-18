@@ -8,21 +8,30 @@ use common::{NonceBag, HasNonceBag};
 use common::rsl::{RSL, HasRSL};
 use common::nonce::{Nonce, HasNonce, NonceError};
 
-pub fn secure_fetch<'repo>(repo: &Repository, remote: &Remote, ref_names: Vec<&str>) {
+pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: Vec<&str>) {
 
-    let mut remote_rsl: RSL;
-    let mut local_rsl: RSL;
-    let mut nonce_bag: NonceBag;
-    let mut nonce: Nonce;
+    let mut remote_rsl: RSL = unsafe { ::std::mem::uninitialized() };
+    let mut local_rsl: RSL = unsafe { ::std::mem::uninitialized() };
+    let mut nonce_bag: NonceBag = unsafe { ::std::mem::uninitialized() };
+    let mut nonce: Nonce = unsafe { ::std::mem::uninitialized() };
 
     //TODO paper algo uses spin lock here, probably a better alternative
 
+    let mut store_counter = 5;
     'store: loop {
+        match store_counter {
+            0 => panic!("Couldn't store new fetch entry in RSL; check your connection and try again"),
+            _ => (),
+        }
+        let mut counter = 5;
         'fetch: loop {
-
+            match counter {
+                0 => panic!("Couldn't fetch; check your connection and try again"),
+                _ => (),
+            }
             //let original_branch = common::prep_workspace(&repo);
 
-            repo.fetch_rsl(&remote);
+            repo.fetch_rsl(&mut remote);
             repo.init_rsl_if_needed(&mut remote);
 
             let (remote_rsl, local_rsl, nonce_bag, nonce) = match repo.read_rsl() {
@@ -50,6 +59,7 @@ pub fn secure_fetch<'repo>(repo: &Repository, remote: &Remote, ref_names: Vec<&s
             if common::all_push_entries_in_fetch_head(&repo, &ref_names) {
                 break 'fetch;
             }
+            counter -= 1;
         }
 
         // update nonce bag
@@ -84,6 +94,7 @@ pub fn secure_fetch<'repo>(repo: &Repository, remote: &Remote, ref_names: Vec<&s
             Ok(()) => break 'store,
             _ => (),
         }
+        store_counter -= 1;
     }
 
     if !common::validate_rsl(repo, &remote_rsl, &local_rsl, &nonce_bag, &nonce) {

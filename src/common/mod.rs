@@ -149,7 +149,7 @@ pub fn validate_rsl(repo: &Repository, remote_rsl: &RSL, local_rsl: &RSL, nonce_
     }
 
     let last_hash = match local_rsl.last_push_entry {
-        Some(push_entry) => Some(push_entry.hash()),
+        Some(ref push_entry) => Some(push_entry.hash()),
         None => None, // the first push entry will have None as last_push_entry
     };
     let mut revwalk: Revwalk = repo.revwalk().unwrap();

@@ -64,7 +64,7 @@ pub trait HasRSL {
     fn read_remote_rsl(&self) -> Result<RSL, RSLError>;
     fn init_rsl_if_needed(&self, remote: &mut Remote) -> Result<(RSL, RSL, NonceBag, Nonce), RSLError>;
     fn rsl_init(&self, remote: &mut Remote) -> Result<(RSL, RSL, NonceBag, Nonce), RSLError>;
-    fn fetch_rsl(&self, remote: &Remote) -> Result<(),
+    fn fetch_rsl(&self, remote: &mut Remote) -> Result<(),
      RSLError>;
     fn commit_push_entry(&self, push_entry: &PushEntry) -> Result<Oid, RSLError>;
     fn push_rsl(&self, remote: &mut Remote) -> Result<(), RSLError>;
@@ -79,13 +79,13 @@ impl HasRSL for Repository {
         revwalk.push(tree_tip.clone());
         //revwalk.set_sorting(git2::SORT_REVERSE);
         let last_push_entry: Option<PushEntry> = None;
-        let mut current = Some(tree_tip);
+        let mut current = Some(tree_tip.clone());
         while current != None {
             match PushEntry::from_oid(self, &current.unwrap()){
                 Some(pe) => return Some(pe),
                 None => (),
             }
-            current = revwalk.next().map_or(None, |res| res.ok().as_ref());
+            current = revwalk.next().and_then(|res| res.ok()); // .next returns Opt<Res<Oid>>
         }
         None
     }
@@ -121,7 +121,7 @@ impl HasRSL for Repository {
         self.write_nonce(&nonce);
 
         // create new nonce bag with initial nonce
-        let nonce_bag = NonceBag::new();
+        let mut nonce_bag = NonceBag::new();
         nonce_bag.insert(nonce);
 
         //  nonce bag (inlcuding commit)
@@ -132,7 +132,7 @@ impl HasRSL for Repository {
         self.push_rsl(remote);
 
         // put this in a loop ? with a max try timeout
-        match self.fetch_rsl(&remote) {
+        match self.fetch_rsl(remote) {
             Ok(()) => (),
             Err(e) => return Err(e)
         };
@@ -222,9 +222,9 @@ impl HasRSL for Repository {
     }
 
 
-    fn fetch_rsl(&self, remote: &Remote) -> Result<(), RSLError> {
+    fn fetch_rsl(&self, remote: &mut Remote) -> Result<(), RSLError> {
         // not sure the behavior here if the branch doesn't exist
-        match common::fetch(self, &mut remote, &[RSL_BRANCH], Some(REFLOG_MSG)) {
+        match common::fetch(self, remote, &[RSL_BRANCH], Some(REFLOG_MSG)) {
             Ok(()) => Ok(()),
             Err(e) => return Err(RSLError::GitError(e))
         }
