@@ -51,7 +51,7 @@ impl NonceBag {
             NonceBag {bag: HashSet::new()}
     }
 
-    pub fn insert(&mut self, &nonce: Nonce) -> Result<(), NonceBagError> {
+    pub fn insert(&mut self, nonce: Nonce) -> Result<(), NonceBagError> {
         match self.bag.insert(nonce) {
             true => Ok(()),
             false => Err(NonceBagError::NonceBagInsertError())
@@ -78,6 +78,7 @@ impl NonceBag {
 pub trait HasNonceBag {
     fn read_nonce_bag(&self) -> Result<NonceBag, NonceBagError>;
     fn write_nonce_bag(&self, nonce_bag: &NonceBag) -> Result<(), NonceBagError>;
+    fn commit_nonce_bag(&self) -> Result<Oid, NonceBagError>;
 }
 
 impl HasNonceBag for Repository {
@@ -88,11 +89,11 @@ impl HasNonceBag for Repository {
             Err(e) => return Err(NonceBagError::NonceBagCheckoutError(e)),
         };
         let current_branch_name = current_branch.name().unwrap();
-        let remote_nonce_branch = match self.find_branch(RSL_BRANCH, BranchType::Remote) {
-            Ok(branch) => branch,
-            Err(e) => return Err(NonceBagError::NonceBagCheckoutError(e)),
-        };
-        match self.set_head(remote_nonce_branch) {
+        //let remote_nonce_branch = match self.find_branch(RSL_BRANCH, BranchType::Remote).map(|b| try!(b.name())) {
+        //    Ok(branch) => branch,
+        //    Err(e) => return Err(NonceBagError::NonceBagCheckoutError(e)),
+        //};
+        match self.set_head(&RSL_BRANCH) {
             Ok(()) => (),
             Err(e) => return Err(NonceBagError::NonceBagCheckoutError(e)),
         };
@@ -129,7 +130,7 @@ impl HasNonceBag for Repository {
                  Err(e) => return Err(NonceBagError::NonceBagWriteError(e)),
              };
          }
-         commit_nonce_bag(self)
+         Ok(())
     }
 
     fn commit_nonce_bag(&self) -> Result<Oid, NonceBagError> {

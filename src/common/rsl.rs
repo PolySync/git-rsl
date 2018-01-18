@@ -68,16 +68,17 @@ pub trait HasRSL {
      RSLError>;
     fn commit_push_entry(&self, push_entry: &PushEntry) -> Result<Oid, RSLError>;
     fn push_rsl(&self, remote: &mut Remote) -> Result<(), RSLError>;
+    fn find_last_push_entry(&self, tree_tip: &Oid) -> Option<PushEntry>;
+
 }
 
 impl HasRSL for Repository {
-
 
     fn find_last_push_entry(&self, tree_tip: &Oid) -> Option<PushEntry> {
         let mut revwalk: Revwalk = self.revwalk().expect("Failed to make revwalk");
         revwalk.push(tree_tip.clone());
         //revwalk.set_sorting(git2::SORT_REVERSE);
-        let last_push_entry = None;
+        let last_push_entry: Option<PushEntry> = None;
         let mut current = Some(tree_tip);
         while current != None {
             match PushEntry::from_oid(self, &current.unwrap()){
@@ -99,16 +100,16 @@ impl HasRSL for Repository {
         };
 
         // create new RSL branch
-        let rsl_branch = match self.branch(RSL_BRANCH, &initial_commit, false) {
-            Ok(branch) => branch.unwrap(), // this unwrap is ok I think
-            Err(e) => Err(RSLError::Problem()),
+        let rsl_ref = match self.branch(RSL_BRANCH, &initial_commit, false) {
+            Ok(branch) => branch.get().target().unwrap(), // this unwrap is ok I think
+            Err(e) => return Err(RSLError::Problem()),
         };
 
         // create new RSL
         let local_rsl = RSL {
             kind: RSLType::Local,
             //remote: remote,
-            head: rsl_branch,
+            head: rsl_ref,
             last_push_entry: None,
         };
 
@@ -117,7 +118,7 @@ impl HasRSL for Repository {
             Ok(n) => n,
             Err(_) => return Err(RSLError::Problem())
         };
-        self.write_nonce(nonce.clone());
+        self.write_nonce(&nonce);
 
         // create new nonce bag with initial nonce
         let nonce_bag = NonceBag::new();
@@ -125,7 +126,7 @@ impl HasRSL for Repository {
 
         //  nonce bag (inlcuding commit)
         self.write_nonce_bag(&nonce_bag);
-        commit_nonce_bag(self);
+        self.commit_nonce_bag();
 
         // push new rsl branch
         self.push_rsl(remote);
@@ -223,7 +224,7 @@ impl HasRSL for Repository {
 
     fn fetch_rsl(&self, remote: &Remote) -> Result<(), RSLError> {
         // not sure the behavior here if the branch doesn't exist
-        match common::fetch(self, remote, &[RSL_BRANCH], Some(REFLOG_MSG)) {
+        match common::fetch(self, &mut remote, &[RSL_BRANCH], Some(REFLOG_MSG)) {
             Ok(()) => Ok(()),
             Err(e) => return Err(RSLError::GitError(e))
         }

@@ -107,7 +107,7 @@ impl HasNonce for Repository {
             Err(e) => return Err(NonceError::NonceReadError(e)),
         };
 
-        match f.write_all(nonce.bytes) {
+        match f.write_all(&nonce.bytes) {
             Ok(_) => Ok(()),
             Err(e) => Err(NonceError::NonceWriteError(e)),
 

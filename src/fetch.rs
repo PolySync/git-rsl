@@ -79,6 +79,7 @@ pub fn secure_fetch<'repo>(repo: &Repository, remote: &Remote, ref_names: Vec<&s
 
         nonce_bag.insert(new_nonce);
         repo.write_nonce_bag(&nonce_bag);
+        repo.commit_nonce_bag();
         match repo.push_rsl(&mut remote) {
             Ok(()) => break 'store,
             _ => (),

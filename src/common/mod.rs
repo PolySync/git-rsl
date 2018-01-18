@@ -148,8 +148,8 @@ pub fn validate_rsl(repo: &Repository, remote_rsl: &RSL, local_rsl: &RSL, nonce_
         return false;
     }
 
-    let last_hash = match &local_rsl.last_push_entry {
-        Some(push_entry) => push_entry.hash(),
+    let last_hash = match local_rsl.last_push_entry {
+        Some(push_entry) => Some(push_entry.hash()),
         None => None, // the first push entry will have None as last_push_entry
     };
     let mut revwalk: Revwalk = repo.revwalk().unwrap();
@@ -159,7 +159,7 @@ pub fn validate_rsl(repo: &Repository, remote_rsl: &RSL, local_rsl: &RSL, nonce_
 
     let remaining = revwalk.map(|oid| oid.unwrap());
 
-    let result = remaining.fold(Some(last_hash), |prev_hash, oid| {
+    let result = remaining.fold(last_hash, |prev_hash, oid| {
         // TODO: handle errors when the commit is not a push entry
         let current_push_entry = PushEntry::from_oid(&repo, &oid).unwrap();
         let current_prev_hash = current_push_entry.prev_hash();
