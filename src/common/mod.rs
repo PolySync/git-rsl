@@ -91,7 +91,7 @@ pub fn unstash_local_changes(repo: &mut Repository, stash_id: Option<Oid>) -> Re
 }
 
 pub fn checkout_original_branch(repo: &mut Repository, branch_ref: Reference) -> Result<(), git2::Error> {
-    // TODO implement
+    repo.set_head(&RSL_BRANCH)?;
     Ok(())
 }
 
