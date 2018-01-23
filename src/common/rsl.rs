@@ -270,6 +270,8 @@ mod tests {
         };
         let oid = repo.commit_push_entry(&entry).unwrap();
         let obj = repo.find_commit(oid).unwrap();
+        let new_head = repo.find_branch("RSL", BranchType::Local).unwrap();
+        assert_eq!(oid, new_head.into_reference().target().unwrap());
         assert_eq!(&obj.message().unwrap(), &"hello");
         teardown(&repo);
     }
