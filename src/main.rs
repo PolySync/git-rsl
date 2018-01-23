@@ -19,16 +19,13 @@ mod push;
 mod fetch;
 mod utils;
 
-fn discover_repo() -> Result<Repository, git2::Error> {
-    let current_dir = env::current_dir().unwrap();
-    Repository::discover(current_dir)
-}
+
 
 fn main() {
     let args: Vec<String> = env::args().collect();
     let program = args[0].clone();
 
-    let repo = discover_repo().unwrap();
+    let mut messy_repo = common::discover_repo().unwrap();
 
     let matches = clap_app!(git_rsl =>
                             (name: program.clone())
@@ -42,26 +39,44 @@ fn main() {
                             (@arg branch: ... +required "Branch(es) to securely fetch or push (example: master)")
                             ).get_matches();
 
-    let remote_name = matches.value_of("remote").unwrap().clone();
-    let mut remote = match repo.find_remote(remote_name) {
-        Ok(r) => r,
-        Err(e) => {
-            println!("Error: unable to find remote named {}", remote_name);
-            println!("  {}", e);
-            process::exit(50);
-        },
+    let (current_branch, stash_id) = match common::stash_local_changes(&mut messy_repo) {
+        Ok((branch, Some(id))) => (branch, Some(id)),
+        Ok((branch, None)) => (branch, None),
+        Err(e) => panic!("couldn't stash local changes, or else there were no changes to stash. not sure what libgit2 returns when there is nothing to do"),
     };
 
-    // TODO: stash any changes in index and working tree
+    let mut clean_repo = common::discover_repo().unwrap();
+    
+    {
+        let remote_name = matches.value_of("remote").unwrap().clone();
+        let mut remote = match clean_repo.find_remote(remote_name) {
+            Ok(r) => r,
+            Err(e) => {
+                println!("Error: unable to find remote named {}", remote_name);
+                println!("  {}", e);
+                process::exit(50);
+            },
+        };
 
-    let branches: Vec<&str> = matches.values_of("branch").unwrap().collect();
-    if program == "git-securefetch" || matches.is_present("fetch") {
-        fetch::secure_fetch(&repo, &mut remote, branches);
-        return;
-    } else if program == "git-securepush" || matches.is_present("push") {
-        push::secure_push(&repo, &mut remote, branches);
-        return;
+        let branches: Vec<&str> = matches.values_of("branch").unwrap().collect();
+        if program == "git-securefetch" || matches.is_present("fetch") {
+            fetch::secure_fetch(&clean_repo, &mut remote, branches);
+            return;
+        } else if program == "git-securepush" || matches.is_present("push") {
+            push::secure_push(&clean_repo, &mut remote, branches);
+            return;
+        }
     }
 
-    // TODO unstash any changes and return to original branch
+    match common::checkout_original_branch(&mut clean_repo, current_branch) {
+        Ok(()) => (),
+        Err(e) => panic!("Couldn't checkout starting branch. Sorry if we messed with your repo state. Ensure you are on the desired branch. It may be necessary to apply changes from the stash: {:?}", e),
+    }
+
+    match common::unstash_local_changes(&mut clean_repo, stash_id) {
+        Ok(()) => (),
+        Err(e) => panic!("Couldn't unstash local changes. Sorry if we messed with your repository state. It may be necessary to apply changes from the stash. {:?}", e),
+    }
+
+
 }
