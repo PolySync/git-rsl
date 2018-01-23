@@ -200,11 +200,11 @@ impl HasRSL for Repository {
         let oid = index.write_tree()?;
         let signature = self.signature().unwrap();
         let message = push_entry.to_string();
-        let parent_commit_ref = match self.find_reference(RSL_BRANCH) {
+        let parent_commit_ref = match self.find_branch(RSL_BRANCH, BranchType::Local) {
             Ok(r) => r,
-            Err(e) => return Err(RSLError::GitError(e)),
+            Err(e) => panic!("RSL Branch not found: {:?}", e),
         };
-        let parent_commit = match parent_commit_ref.peel_to_commit() {
+        let parent_commit = match parent_commit_ref.get().peel_to_commit() {
             Ok(c) => c,
             Err(e) => return Err(RSLError::GitError(e)),
         };
@@ -218,6 +218,8 @@ impl HasRSL for Repository {
                 Ok(oid) => Ok(oid),
                 Err(e) => return Err(RSLError::GitError(e)),
             }
+
+        // needs to update head of rsl branch
 
     }
 
@@ -256,13 +258,12 @@ mod tests {
 
     #[test]
     fn commit_push_entry() {
-        let repo = setup().unwrap();
-        let oid = Oid::from_str("decbf2be529ab6557d5429922251e5ee36519817").unwrap();
+        let repo = setup();
         let entry = PushEntry {
                 //related_commits: vec![oid.to_owned(), oid.to_owned()],
                 branch: String::from("branch_name"),
                 head: repo.head().unwrap().target().unwrap(),
-                prev_hash: String::from("fwjjk42ofw093j"),
+                prev_hash: String::from("hash_of_last_pushentry"),
                 nonce_bag: NonceBag::new(),
                 signature: String::from("gpg signature"),
         };

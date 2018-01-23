@@ -188,7 +188,7 @@ mod tests {
 
     #[test]
     fn write_nonce() {
-        let repo = setup().unwrap();
+        let repo = setup();
         repo.write_nonce(&FAKE_NONCE);
         let nonce_file = &repo.path().join("NONCE");
         let mut f = File::open(&nonce_file)
@@ -202,7 +202,7 @@ mod tests {
 
     #[test]
     fn read_nonce() {
-        let repo = setup().unwrap();
+        let repo = setup();
         let nonce = repo.read_nonce().unwrap();
         let nonce2 = Nonce { bytes: [168, 202, 85, 60, 50, 231, 189, 13, 197, 149, 177, 98, 8, 162, 2, 25, 211, 51, 159, 84, 228, 203, 184, 235, 219, 10, 118, 213, 97, 190, 187, 239] };
         assert_eq!(nonce, nonce2);

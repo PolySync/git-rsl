@@ -158,7 +158,7 @@ mod tests {
 
     #[test]
     fn from_oid() {
-        let repo = setup().unwrap();
+        let repo = setup();
         let oid = Oid::from_str("71903a0394016f5970eb6359be0f272b69f391b4").unwrap();
         let entry = PushEntry {
                 //related_commits: vec![oid.to_owned(), oid.to_owned()],

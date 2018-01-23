@@ -9,7 +9,7 @@ use git2::Repository;
 use rand::{Rng, thread_rng};
 
 
-pub fn setup() -> Result<Repository>  {
+pub fn setup() -> Repository  {
     let mut fixture_dir = env::current_dir().unwrap();
     &fixture_dir.push("fixtures/fixture.git");
 
@@ -20,17 +20,18 @@ pub fn setup() -> Result<Repository>  {
     let full_path_to_git_dir = path_to_repo.join(git_dir);
     let mut options = CopyOptions::new();
     options.overwrite = true;
-    
-    create_all(&full_path_to_git_dir, true)?;
-    copy(fixture_dir, path_to_repo, &options)?;
+
+    create_all(&full_path_to_git_dir, true).unwrap();
+    copy(fixture_dir, path_to_repo, &options).unwrap();
 
     let orig_name = path_to_repo.join("fixture.git");
-    fs::rename(orig_name.as_path(), full_path_to_git_dir)?;
+    fs::rename(orig_name.as_path(), full_path_to_git_dir).unwrap();
 
-    match Repository::open(&path_to_repo) {
-        Ok(repo) => Ok(repo),
+    let repo = match Repository::open(&path_to_repo) {
+        Ok(repo) => repo,
         Err(e) => panic!("setup failed: {:?}", e),
-    }
+    };
+    repo
 }
 
 pub fn teardown(repo: &Repository) -> Result<()> {
