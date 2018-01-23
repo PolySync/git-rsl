@@ -209,18 +209,19 @@ impl HasRSL for Repository {
             Err(e) => return Err(RSLError::GitError(e)),
         };
         let tree = self.find_tree(oid)?;
-        match self.commit(Some(RSL_BRANCH), //  point HEAD to our new commit
+        let rsl_head = format!("refs/heads/{}", RSL_BRANCH);
+
+        match self.commit(
+            Some(&rsl_head), //  point HEAD to our new commit
             &signature, // author
             &signature, // committer
             &message, // commit message
             &tree, // tree
-            &[&parent_commit]) { // parents
-                Ok(oid) => Ok(oid),
-                Err(e) => return Err(RSLError::GitError(e)),
-            }
-
-        // needs to update head of rsl branch
-
+            &[&parent_commit]
+        ) {
+            Ok(oid) => Ok(oid),
+            Err(e) => return Err(RSLError::GitError(e)),
+        }
     }
 
 
