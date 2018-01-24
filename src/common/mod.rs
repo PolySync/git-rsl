@@ -10,10 +10,12 @@ use std::iter::FromIterator;
 
 
 use git2;
-use git2::{FetchOptions, PushOptions, Oid, Reference, Branch, Commit, RemoteCallbacks, Remote, Repository, Revwalk};
+use git2::{FetchOptions, PushOptions, Oid, Reference, Branch, Commit, RemoteCallbacks, Remote, Repository, Revwalk, DiffOptions};
 use git2::BranchType;
-use git2::StashFlags;
+
 use git2::StashApplyOptions;
+use git2::STASH_INCLUDE_UNTRACKED;
+
 
 pub mod push_entry;
 pub mod nonce;
@@ -62,19 +64,32 @@ pub fn discover_repo() -> Result<Repository, git2::Error> {
     Repository::discover(current_dir)
 }
 
-pub fn stash_local_changes(repo: &mut Repository) -> Result<(Reference, Option<Oid>), git2::Error> {
+pub fn stash_local_changes(repo: &mut Repository) -> Result<(Option<Oid>), git2::Error> {
     let signature = repo.signature()?;
     let message = "Stashing local changes for RSL business";
-    //let flags = StashFlags::INCLUDE_UNTRACKED;
-    // TODO return (current_head, None) instead of failure if nothing to stash
+
+    // check that there are indeed changes in index or untracked to stash
+    {
+        let index = repo.index()?;
+        let index_is_empty = index.is_empty();
+        let mut diff_options = DiffOptions::new();
+        diff_options.include_untracked(true);
+        let  diff = repo.diff_index_to_workdir(
+            None, // defaults to head index,
+            Some(&mut diff_options),
+        )?;
+
+        let num_deltas = diff.deltas().count();
+        if index_is_empty && (num_deltas == 0) {
+            return Ok(None)
+        }
+    }
     let oid = repo.stash_save(
         &signature,
         &message,
-        None, // TODO figure out why stashflags are broke
+        Some(STASH_INCLUDE_UNTRACKED),
     )?;
-
-    let current_head = repo.head()?;
-    Ok((current_head, Some(oid)))
+    Ok(Some(oid))
 }
 
 pub fn unstash_local_changes(repo: &mut Repository, stash_id: Option<Oid>) -> Result<(), git2::Error> {
@@ -90,8 +105,8 @@ pub fn unstash_local_changes(repo: &mut Repository, stash_id: Option<Oid>) -> Re
     Ok(())
 }
 
-pub fn checkout_original_branch(repo: &mut Repository, branch_ref: Reference) -> Result<(), git2::Error> {
-    repo.set_head(&RSL_BRANCH)?;
+pub fn checkout_original_branch(repo: &mut Repository, branch_name: &str) -> Result<(), git2::Error> {
+    repo.set_head(branch_name)?;
     Ok(())
 }
 

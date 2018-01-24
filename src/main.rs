@@ -39,14 +39,26 @@ fn main() {
                             (@arg branch: ... +required "Branch(es) to securely fetch or push (example: master)")
                             ).get_matches();
 
-    let (current_branch, stash_id) = match common::stash_local_changes(&mut messy_repo) {
-        Ok((branch, Some(id))) => (branch, Some(id)),
-        Ok((branch, None)) => (branch, None),
+    let current_branch_name: &str = &""; // yells at me that this is possibly uninitialized which is not true
+    {
+        let current_branch_ref = match messy_repo.head() {
+            Ok(h) => h,
+            Err(e) => panic!("not on a branch: {:?}", e),
+        };
+        let current_branch_name = match current_branch_ref.name() {
+            Some(name) => name,
+            None => panic!("lolwut: ur current branch has no object id"),
+        };
+    }
+
+    let stash_id = match common::stash_local_changes(&mut messy_repo) {
+        Ok(Some(id)) => Some(id),
+        Ok(None) => None,
         Err(e) => panic!("couldn't stash local changes, or else there were no changes to stash. not sure what libgit2 returns when there is nothing to do"),
     };
 
     let mut clean_repo = common::discover_repo().unwrap();
-    
+
     {
         let remote_name = matches.value_of("remote").unwrap().clone();
         let mut remote = match clean_repo.find_remote(remote_name) {
@@ -68,7 +80,7 @@ fn main() {
         }
     }
 
-    match common::checkout_original_branch(&mut clean_repo, current_branch) {
+    match common::checkout_original_branch(&mut clean_repo, current_branch_name) {
         Ok(()) => (),
         Err(e) => panic!("Couldn't checkout starting branch. Sorry if we messed with your repo state. Ensure you are on the desired branch. It may be necessary to apply changes from the stash: {:?}", e),
     }
