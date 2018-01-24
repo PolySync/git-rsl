@@ -10,7 +10,7 @@ use std::iter::FromIterator;
 
 
 use git2;
-use git2::{FetchOptions, PushOptions, Oid, Reference, Branch, Commit, RemoteCallbacks, Remote, Repository, Revwalk, DiffOptions};
+use git2::{FetchOptions, PushOptions, Oid, Reference, Branch, Commit, RemoteCallbacks, Remote, Repository, Revwalk, DiffOptions, RepositoryState};
 use git2::BranchType;
 
 use git2::StashApplyOptions;
@@ -70,8 +70,7 @@ pub fn stash_local_changes(repo: &mut Repository) -> Result<(Option<Oid>), git2:
 
     // check that there are indeed changes in index or untracked to stash
     {
-        let index = repo.index()?;
-        let index_is_empty = index.is_empty();
+        let is_clean = repo.state() == RepositoryState::Clean;
         let mut diff_options = DiffOptions::new();
         diff_options.include_untracked(true);
         let  diff = repo.diff_index_to_workdir(
@@ -80,7 +79,7 @@ pub fn stash_local_changes(repo: &mut Repository) -> Result<(Option<Oid>), git2:
         )?;
 
         let num_deltas = diff.deltas().count();
-        if index_is_empty && (num_deltas == 0) {
+        if is_clean && (num_deltas == 0) {
             return Ok(None)
         }
     }
