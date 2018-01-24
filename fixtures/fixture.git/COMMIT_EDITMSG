@@ -1,0 +1,45 @@
+{
+  "branch": "branch_name",
+  "head": {
+    "raw": {
+      "id": [
+        222,
+        203,
+        242,
+        190,
+        82,
+        154,
+        182,
+        85,
+        125,
+        84,
+        41,
+        146,
+        34,
+        81,
+        229,
+        238,
+        54,
+        81,
+        152,
+        23
+      ]
+    }
+  },
+  "prev_hash": "fwjjk42ofw093j",
+  "nonce_bag": {
+    "bag": []
+  },
+  "signature": "gpg signature"
+}
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# Date:      Wed Jan 10 19:39:26 2018 -0800
+#
+# On branch RSL
+# Untracked files:
+#	fixture.gnupghome/
+#
+# No changes

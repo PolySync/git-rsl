@@ -2,31 +2,68 @@ use std::collections::HashSet;
 use std::fmt;
 use std::vec::Vec;
 
+
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
-use git2::{Oid, Reference, Repository};
+use git2::{self, Oid, Reference, Repository, ObjectType};
+use libgit2_sys::{self, git_oid, GIT_OID_RAWSZ};
 
 use common::Nonce;
+use common::nonce_bag::{NonceBag, HasNonceBag};
 
+use serde_json;
+use serde::ser::{Serialize, Serializer, SerializeStruct};
+
+
+#[serde(remote = "git_oid")]
+#[derive(Serialize, Deserialize)]
+struct GitOidDef {
+    pub id: [u8; GIT_OID_RAWSZ],
+}
+
+#[serde(remote = "Oid")]
+#[derive(Serialize, Deserialize)]
+struct OidDef {
+    #[serde(with = "GitOidDef", getter = "get_raw_oid")]
+    raw: libgit2_sys::git_oid,
+}
+
+fn get_raw_oid(oid: &Oid) -> libgit2_sys::git_oid {
+    let mut oid_array: [u8; GIT_OID_RAWSZ] = Default::default();
+    oid_array.copy_from_slice(oid.as_bytes());
+    git_oid { id: oid_array }
+}
+
+// Provide a conversion to construct the remote type Oid from OidDef.
+impl From<OidDef> for Oid {
+    fn from(def: OidDef) -> git2::Oid {
+        Oid::from_bytes(&def.raw.id).unwrap()
+    }
+}
+
+
+//#[derive(Deserialize)]
+#[derive(Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct PushEntry {
-    related_commits: Vec<Oid>,
-    branch: String,
-    head: Option<Oid>,
-    prev_hash: String,
-    nonce_bag: HashSet<Nonce>,
-    signature: String,
+    //#[serde(with = "Vec::<OidDef>")]
+    //pub related_commits: Vec<Oid>,
+    pub branch: String,
+    #[serde(with = "OidDef")]
+    pub head: Oid,
+    pub prev_hash: String,
+    pub nonce_bag: NonceBag,
+    pub signature: String,
 }
 
 impl PushEntry {
     //TODO Implement
-    pub fn new(repo: &Repository, branch_str: &str, prev: String) -> PushEntry {
-        let branch = repo.find_reference(branch_str);
+    pub fn new(repo: &Repository, branch_str: &str, prev: String, nonce_bag: NonceBag) -> PushEntry {
         PushEntry {
-            related_commits: Vec::new(),
+//            related_commits: Vec::new(),
             branch: String::from(branch_str),
-            head: None,
+            head: repo.head().unwrap().target().unwrap(),
             prev_hash: prev,
-            nonce_bag: HashSet::new(),
+            nonce_bag: nonce_bag,
             signature: String::from(""),
         }
     }
@@ -43,42 +80,95 @@ impl PushEntry {
         hasher.result_str()
     }
 
-    //TODO implement
-    pub fn from_str(string: String) -> PushEntry {
-        PushEntry {
-            related_commits: Vec::new(),
-            branch: String::from(""),
-            head: None,
-            prev_hash: String::from(""),
-            nonce_bag: HashSet::new(),
-            signature: String::from(""),
+    pub fn from_str(string: &str) -> Option<PushEntry> {
+        match serde_json::from_str(string) {
+            Ok(p) => Some(p),
+            Err(_) => None,
         }
     }
 
-    pub fn from_ref(reference: &Reference) -> Option<PushEntry> {
+    pub fn from_ref(repo: &Repository, reference: &Reference) -> Option<PushEntry> {
         match reference.target() {
-            Some(oid) => PushEntry::from_oid(oid),
+            Some(oid) => PushEntry::from_oid(repo, &oid),
             None => None,
         }
     }
 
-    //TODO implement
-    pub fn from_oid(oid: Oid) -> Option<PushEntry> {
-        Some( PushEntry {
-            related_commits: Vec::new(),
-            branch: String::from(""),
-            head: None,
-            prev_hash: String::from(""),
-            nonce_bag: HashSet::new(),
-            signature: String::from(""),
-        })
+    pub fn from_oid(repo: &Repository, oid: &Oid) -> Option<PushEntry> {
+        let commit = match repo.find_commit(oid.clone()) {
+            Ok(c) => c,
+            Err(e) => panic!("couldn't find commit {:?}", oid),
+        };
+        let message = match commit.message() {
+            Some(m) => m,
+            None => panic!("commit message contains invalid UTF-8"),
+        };
+        match serde_json::from_str(&message) {
+            Ok(p) => Some(p),
+            Err(_) => None,
+        }
     }
 
 }
 
 impl fmt::Display for PushEntry {
-    //TODO Implement
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Unimplemented")
+        let text: String = serde_json::to_string_pretty(self).unwrap();
+        write!(f, "{}", text)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use utils::test_helper::*;
+
+    #[test]
+    fn to_string_and_back() {
+        let oid = Oid::from_str("decbf2be529ab6557d5429922251e5ee36519817").unwrap();
+        let entry = PushEntry {
+                //related_commits: vec![oid.to_owned(), oid.to_owned()],
+                branch: String::from("branch_name"),
+                head: Oid::from_str("decbf2be529ab6557d5429922251e5ee36519817").unwrap(),
+                prev_hash: String::from("fwjjk42ofw093j"),
+                nonce_bag: NonceBag::new(),
+                signature: String::from("gpg signature"),
+        };
+        let serialized = &entry.to_string();
+        let deserialized = PushEntry::from_str(&serialized).unwrap();
+        assert_eq!(entry, deserialized)
+    }
+
+    #[test]
+    fn from_string() {
+        let string = "{\n  \"branch\": \"branch_name\",\n  \"head\": {\n    \"raw\": {\n      \"id\": [\n        222,\n        203,\n        242,\n        190,\n        82,\n        154,\n        182,\n        85,\n        125,\n        84,\n        41,\n        146,\n        34,\n        81,\n        229,\n        238,\n        54,\n        81,\n        152,\n        23\n      ]\n    }\n  },\n  \"prev_hash\": \"fwjjk42ofw093j\",\n  \"nonce_bag\": {\n    \"bag\": []\n  },\n  \"signature\": \"gpg signature\"\n}";
+        let entry = PushEntry {
+                //related_commits: vec![oid.to_owned(), oid.to_owned()],
+                branch: String::from("branch_name"),
+                head: Oid::from_str("decbf2be529ab6557d5429922251e5ee36519817").unwrap(),
+                prev_hash: String::from("fwjjk42ofw093j"),
+                nonce_bag: NonceBag::new(),
+                signature: String::from("gpg signature"),
+        };
+        let deserialized = PushEntry::from_str(&string).unwrap();
+
+        assert_eq!(deserialized, entry)
+    }
+
+
+    #[test]
+    fn from_oid() {
+        let repo = setup();
+        let oid = Oid::from_str("71903a0394016f5970eb6359be0f272b69f391b4").unwrap();
+        let entry = PushEntry {
+                //related_commits: vec![oid.to_owned(), oid.to_owned()],
+                branch: String::from("branch_name"),
+                head: Oid::from_str("decbf2be529ab6557d5429922251e5ee36519817").unwrap(),
+                prev_hash: String::from("fwjjk42ofw093j"),
+                nonce_bag: NonceBag::new(),
+                signature: String::from("gpg signature"),
+        };
+        assert_eq!(PushEntry::from_oid(&repo, &oid).unwrap(), entry);
+        teardown(&repo);
     }
 }

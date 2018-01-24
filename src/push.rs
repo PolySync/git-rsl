@@ -1,53 +1,58 @@
-use git2::Repository;
+use git2::{Reference, Repository, Remote};
 
 use std::process;
 
-use common;
-use common::{Nonce, PushEntry};
+use common::{self, PushEntry};
+use common::rsl::{RSL, HasRSL};
+use common::nonce_bag::{NonceBag, HasNonceBag};
+use common::nonce::{Nonce, HasNonce, NonceError};
 
-pub fn secure_push<'repo>(repo: &Repository, remote_name: &str, ref_names: Vec<&str>) {
-    let mut remote = match repo.find_remote(remote_name) {
-        Ok(r) => r,
-        Err(e) => {
-            println!("Error: unable to find remote named {}", remote_name);
-            println!("  {}", e);
-            process::exit(50);
-        },
-    };
+pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: Vec<&str>) {
+
+    let mut remote_rsl: RSL;
+    let mut local_rsl: RSL;
+    let mut nonce_bag: NonceBag;
+    let mut nonce: Nonce;
+
+    //let mut refs = ref_names.iter().filter_map(|name| &repo.find_reference(name).ok());
 
     'push: loop {
-        let (remote_rsl, nonce_bag) = common::retrieve_rsl_and_nonce_bag_from_remote_repo(repo, &mut remote);
 
-        if !common::validate_rsl(repo, &remote_rsl, &nonce_bag) {
+        repo.fetch_rsl(&mut remote);
+        repo.init_rsl_if_needed(&mut remote);
+
+        let (remote_rsl, local_rsl, nonce_bag, nonce) = match repo.read_rsl() {
+            Ok((a,b,c,d)) => (a,b,c,d),
+            Err(e) => panic!("Couldn't read RSL: {:?}", e),
+        };
+
+
+        if !common::validate_rsl(repo, &remote_rsl, &local_rsl, &nonce_bag, &nonce) {
             println!("Error: invalid remote RSL");
             process::exit(-1);
         }
 
-        let local_rsl = match common::local_rsl_from_repo(repo) {
-            Some(branch) => branch,
-            None => {
-                println!("Warning: No local RSL branch");
-                return;
+        // validate that fast forward is possible
+
+        // checkout remote rsl detached
+        // make new push entry
+        let prev_hash = match remote_rsl.last_push_entry {
+            Some(pe) => pe.hash(),
+            None => String::from(""),
+        };
+        //TODO change this to be all ref_names
+        let new_push_entry = PushEntry::new(repo, ref_names.first().unwrap(), prev_hash, nonce_bag.clone());
+        // TODO commit new pushentry
+        repo.commit_push_entry(&new_push_entry).expect("Couldn't commit new push entry");
+
+        match common::push(repo, &mut remote, &ref_names) {
+            Ok(_) => break 'push,
+            Err(e) => {
+                println!("Error: unable to push reference(s) {:?} to remote {:?}", &ref_names.clone().join(", "), &remote.name().unwrap());
+                println!("  {}", e);
+                process::exit(51);
             },
         };
-
-        if local_rsl.target() != remote_rsl.target() {
-            println!("Error: You don't have the latest RSL, please fetch first");
-            return;
-        }
-
-        let remote_oid = remote_rsl.target().unwrap();
-
-        let latest_push_entry = PushEntry::from_oid(remote_oid).unwrap();
-        let prev_hash = latest_push_entry.hash();
-        //TODO change this to be all ref_names
-        let new_push_entry = PushEntry::new(repo, ref_names.first().unwrap(), prev_hash);
-
-        if common::store_in_remote_repo(repo, &remote, &nonce_bag) {
-            //TODO push local related_commits
-            //TODO localRSL = RemoteRSL
-            break 'push;
-        }
-
     }
+    //TODO localRSL = RemoteRSL (fastforward)
 }

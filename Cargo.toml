@@ -6,8 +6,13 @@ authors = ["Jeff Weiss <jweiss@polysync.io>"]
 [dependencies]
 clap = "2"
 git2 = "0.6"
+libgit2-sys = "0.6"
 gpgme = "0.6"
 lazy_static = "0.2"
 rand = "0.3"
 regex = "0.2"
 rust-crypto = "0.2"
+serde_json = "1.0"
+serde = "1.0"
+serde_derive = "1.0"
+fs_extra = "1.0.0"

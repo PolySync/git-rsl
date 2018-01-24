@@ -1,0 +1,19 @@
+0000000000000000000000000000000000000000 140b2027ca9afa9dfd6ec29cfba85d6e2bf80ca2 Annie Tupek <atupek@polysync.io> 1503695812 -0700	commit (initial): initial commit
+140b2027ca9afa9dfd6ec29cfba85d6e2bf80ca2 140b2027ca9afa9dfd6ec29cfba85d6e2bf80ca2 Annie Tupek <atupek@polysync.io> 1503695873 -0700	checkout: moving from master to devel
+140b2027ca9afa9dfd6ec29cfba85d6e2bf80ca2 4fee0b9a3a7aa84751e0b1ac409fd77724e65734 Annie Tupek <atupek@polysync.io> 1503695893 -0700	commit: create devel branch
+4fee0b9a3a7aa84751e0b1ac409fd77724e65734 140b2027ca9afa9dfd6ec29cfba85d6e2bf80ca2 Annie Tupek <atupek@polysync.io> 1503695990 -0700	checkout: moving from devel to master
+140b2027ca9afa9dfd6ec29cfba85d6e2bf80ca2 4fee0b9a3a7aa84751e0b1ac409fd77724e65734 Annie Tupek <atupek@polysync.io> 1503696246 -0700	merge devel: Fast-forward
+4fee0b9a3a7aa84751e0b1ac409fd77724e65734 140b2027ca9afa9dfd6ec29cfba85d6e2bf80ca2 Annie Tupek <atupek@polysync.io> 1503696287 -0700	reset: moving to HEAD~1
+140b2027ca9afa9dfd6ec29cfba85d6e2bf80ca2 86f22bd91dccdeef2c2541e22aba53bd609c6081 Annie Tupek <atupek@polysync.io> 1503696298 -0700	merge devel: Merge made by the 'recursive' strategy.
+86f22bd91dccdeef2c2541e22aba53bd609c6081 4fee0b9a3a7aa84751e0b1ac409fd77724e65734 Annie Tupek <atupek@polysync.io> 1503696419 -0700	checkout: moving from master to devel
+4fee0b9a3a7aa84751e0b1ac409fd77724e65734 b8c1c021ab41eeb3bd64f26c1ee9e316156d37a0 Annie Tupek <atupek@polysync.io> 1503696562 -0700	commit: second devel commit
+b8c1c021ab41eeb3bd64f26c1ee9e316156d37a0 94135ed945a830d0336f6696cfa23ff0e25295ec Annie Tupek <atupek@polysync.io> 1503696601 -0700	commit: third devel commit
+94135ed945a830d0336f6696cfa23ff0e25295ec 94135ed945a830d0336f6696cfa23ff0e25295ec Annie Tupek <atupek@polysync.io> 1503696626 -0700	checkout: moving from devel to feature
+94135ed945a830d0336f6696cfa23ff0e25295ec a3535faf6ae008b78fde393a76e2fe36b7d07d50 Annie Tupek <atupek@polysync.io> 1503696641 -0700	commit: create feature branch
+140b2027ca9afa9dfd6ec29cfba85d6e2bf80ca2 140b2027ca9afa9dfd6ec29cfba85d6e2bf80ca2 Gabriella Chronis <gchronis@polysync.io> 1515179613 -0800	checkout: moving from 140b2027ca9afa9dfd6ec29cfba85d6e2bf80ca2 to RSL
+140b2027ca9afa9dfd6ec29cfba85d6e2bf80ca2 55be52b1b7b3c82017542a6bc4acb03dcfa7e11b Gabriella Chronis <gchronis@polysync.io> 1515641911 -0800	commit: {\n "branch": "branch_name",\n "related_commits": [\n "decbf2be529ab6557d5429922251e5ee36519817",\n "decbf2be529ab6557d5429922251e5ee36519817"\n ],\n "head": "",\n "prev_hash": "fwjjk42ofw093j",\n "nonce_bag": [],\n "signature": "gpg signature"\n}
+55be52b1b7b3c82017542a6bc4acb03dcfa7e11b 140b2027ca9afa9dfd6ec29cfba85d6e2bf80ca2 Gabriella Chronis <gchronis@polysync.io> 1515641956 -0800	reset: moving to HEAD~1
+140b2027ca9afa9dfd6ec29cfba85d6e2bf80ca2 ffe190fe006c86c3b4a30e61e9d6cc53fb12fd4f Gabriella Chronis <gchronis@polysync.io> 1515641966 -0800	commit: {
+ffe190fe006c86c3b4a30e61e9d6cc53fb12fd4f c1db33a91525ff3a5d341da601e7ca60b671c7c6 Gabriella Chronis <gchronis@polysync.io> 1515642230 -0800	commit (amend): {
+c1db33a91525ff3a5d341da601e7ca60b671c7c6 898cd2e18ed21bc5b2805dfff483dbbddba5f0af Gabriella Chronis <gchronis@polysync.io> 1515643079 -0800	commit (amend): {
+898cd2e18ed21bc5b2805dfff483dbbddba5f0af 71903a0394016f5970eb6359be0f272b69f391b4 Gabriella Chronis <gchronis@polysync.io> 1515643226 -0800	commit (amend): {
