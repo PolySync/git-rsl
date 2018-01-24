@@ -11,18 +11,37 @@ use common::{self, Nonce, HasNonce};
 use common::{NonceBag, HasNonceBag};
 use common::PushEntry;
 
+use common::nonce::NonceError;
+use common::nonce::NonceBagError;
+
+
+
 const RSL_BRANCH: &'static str = "RSL";
 const REFLOG_MSG: &'static str = "Retrieve RSL branchs from remote";
 
 #[derive(Debug)]
 pub enum RSLError {
     Problem(),
-    GitError(git2::Error)
+    GitError(git2::Error),
+    NonceError(NonceError),
+    NonceBagError(NonceBagError),
 }
 
 impl From<git2::Error> for RSLError {
     fn from(error: git2::Error) -> Self {
         RSLError::GitError(error)
+    }
+}
+
+impl From<common::nonce::NonceBagError> for RSLError {
+    fn from(error: NonceBagError) -> Self {
+        RSLError::NonceBagError(error)
+    }
+}
+
+impl From<common::nonce::NonceError> for RSLError {
+    fn from(error: NonceError) -> Self {
+        RSLError::NonceError(error)
     }
 }
 
@@ -92,8 +111,8 @@ impl HasRSL for Repository {
 
     fn rsl_init(&self, remote: &mut Remote) -> Result<(RSL, RSL, NonceBag, Nonce), RSLError> {
 
-
         // TODO: figure out a way to orphan branch; .branch() needs a commit ref. For now, find first commit and use that as ancestor for RSL
+        // Update: this is highly possible with the flexibility of git2rust. Just need to make a commit with no parent and then give it the name of a nonexistent rsl ref as the head to update and it will create the branch automatically
         let initial_commit = match RSL::find_first_commit(self) {
             Ok(r) => r,
             Err(e) => return Err(RSLError::Problem()),
@@ -114,22 +133,19 @@ impl HasRSL for Repository {
         };
 
         // save random nonce locally
-        let nonce = match Nonce::new() {
-            Ok(n) => n,
-            Err(_) => return Err(RSLError::Problem())
-        };
-        self.write_nonce(&nonce);
+        let nonce = Nonce::new()?;
+        self.write_nonce(&nonce)?;
 
         // create new nonce bag with initial nonce
         let mut nonce_bag = NonceBag::new();
-        nonce_bag.insert(nonce);
+        nonce_bag.insert(nonce)?;
 
         //  nonce bag (inlcuding commit)
-        self.write_nonce_bag(&nonce_bag);
-        self.commit_nonce_bag();
+        self.write_nonce_bag(&nonce_bag)?;
+        self.commit_nonce_bag()?;
 
         // push new rsl branch
-        self.push_rsl(remote);
+        self.push_rsl(remote)?;
 
         // put this in a loop ? with a max try timeout
         match self.fetch_rsl(remote) {
