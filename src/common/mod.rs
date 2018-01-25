@@ -147,7 +147,8 @@ pub fn push(repo: &Repository, remote: &mut Remote, ref_names: &[&str]) -> Resul
             refs_ref.push(&name)
         }
 
-        remote.push(&refs_ref, Some(&mut opts))
+        remote.push(&refs_ref, Some(&mut opts))?;
+        Ok(())
     })
 }
 

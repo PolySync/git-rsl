@@ -12,7 +12,7 @@ use common::{NonceBag, HasNonceBag};
 use common::PushEntry;
 
 use common::nonce::NonceError;
-use common::nonce::NonceBagError;
+use common::nonce_bag::NonceBagError;
 
 
 
@@ -33,7 +33,7 @@ impl From<git2::Error> for RSLError {
     }
 }
 
-impl From<common::nonce::NonceBagError> for RSLError {
+impl From<common::nonce_bag::NonceBagError> for RSLError {
     fn from(error: NonceBagError) -> Self {
         RSLError::NonceBagError(error)
     }
@@ -81,8 +81,9 @@ pub trait HasRSL {
     fn read_rsl(&self) -> Result<(RSL, RSL, NonceBag, Nonce), RSLError>;
     fn read_local_rsl(&self) -> Result<RSL, RSLError>;
     fn read_remote_rsl(&self) -> Result<RSL, RSLError>;
-    fn init_rsl_if_needed(&self, remote: &mut Remote) -> Result<(RSL, RSL, NonceBag, Nonce), RSLError>;
-    fn rsl_init(&self, remote: &mut Remote) -> Result<(RSL, RSL, NonceBag, Nonce), RSLError>;
+    fn init_rsl_if_needed(&self, remote: &mut Remote) -> Result<(), RSLError>;
+    fn rsl_init_global(&self, remote: &mut Remote) -> Result<(), RSLError>;
+    fn rsl_init_local(&self) -> Result<(), RSLError>;
     fn fetch_rsl(&self, remote: &mut Remote) -> Result<(),
      RSLError>;
     fn commit_push_entry(&self, push_entry: &PushEntry) -> Result<Oid, RSLError>;
@@ -109,7 +110,14 @@ impl HasRSL for Repository {
         None
     }
 
-    fn rsl_init(&self, remote: &mut Remote) -> Result<(RSL, RSL, NonceBag, Nonce), RSLError> {
+    fn rsl_init_global(&self, remote: &mut Remote) -> Result<(), RSLError> {
+        println!("Initializing Reference State Log for this repository.");
+        // TODO
+        // make new parentless commit, with your nonce bag in it
+        ///push it to a new branch called RSL.
+        // if the push is successful,
+        // then fetch the remote and do the verification routine and ff it to local....?
+        // which if verification sees you have no local RSL branch it just lets you go ahead and fast forward? Or should it already exist?
 
         // TODO: figure out a way to orphan branch; .branch() needs a commit ref. For now, find first commit and use that as ancestor for RSL
         // Update: this is highly possible with the flexibility of git2rust. Just need to make a commit with no parent and then give it the name of a nonexistent rsl ref as the head to update and it will create the branch automatically
@@ -158,8 +166,13 @@ impl HasRSL for Repository {
             Err(e) => return Err(RSLError::Problem()),
         };
 
-        Ok((remote_rsl, local_rsl, nonce_bag, nonce))
+        Ok(())
 
+    }
+
+    fn rsl_init_local(&self) -> Result<(), RSLError> {
+        // TODO implement
+        Ok(())
     }
 
     fn read_rsl(&self) -> Result<(RSL, RSL, NonceBag, Nonce), RSLError> {
@@ -198,10 +211,9 @@ impl HasRSL for Repository {
 
     fn read_remote_rsl(&self) -> Result<RSL, RSLError> {
         let kind = RSLType::Remote;
-        let reference = match self.find_branch(RSL_BRANCH, BranchType::Remote) {
-                Err(e) => return Err(RSLError::Problem()),
-                Ok(rsl) => (rsl.into_reference()),
-        };
+        let branch = self.find_branch(RSL_BRANCH, BranchType::Remote)?;
+        let reference = branch.into_reference();
+
         let head = match reference.target() {
             Some(oid) => oid,
             None => return Err(RSLError::Problem()),
@@ -243,26 +255,27 @@ impl HasRSL for Repository {
 
     fn fetch_rsl(&self, remote: &mut Remote) -> Result<(), RSLError> {
         // not sure the behavior here if the branch doesn't exist
-        match common::fetch(self, remote, &[RSL_BRANCH], Some(REFLOG_MSG)) {
-            Ok(()) => Ok(()),
-            Err(e) => return Err(RSLError::GitError(e))
-        }
+        // should return Some(()) or Some(Reference) if remote exists and None if it doesn't exist and Err if it failed for some other reason.
+        common::fetch(self, remote, &[RSL_BRANCH], Some(REFLOG_MSG))?;
+        Ok(())
     }
 
-    fn init_rsl_if_needed(&self, remote: &mut Remote) -> Result<(RSL, RSL, NonceBag, Nonce), RSLError> {
+    fn init_rsl_if_needed(&self, remote: &mut Remote) -> Result<(), RSLError> {
         // validate that RSL does not exist locally or remotely
         match (self.find_branch(RSL_BRANCH, BranchType::Remote), self.find_branch(RSL_BRANCH, BranchType::Local)) {
-            (Ok(_), _) => Err(RSLError::Problem()),
-            (_, Ok(_)) => Err(RSLError::Problem()),
-            (Err(_), Err(_)) => (self.rsl_init(remote)),
+            (Err(_), Err(_)) => {self.rsl_init_global(remote)?;
+                                Ok(())}, // first use of git-rsl for repo
+            (Ok(_), Err(_)) => {self.rsl_init_local()?;
+                                Ok(())}, // first use of git-rsl for this developer in this repo
+            (Err(_), Ok(_)) => Err(RSLError::Problem()), // local exists but global not found
+            (Ok(_), Ok(_)) => Ok(()), // RSL already set up
         }
     }
 
     fn push_rsl(&self, remote: &mut Remote) -> Result<(), RSLError> {
-        match common::push(self, remote, &[RSL_BRANCH]) {
-            Ok(()) => Ok(()),
-            Err(e) => return Err(RSLError::GitError(e)),
-        }
+        println!("gets here : )");
+        common::push(self, remote, &[RSL_BRANCH])?;
+        Ok(())
     }
 
 

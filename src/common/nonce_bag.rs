@@ -118,7 +118,7 @@ impl HasNonceBag for Repository {
     }
 
     fn write_nonce_bag(&self, nonce_bag: &NonceBag) -> Result<(), NonceBagError> {
-         let nonce_bag_path = self.path().join("NONCE_BAG");
+         let nonce_bag_path = self.path().join(NONCE_BAG_PATH);
          let mut f = match OpenOptions::new().write(true).create(true).open(&nonce_bag_path) {
              Ok(f) => f,
              Err(e) => return Err(NonceBagError::NonceBagReadError(e)),
@@ -137,7 +137,7 @@ impl HasNonceBag for Repository {
         let mut index = self.index()?;
         index.add_path(self.path().join(NONCE_BAG_PATH).as_ref())?;
         let oid = index.write_tree()?;
-        let signature = self.signature().unwrap();
+        let signature = self.signature()?;
         let message = "Update nonce bag";
         let parent_commit_ref = match self.find_reference(RSL_BRANCH) {
             Ok(r) => r,
@@ -148,15 +148,13 @@ impl HasNonceBag for Repository {
             Err(e) => panic!("couldn't find parent commit: {}", e),
         };
         let tree = self.find_tree(oid)?;
-        match self.commit(Some(RSL_BRANCH), //  point HEAD to our new commit
+        let commit_oid = self.commit(Some(RSL_BRANCH), //  point HEAD to our new commit
             &signature, // author
             &signature, // committer
             &message, // commit message
             &tree, // tree
-            &[&parent_commit]) { // parents
-                Ok(oid) => Ok(oid),
-                Err(e) => return Err(NonceBagError::GitError(e)),
-            }
+            &[&parent_commit])?;
+        Ok(commit_oid)
     }
 }
 

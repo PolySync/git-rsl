@@ -18,8 +18,9 @@ pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names:
 
     'push: loop {
 
-        repo.fetch_rsl(&mut remote);
-        repo.init_rsl_if_needed(&mut remote);
+        repo.fetch_rsl(&mut remote).expect("Problem fetching Remote RSL. Check your connection or your SSH config");
+
+        repo.init_rsl_if_needed(&mut remote).expect("Problem initializing RSL");
 
         let (remote_rsl, local_rsl, nonce_bag, nonce) = match repo.read_rsl() {
             Ok((a,b,c,d)) => (a,b,c,d),
