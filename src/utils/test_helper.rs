@@ -2,14 +2,20 @@ use std::path::Path;
 use std::env;
 use std::fs;
 
+
 use fs_extra::dir::*;
 use fs_extra::error::*;
 
 use git2::Repository;
 use rand::{Rng, thread_rng};
 
+pub struct Context {
+    pub local: Repository,
+    pub remote: Repository
+}
 
-pub fn setup() -> Repository  {
+
+pub fn setup() -> Context {
     let mut fixture_dir = env::current_dir().unwrap();
     &fixture_dir.push("fixtures/fixture.git");
     let suffix: String = thread_rng().gen_ascii_chars().take(12).collect();
@@ -42,17 +48,20 @@ pub fn setup() -> Repository  {
     &fixture_dir.push("fixtures/fixture.NONCE");
     fs::copy(fixture_dir, &path_to_local_repo.join(".git").join("NONCE")).unwrap();
 
-    let local_repo = match Repository::open(&path_to_local_repo) {
+    let local = match Repository::open(&path_to_local_repo) {
         Ok(repo) => repo,
         Err(e) => panic!("setup failed: {:?}", e),
     };
-    local_repo
+    let remote = Repository::open(&path_to_remote_repo).unwrap();
+    Context {local, remote}
 }
 
-pub fn teardown(repo: &Repository) -> Result<()> {
-    let path = repo.path().parent().unwrap();
-    match fs::remove_dir_all(&path) {
-        Ok(()) => Ok(()),
-        Err(e) => panic!("Teardown failed: {:?}", e),
-    }
+pub fn teardown(context: Context) -> () {
+    let rm_rf = |repo: Repository| -> () {
+        let path = repo.path().parent().unwrap();
+        fs::remove_dir_all(&path).unwrap();
+        ()
+    };
+    rm_rf(context.local);
+    rm_rf(context.remote);
 }

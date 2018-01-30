@@ -288,20 +288,23 @@ mod tests {
 
     #[test]
     fn commit_push_entry() {
-        let repo = setup();
-        let entry = PushEntry {
-                //related_commits: vec![oid.to_owned(), oid.to_owned()],
-                branch: String::from("branch_name"),
-                head: repo.head().unwrap().target().unwrap(),
-                prev_hash: String::from("hash_of_last_pushentry"),
-                nonce_bag: NonceBag::new(),
-                signature: String::from("gpg signature"),
-        };
-        let oid = repo.commit_push_entry(&entry).unwrap();
-        let obj = repo.find_commit(oid).unwrap();
-        let new_head = repo.find_branch("RSL", BranchType::Local).unwrap();
-        assert_eq!(oid, new_head.into_reference().target().unwrap());
-        assert_eq!(&obj.message().unwrap(), &"hello");
-        teardown(&repo);
+        let context = setup();
+        {
+            let repo = &context.local;
+            let entry = PushEntry {
+                    //related_commits: vec![oid.to_owned(), oid.to_owned()],
+                    branch: String::from("branch_name"),
+                    head: repo.head().unwrap().target().unwrap(),
+                    prev_hash: String::from("hash_of_last_pushentry"),
+                    nonce_bag: NonceBag::new(),
+                    signature: String::from("gpg signature"),
+            };
+            let oid = repo.commit_push_entry(&entry).unwrap();
+            let obj = repo.find_commit(oid).unwrap();
+            let new_head = repo.find_branch("RSL", BranchType::Local).unwrap();
+            assert_eq!(oid, new_head.into_reference().target().unwrap());
+            assert_eq!(&obj.message().unwrap(), &"hello");
+        }
+        teardown(context);
     }
 }
