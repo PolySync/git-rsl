@@ -150,7 +150,7 @@ impl HasRSL for Repository {
 
         //  nonce bag (inlcuding commit)
         self.write_nonce_bag(&nonce_bag)?;
-        self.commit_nonce_bag()?;
+        self.commit_nonce_bag().expect("couldn't commit nonce bag");
 
         // push new rsl branch
         self.push_rsl(remote)?;
