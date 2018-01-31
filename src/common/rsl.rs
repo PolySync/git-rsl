@@ -287,8 +287,20 @@ mod tests {
     use utils::test_helper::*;
 
     #[test]
+    fn rsl_init() {
+        let mut context = setup();
+        context.without_rsl();
+        let result = context.local.init_rsl_if_needed(context.remote_ref).unwrap();
+        assert_eq!(result, ()); // returns successfully
+        // local rsl branch exists
+        // local nonce exists
+        // remote rsl branch exists
+    }
+
+    #[test]
     fn commit_push_entry() {
-        let context = setup();
+        let mut context = setup();
+        context.checkout("RSL");
         {
             let repo = &context.local;
             let entry = PushEntry {

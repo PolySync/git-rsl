@@ -1,6 +1,10 @@
 use std::path::Path;
 use std::env;
 use std::fs;
+use std::str;
+
+use std::process::{Command, Output};
+
 
 
 use fs_extra::dir::*;
@@ -12,6 +16,61 @@ use rand::{Rng, thread_rng};
 pub struct Context {
     pub local: Repository,
     pub remote: Repository
+}
+
+impl Context {
+    pub fn without_remote_rsl(&mut self) -> &mut Context {
+        // delete RSL branch in remote
+        let cmd = Command::new("git")
+            .current_dir(self.remote.path().parent().unwrap())
+            .arg("branch")
+            .args(&["-D", "RSL"])
+            .output().unwrap();
+        if cmd.status.success() != true {
+            panic!("{}", str::from_utf8(cmd.stderr.as_ref()).unwrap())
+        };
+        // prune RSL branch in local
+        let cmd = Command::new("git")
+            .current_dir(self.local.path().parent().unwrap())
+            .arg("remote")
+            .arg("prune")
+            .arg("origin")
+            .output().unwrap();
+        if cmd.status.success() != true {
+            panic!("{}", str::from_utf8(cmd.stderr.as_ref()).unwrap())
+        };
+        self
+    }
+
+    pub fn without_local_rsl(&mut self) -> &mut Context {
+        //
+        let cmd = Command::new("git")
+            .current_dir(self.local.path().parent().unwrap())
+            .arg("branch")
+            .args(&["-D", "RSL"])
+            .output().unwrap();
+        if cmd.status.success() != true {
+            panic!("{}", str::from_utf8(cmd.stderr.as_ref()).unwrap())
+        };
+        self
+    }
+
+    pub fn without_rsl(&mut self) -> &mut Context {
+        self.without_local_rsl();
+        self.without_remote_rsl();
+        self
+    }
+
+    pub fn checkout(&mut self, branch: &str) -> &mut Context {
+        let cmd = Command::new("git")
+        .current_dir(self.local.path().parent().unwrap())
+        .args(&["checkout", branch])
+        .output().unwrap();
+        if cmd.status.success() != true {
+            panic!("{}", str::from_utf8(cmd.stderr.as_ref()).unwrap())
+        }
+        self
+    }
 }
 
 
@@ -37,11 +96,22 @@ pub fn setup() -> Context {
 
 
     // create local developer directory and clone repo from remote
+    // TODO clone all branches
     let local_repo_name = format!("/tmp/rsl_test{}_local", suffix);
     let path_to_local_repo = Path::new(&local_repo_name);
     create_all(&path_to_local_repo, true).unwrap();
     let remote_url = format!("file://{}", &path_to_remote_repo.to_str().unwrap());
     Repository::clone(&remote_url, &path_to_local_repo).unwrap();
+
+    // create local RSL branch from remote (ugh)
+    let cmd = Command::new("git")
+    .current_dir(path_to_local_repo)
+    .args(&["branch", "RSL"])
+    .args(&["--track", "origin/RSL"])
+    .output().unwrap();
+    if cmd.status.success() != true {
+        panic!("{}", str::from_utf8(cmd.stderr.as_ref()).unwrap())
+    }
 
     // add local Nonce
     fixture_dir = env::current_dir().unwrap();
