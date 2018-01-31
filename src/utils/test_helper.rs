@@ -2,6 +2,8 @@ use std::path::Path;
 use std::env;
 use std::fs;
 use std::str;
+use std::ffi::OsStr;
+
 
 use std::process::{Command, Output};
 
@@ -10,7 +12,7 @@ use std::process::{Command, Output};
 use fs_extra::dir::*;
 use fs_extra::error::*;
 
-use git2::Repository;
+use git2::{Repository, REPOSITORY_OPEN_BARE};
 use rand::{Rng, thread_rng};
 
 pub struct Context {
@@ -122,7 +124,9 @@ pub fn setup() -> Context {
         Ok(repo) => repo,
         Err(e) => panic!("setup failed: {:?}", e),
     };
-    let remote = Repository::open(&path_to_remote_repo).unwrap();
+
+    // open remote repo as bare
+    let remote = open_bare_repository(&path_to_remote_repo.join(".git"));
     Context {local, remote}
 }
 
@@ -134,4 +138,9 @@ pub fn teardown(context: Context) -> () {
     };
     rm_rf(context.local);
     rm_rf(context.remote);
+}
+
+fn open_bare_repository<P>(path: P) -> Repository
+    where P: AsRef<Path>, P: AsRef<OsStr> {
+    Repository::open_ext(&path, REPOSITORY_OPEN_BARE,  &[] as &[&OsStr]).unwrap()
 }
