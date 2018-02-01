@@ -25,6 +25,7 @@ pub enum RSLError {
     GitError(git2::Error),
     NonceError(NonceError),
     NonceBagError(NonceBagError),
+    ReadError()
 }
 
 impl From<git2::Error> for RSLError {
@@ -163,7 +164,7 @@ impl HasRSL for Repository {
 
         let remote_rsl = match self.read_remote_rsl() {
             Ok(rsl) => rsl,
-            Err(e) => return Err(RSLError::Problem()),
+            Err(e) => return Err(e),
         };
 
         Ok(())
@@ -178,19 +179,19 @@ impl HasRSL for Repository {
     fn read_rsl(&self) -> Result<(RSL, RSL, NonceBag, Nonce), RSLError> {
         let remote_rsl = match self.read_remote_rsl() {
             Ok(rsl) => rsl,
-            Err(e) => return Err(RSLError::Problem())
+            Err(e) => return Err(RSLError::ReadError(e))
         };
         let local_rsl = match self.read_local_rsl() {
             Ok(rsl) => rsl,
-            Err(e) => return Err(RSLError::Problem())
+            Err(e) => return Err(RSLError::ReadError(e))
         };
         let nonce_bag = match self.read_nonce_bag() {
             Ok(nb) => nb,
-            Err(e) => return Err(RSLError::Problem())
+            Err(e) => return Err(RSLError::ReadError(e))
         };
         let nonce = match self.read_nonce() {
             Ok(n) => n,
-            Err(e) => return Err(RSLError::Problem()),
+            Err(e) => return Err(RSLError::ReadError(e)),
         };
         Ok((remote_rsl, local_rsl, nonce_bag, nonce))
     }
