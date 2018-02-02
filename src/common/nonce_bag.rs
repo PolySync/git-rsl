@@ -17,6 +17,7 @@ use serde_json;
 
 use common::Nonce;
 use common::nonce::NonceError;
+use common::errors::*;
 
 const NONCE_BAG_PATH: &'static str = "NONCE_BAG";
 const RSL_BRANCH: &'static str = "RSL";
@@ -56,17 +57,18 @@ impl From<NonceError> for NonceBagError {
     }
 }
 
-impl error::Error for NonceBagError {
-    fn description(&self) -> &str {
-        "ahhhh"
-    }
-}
+// impl error::Error for NonceBagError {
+//     fn description(&self) -> &str {
+//         "ahhhh"
+//     }
+// }
 
-impl fmt::Display for NonceBagError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        format!("{:?}", self)
-    }
-}
+// impl fmt::Display for NonceBagError {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         let string = format!("{:?}", self);
+//         Ok(string)
+//     }
+// }
 
 #[derive(Eq, PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct NonceBag {
@@ -78,43 +80,40 @@ impl NonceBag {
             NonceBag {bag: HashSet::new()}
     }
 
-    pub fn insert(&mut self, nonce: Nonce) -> Result<(), NonceBagError> {
+    pub fn insert(&mut self, nonce: Nonce) -> Result<()> {
         match self.bag.insert(nonce) {
             true => Ok(()),
-            false => Err(NonceBagError::NonceBagInsertError())
+            false => bail!("problem inserting nonce into bag"),
         }
     }
 
-    pub fn remove(&mut self, nonce: &Nonce) -> Result<(), NonceBagError> {
+    pub fn remove(&mut self, nonce: &Nonce) -> Result<()> {
         match self.bag.remove(nonce) {
             true => Ok(()),
-            false => Err(NonceBagError::NonceBagUpdateError())
+            false => bail!("problem removing nonce from bag"),
         }
     }
 
-    pub fn from_str(string: &str) -> Result<NonceBag, NonceError> {
-        let result = serde_json::from_str(string)?;
+    pub fn from_str(string: &str) -> Result<NonceBag> {
+        let result = serde_json::from_str(string).chain_err(|| "couldn't parse nonce bag as JSON")?;
         Ok(result)
     }
-    pub fn to_string(&self) -> Result<String, NonceError> {
-        let result = serde_json::to_string(self)?;
+    pub fn to_string(&self) -> Result<String> {
+        let result = serde_json::to_string(self).chain_err(|| "couldn't serialize nonce bag struct")?;
         Ok(result)
     }
 }
 
 pub trait HasNonceBag {
-    fn read_nonce_bag(&self) -> Result<NonceBag, NonceBagError>;
-    fn write_nonce_bag(&self, nonce_bag: &NonceBag) -> Result<(), NonceBagError>;
-    fn commit_nonce_bag(&self) -> Result<Oid, NonceBagError>;
+    fn read_nonce_bag(&self) -> Result<NonceBag>;
+    fn write_nonce_bag(&self, nonce_bag: &NonceBag) -> Result<()>;
+    fn commit_nonce_bag(&self) -> Result<Oid>;
 }
 
 impl HasNonceBag for Repository {
 
-    fn read_nonce_bag(&self) -> Result<NonceBag, NonceBagError> {
-        let current_branch = match self.head() {
-            Ok(b) => b,
-            Err(e) => return Err(NonceBagError::NonceBagCheckoutError(e)),
-        };
+    fn read_nonce_bag(&self) -> Result<NonceBag> {
+        let current_branch = self.head().chain_err(|| " couldn't get current branch")?;
         let current_branch_name = current_branch.name().unwrap();
         //let remote_nonce_branch = match self.find_branch(RSL_BRANCH, BranchType::Remote).map(|b| try!(b.name())) {
         //    Ok(branch) => branch,
@@ -126,39 +125,35 @@ impl HasNonceBag for Repository {
         // let branch = self.find_branch("RSL", BranchType::Local)?.into_reference().peel_to_commit()?.into_object();
         // self.checkout_tree(&branch, None)?; // Option<CheckoutBuilder>
 
-        self.set_head(&RSL_BRANCH)?;
+        self.set_head(&RSL_BRANCH).chain_err(|| "couldn't checkout RSL branch")?;
 
         let nonce_bag_path = &self.path().parent().unwrap().join(NONCE_BAG_PATH);
-        let mut f = match OpenOptions::new().read(true).write(true).create(true).open(&nonce_bag_path) {
-            Ok(f) => f,
-            Err(e) => return Err(NonceBagError::NonceBagReadError(e)),
-        };
+        let mut f = OpenOptions::new().read(true).write(true).create(true).open(&nonce_bag_path).chain_err(|| "couldn't open nonce bag for reading")?;
         let mut nonce_bag = NonceBag::new();
         let file = BufReader::new(&f);
         for (_num, line) in file.lines().enumerate() {
              let l = line.unwrap();
-             let existing_nonce = match Nonce::from_str(&l) {
-                 Ok(n) => n,
-                 Err(e) => return Err(NonceBagError::InvalidNonceBag(e)),
-             };
+             let existing_nonce = Nonce::from_str(&l).chain_err(|| "couldn't parse into nonce bytes")?;
              &nonce_bag.insert(existing_nonce);
          }
-         &self.set_head(&current_branch_name);
+         &self.set_head(&current_branch_name).chain_err(|| "couldn't switch back to original branch")?;
          Ok(nonce_bag)
     }
 
-    fn write_nonce_bag(&self, nonce_bag: &NonceBag) -> Result<(), NonceBagError> {
-        let branch = self.find_branch("RSL", BranchType::Local)?.into_reference().peel_to_commit()?.into_object();
+    fn write_nonce_bag(&self, nonce_bag: &NonceBag) -> Result<()> {
+        let branch = self.find_branch("RSL", BranchType::Local)
+            .chain_err(|| "couldn't find rsl branch")?
+            .into_reference()
+            .peel_to_commit()
+            .chain_err(|| "couldnt find latest RSSL commit")?
+            .into_object();
 
-        self.checkout_tree(&branch, None)?; // Option<CheckoutBuilder>
-        self.set_head("refs/heads/RSL")?;
+        self.checkout_tree(&branch, None).chain_err(|| "couldn't checkout RSL tree")?; // Option<CheckoutBuilder>
+        self.set_head("refs/heads/RSL").chain_err(|| "couldn't switch head to RSL")?;
 
         let text = nonce_bag.to_string()?;
         let nonce_bag_path = self.path().parent().unwrap().join(NONCE_BAG_PATH);
-        let mut f = match OpenOptions::new().write(true).create(true).open(&nonce_bag_path) {
-             Ok(f) => f,
-             Err(e) => return Err(NonceBagError::NonceBagReadError(e)),
-         };
+        let mut f = OpenOptions::new().write(true).create(true).open(&nonce_bag_path).chain_err(|| "couldn't open nonce bag fiile for writing")?;
          // for nonce in &nonce_bag.bag {
          //     match f.write(&nonce.bytes) {
          //         Ok(32) => (),
@@ -166,32 +161,34 @@ impl HasNonceBag for Repository {
          //         Err(e) => return Err(NonceBagError::NonceBagWriteError(e)),
          //     };
          // }
-         f.write_all(&text.as_bytes())?;
+         f.write_all(&text.as_bytes()).chain_err(|| "couldnt write to nonce bag file")?;
          Ok(())
     }
 
-    fn commit_nonce_bag(&self) -> Result<Oid, NonceBagError> {
-        let mut index = self.index()?;
+    fn commit_nonce_bag(&self) -> Result<Oid> {
+        let mut index = self.index()
+            .chain_err(|| "couldn't find index")?;
         let path = Path::new(NONCE_BAG_PATH);
-        index.add_path(&path)?;
-        let oid = index.write_tree().unwrap();
-        let signature = self.signature()?;
+        index.add_path(&path)
+            .chain_err(|| "couldn't add path")?;
+        let oid = index.write_tree()
+            .chain_err(|| "couldn't write tree")?;
+        let signature = self.signature()
+            .chain_err(|| "couldn't generate sig")?;
         let message = "Update nonce bag";
-        let parent_commit_ref = match self.find_branch("RSL", BranchType::Local) {
-            Ok(r) => r.into_reference(),
-            Err(e) => panic!("couldn't find parent commit: {}", e),
-        };
-        let parent_commit = match parent_commit_ref.peel_to_commit() {
-            Ok(c) => c,
-            Err(e) => panic!("couldn't find parent commit: {}", e),
-        };
-        let tree = self.find_tree(oid)?;
+        let parent_commit = self.find_branch("RSL", BranchType::Local)
+            .chain_err(|| "coudln't find parent commit")?
+            .into_reference()
+            .peel_to_commit()
+            .chain_err(|| "couldn't find parent commit OID")?;
+        let tree = self.find_tree(oid).chain_err(|| "couldn't find tree")?;
         let commit_oid = self.commit(Some("HEAD"), //  point HEAD to our new commit
             &signature, // author
             &signature, // committer
             &message, // commit message
             &tree, // tree
-            &[&parent_commit])?;
+            &[&parent_commit])
+            .chain_err(|| "failed to commit nonce bag")?;
         Ok(commit_oid)
     }
 }

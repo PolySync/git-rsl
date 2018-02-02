@@ -22,11 +22,9 @@ mod push;
 mod fetch;
 mod utils;
 
-mod errors {
-    error_chain!{}
-}
 
-use errors::*;
+
+use common::errors::*;
 
 fn main() {
     if let Err(ref e) = run() {
@@ -92,11 +90,9 @@ fn run() -> Result<()> {
 
         let branches: Vec<&str> = matches.values_of("branch").unwrap().collect();
         if program == "git-securefetch" || matches.is_present("fetch") {
-            fetch::secure_fetch(&clean_repo, &mut remote, branches)?;
-            return;
+            fetch::secure_fetch(&clean_repo, &mut remote, branches).chain_err(|| "error fetching")?;
         } else if program == "git-securepush" || matches.is_present("push") {
-            push::secure_push(&clean_repo, &mut remote, branches)?;
-            return;
+            push::secure_push(&clean_repo, &mut remote, branches).chain_err(|| "error pushing")?;
         }
     }
 
@@ -110,5 +106,5 @@ fn run() -> Result<()> {
         Err(e) => panic!("Couldn't unstash local changes. Sorry if we messed with your repository state. It may be necessary to apply changes from the stash. {:?}", e),
     }
 
-
+    Ok(())
 }

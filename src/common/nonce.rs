@@ -12,6 +12,8 @@ use rand::{Rand, Rng};
 
 use serde_json;
 
+use super::errors::*;
+
 #[derive(Debug)]
 pub enum NonceError {
     NoRandomNumberGenerator(::std::io::Error),
@@ -26,18 +28,19 @@ impl From<serde_json::Error> for NonceError {
         NonceError::JsonError(error)
     }
 }
+// 
+// impl error::Error for NonceError {
+//     fn description(&self) -> &str {
+//         "ahhhh"
+//     }
+// }
 
-impl error::Error for NonceError {
-    fn description(&self) -> &str {
-        "ahhhh"
-    }
-}
-
-impl fmt::Display for NonceError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        format!("{:?}", self)
-    }
-}
+// impl fmt::Display for NonceError {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         let string = format!("{:?}", self);
+//         Ok(string)
+//     }
+// }
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct Nonce {
@@ -45,26 +48,21 @@ pub struct Nonce {
 }
 
 impl Nonce {
-    pub fn new() -> Result<Nonce, NonceError> {
-        let mut rng = match OsRng::new() {
-            Ok(rng) => rng,
-            Err(e) => return Err(NonceError::NoRandomNumberGenerator(e)),
-        };
-
+    pub fn new() -> Result<Nonce> {
+        let mut rng = OsRng::new().chain_err(|| "no randum number generator")?;
         Ok(rng.gen())
     }
 
-    pub fn from_str(string: &str) -> Result<Nonce, NonceError> {
+    pub fn from_str(string: &str) -> Result<Nonce> {
         let mut bytes: [u8; 32] = [0; 32];
         let mut cursor = io::Cursor::new(string);
-        match cursor.read_exact(&mut bytes) {
-            Ok(_) => Ok(Nonce { bytes }),
-            Err(e) => Err(NonceError::NonceReadError(e)),
-        }
+        cursor.read_exact(&mut bytes).chain_err(|| "nonce read error")?;
+        Ok(Nonce { bytes })
     }
 
-    pub fn from_json(string: &str) -> Result<Nonce, NonceError> {
-        let result = serde_json::from_str(string)?;
+    pub fn from_json(string: &str) -> Result<Nonce> {
+        let result = serde_json::from_str(string)
+            .chain_err(|| "couldn't parse nonce from string")?;
         Ok(result)
     }
 }
@@ -92,39 +90,28 @@ impl fmt::Display for Nonce {
 
 
 pub trait HasNonce {
-    fn read_nonce(&self) -> Result<Nonce, NonceError>;
-    fn write_nonce(&self, nonce: &Nonce) -> Result<(), NonceError>;
+    fn read_nonce(&self) -> Result<Nonce>;
+    fn write_nonce(&self, nonce: &Nonce) -> Result<()>;
 }
 
 
 impl HasNonce for Repository {
 
-    fn read_nonce(&self) -> Result<Nonce, NonceError> {
+    fn read_nonce(&self) -> Result<Nonce> {
         let mut bytes: [u8; 32] = [0; 32];
         let nonce_path = &self.path().join("NONCE");
-        let mut f = match OpenOptions::new().read(true).write(true).create(true).open(&nonce_path) {
-            Ok(f) => f,
-            Err(e) => return Err(NonceError::NonceReadError(e)),
-        };
-        match f.read_exact(&mut bytes) {
-            Ok(_) => Ok(Nonce { bytes: bytes }),
-            Err(e) => Err(NonceError::NonceReadError(e)),
-        }
+        let mut f = OpenOptions::new().read(true).write(true).create(true).open(&nonce_path).chain_err(|| "could not open nonce file for reading")?;
 
+        f.read_exact(&mut bytes).chain_err(|| "could not parse nonce file")?;
+        Ok(Nonce { bytes: bytes })
     }
 
-    fn write_nonce(&self, nonce: &Nonce) -> Result<(), NonceError> {
+    fn write_nonce(&self, nonce: &Nonce) -> Result<()> {
         let nonce_path = self.path().join("NONCE");
-        let mut f = match OpenOptions::new().write(true).create(true).open(&nonce_path) {
-            Ok(f) => f,
-            Err(e) => return Err(NonceError::NonceReadError(e)),
-        };
+        let mut f = OpenOptions::new().write(true).create(true).open(&nonce_path).chain_err(|| "could not open nonce for writing")?;
 
-        match f.write_all(&nonce.bytes) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(NonceError::NonceWriteError(e)),
-
-        }
+        f.write_all(&nonce.bytes).chain_err(|| "could not write nonce")?;
+        Ok(())
     }
 }
 // fn generate_nonce(repo: &Repository) -> [u8; 32] {

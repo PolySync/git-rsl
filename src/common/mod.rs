@@ -10,7 +10,7 @@ use std::iter::FromIterator;
 
 
 use git2;
-use git2::{FetchOptions, PushOptions, Oid, Reference, Branch, Commit, RemoteCallbacks, Remote, Repository, Revwalk, DiffOptions, RepositoryState};
+use git2::{Error, FetchOptions, PushOptions, Oid, Reference, Branch, Commit, RemoteCallbacks, Remote, Repository, Revwalk, DiffOptions, RepositoryState};
 use git2::BranchType;
 
 use git2::StashApplyOptions;
@@ -29,6 +29,21 @@ pub use self::rsl::{RSL, HasRSL};
 
 const RSL_BRANCH: &'static str = "RSL";
 const REFLOG_MSG: &'static str = "Retrieve RSL branchs from remote";
+
+pub mod errors {
+    use git2;
+    error_chain!{
+        foreign_links {
+            Git(git2::Error);
+        //    Serde(serde_json::Error);
+        }
+    }
+}
+
+use self::errors::*;
+
+
+
 
 // pub fn rsl_init<'repo>(repo: &'repo Repository, remote: &mut Remote) -> (Reference<'repo>, NonceBag) {
 //
@@ -59,12 +74,12 @@ const REFLOG_MSG: &'static str = "Retrieve RSL branchs from remote";
 //     (rsl.into_reference(), nonce_bag)
 // }
 
-pub fn discover_repo() -> Result<Repository, git2::Error> {
+pub fn discover_repo() -> Result<Repository> {
     let current_dir = env::current_dir().unwrap();
-    Repository::discover(current_dir)
+    Repository::discover(current_dir).chain_err(|| "cwd is not a git repo")
 }
 
-pub fn stash_local_changes(repo: &mut Repository) -> Result<(Option<Oid>), git2::Error> {
+pub fn stash_local_changes(repo: &mut Repository) -> Result<(Option<Oid>)> {
     let signature = repo.signature()?;
     let message = "Stashing local changes for RSL business";
 
@@ -91,7 +106,7 @@ pub fn stash_local_changes(repo: &mut Repository) -> Result<(Option<Oid>), git2:
     Ok(Some(oid))
 }
 
-pub fn unstash_local_changes(repo: &mut Repository, stash_id: Option<Oid>) -> Result<(), git2::Error> {
+pub fn unstash_local_changes(repo: &mut Repository, stash_id: Option<Oid>) -> Result<()> {
     if stash_id == None {
         return Ok(());
     }
@@ -104,13 +119,13 @@ pub fn unstash_local_changes(repo: &mut Repository, stash_id: Option<Oid>) -> Re
     Ok(())
 }
 
-pub fn checkout_original_branch(repo: &mut Repository, branch_name: &str) -> Result<(), git2::Error> {
+pub fn checkout_original_branch(repo: &mut Repository, branch_name: &str) -> Result<()> {
     // TODO do this right???
     repo.set_head(branch_name)?;
     Ok(())
 }
 
-pub fn fetch(repo: &Repository, remote: &mut Remote, ref_names: &[&str], _reflog_msg: Option<&str>) -> Result<(), ::git2::Error> {
+pub fn fetch(repo: &Repository, remote: &mut Remote, ref_names: &[&str], _reflog_msg: Option<&str>) -> Result<()> {
     let cfg = repo.config().unwrap();
     let remote_copy = remote.clone();
     let url = remote_copy.url().unwrap();
@@ -122,11 +137,11 @@ pub fn fetch(repo: &Repository, remote: &mut Remote, ref_names: &[&str], _reflog
         let mut opts = FetchOptions::new();
         opts.remote_callbacks(cb);
 
-        remote.fetch(&ref_names, Some(&mut opts), Some(REFLOG_MSG))
+        remote.fetch(&ref_names, Some(&mut opts), Some(REFLOG_MSG)).chain_err(|| "could not fetch ref")
     })
 }
 
-pub fn push(repo: &Repository, remote: &mut Remote, ref_names: &[&str]) -> Result<(), git2::Error> {
+pub fn push(repo: &Repository, remote: &mut Remote, ref_names: &[&str]) -> Result<()> {
     let cfg = repo.config().unwrap();
     let remote_copy = remote.clone();
     let url = remote_copy.url().unwrap();
@@ -262,18 +277,15 @@ fn for_each_commit_from<F>(repo: &Repository, local: Oid, remote: Oid, f: F)
     }
 }
 
-fn find_first_commit(repo: &Repository) -> Result<Commit, git2::Error> {
+fn find_first_commit(repo: &Repository) -> Result<Commit> {
     let mut revwalk: Revwalk = repo.revwalk().expect("Failed to make revwalk");
     revwalk.push_head();
-    // Result<oid> || Result<option>
-    let result = match revwalk.last() { // option<Oid>
-        Some(r) => r, // option<result<oid, err>> => result<oid, err>
-        None => Err(git2::Error::from_str("Couldn't find commit")), // option
-    };
-    match result { // result = result<oid>
-        Ok(r) => repo.find_commit(r), // result<oid> => Result<commit, error>
-        Err(e) => Err(e) // result<error> => result<error>
-    }
+    let result = revwalk
+        .last()  // option<result<oid, err>> => result<oid, err>
+        .ok_or("revwalk empty?")? // result<oid, err>
+        .chain_err(|| "revwalk gave error")?;
+    let commit = repo.find_commit(result).chain_err(|| "first commit not in repo");
+    commit
 }
 
 // pub fn local_rsl_from_repo(repo: &Repository) -> Option<Reference> {
@@ -305,8 +317,8 @@ pub fn reset_local_rsl_to_remote_rsl(_repo: &Repository) {
 
 
 fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
-                             -> Result<T, ::git2::Error>
-    where F: FnMut(&mut git2::Credentials) -> Result<T, ::git2::Error>
+                             -> Result<T>
+    where F: FnMut(&mut git2::Credentials) -> Result<T>
 {
     let mut cred_helper = git2::CredentialHelper::new(url);
     cred_helper.config(cfg);
@@ -340,7 +352,7 @@ fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
         if allowed.contains(git2::USERNAME) {
             debug_assert!(username.is_none());
             ssh_username_requested = true;
-            return Err(git2::Error::from_str("gonna try usernames later"))
+            bail!("gonna try usernames later")
         }
 
         // An "SSH_KEY" authentication indicates that we need some sort of SSH
@@ -381,7 +393,7 @@ fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
         }
 
         // Whelp, we tried our best
-        Err(git2::Error::from_str("no authentication available"))
+        bail!("no authentication available")
     });
 
 
@@ -427,7 +439,7 @@ fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
                         return git2::Cred::ssh_key_from_agent(&s)
                     }
                 }
-                Err(git2::Error::from_str("no authentication available"))
+                bail!("no authentication available");
             });
 
 

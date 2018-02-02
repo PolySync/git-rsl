@@ -7,8 +7,9 @@ use common;
 use common::{NonceBag, HasNonceBag};
 use common::rsl::{RSL, HasRSL};
 use common::nonce::{Nonce, HasNonce, NonceError};
+use common::errors::*;
 
-pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: Vec<&str>) {
+pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: Vec<&str>) -> Result<()> {
 
     let mut remote_rsl: RSL = unsafe { ::std::mem::uninitialized() };
     let mut local_rsl: RSL = unsafe { ::std::mem::uninitialized() };
@@ -68,28 +69,11 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
         }
 
         let new_nonce = common::Nonce::new().unwrap();
-        match repo.write_nonce(&new_nonce) {
-            Ok(_) => (),
-            Err(NonceError::NoNonceFile(e)) => {
-                println!("Error: unable to create nonce file.");
-                println!("  {}", e);
-                process::exit(52);
-            },
-            Err(NonceError::NonceWriteError(e)) => {
-                println!("Error: unable to write to nonce file.");
-                println!("  {}", e);
-                process::exit(53);
-            },
-            Err(e) => {
-                println!("Unexpected error encountered. This is a bug. Please open an issue.");
-                println!("  {:?}", e);
-                process::exit(99);
-            },
-        };
+        repo.write_nonce(&new_nonce).chain_err(|| "nonce write error")?;
 
         nonce_bag.insert(new_nonce);
-        repo.write_nonce_bag(&nonce_bag);
-        repo.commit_nonce_bag();
+        repo.write_nonce_bag(&nonce_bag).chain_err(|| "couldn't write to nonce baf file")?;
+        repo.commit_nonce_bag().chain_err(|| "couldn't commit nonce bag")?;
         match repo.push_rsl(&mut remote) {
             Ok(()) => break 'store,
             _ => (),
@@ -104,4 +88,5 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
 
     // fast forward fetched refs
     common::reset_local_rsl_to_remote_rsl(repo);
+    Ok(())
 }
