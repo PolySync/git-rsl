@@ -9,6 +9,9 @@ extern crate serde_json;
 extern crate fs_extra;
 #[macro_use]
 extern crate serde_derive;
+#[macro_use]
+extern crate error_chain;
+
 
 use std::{env, process};
 
@@ -19,9 +22,26 @@ mod push;
 mod fetch;
 mod utils;
 
+mod errors {
+    error_chain!{}
+}
 
+use errors::*;
 
 fn main() {
+    if let Err(ref e) = run() {
+        println!("error: {}", e);
+        for e in e.iter().skip(1) {
+            println!("caused by: {}", e);
+        }
+        if let Some(backtrace) = e.backtrace() {
+            println!("backtrace: {:?}", backtrace);
+        }
+        std::process::exit(1);
+    }
+}
+
+fn run() -> Result<()> {
     let args: Vec<String> = env::args().collect();
     let program = args[0].clone();
 
@@ -72,10 +92,10 @@ fn main() {
 
         let branches: Vec<&str> = matches.values_of("branch").unwrap().collect();
         if program == "git-securefetch" || matches.is_present("fetch") {
-            fetch::secure_fetch(&clean_repo, &mut remote, branches);
+            fetch::secure_fetch(&clean_repo, &mut remote, branches)?;
             return;
         } else if program == "git-securepush" || matches.is_present("push") {
-            push::secure_push(&clean_repo, &mut remote, branches);
+            push::secure_push(&clean_repo, &mut remote, branches)?;
             return;
         }
     }
