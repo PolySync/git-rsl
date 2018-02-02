@@ -7,6 +7,8 @@ use std::collections::HashSet;
 use std::io::BufReader;
 use std::io::BufRead;
 use std::path::Path;
+use std::fmt;
+use std::error;
 
 
 use git2::{self, Reference, Repository, Oid, BranchType};
@@ -51,6 +53,18 @@ impl From<::std::io::Error> for NonceBagError {
 impl From<NonceError> for NonceBagError {
     fn from(error: NonceError) -> Self {
         NonceBagError::NonceError(error)
+    }
+}
+
+impl error::Error for NonceBagError {
+    fn description(&self) -> &str {
+        "ahhhh"
+    }
+}
+
+impl fmt::Display for NonceBagError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        format!("{:?}", self)
     }
 }
 

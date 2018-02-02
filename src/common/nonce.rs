@@ -4,6 +4,7 @@ use std::fmt;
 use std::fs::OpenOptions;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Read, Write};
+use std::error;
 
 use git2::Repository;
 use rand::os::OsRng;
@@ -23,6 +24,18 @@ pub enum NonceError {
 impl From<serde_json::Error> for NonceError {
     fn from(error: serde_json::Error) -> Self {
         NonceError::JsonError(error)
+    }
+}
+
+impl error::Error for NonceError {
+    fn description(&self) -> &str {
+        "ahhhh"
+    }
+}
+
+impl fmt::Display for NonceError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        format!("{:?}", self)
     }
 }
 
