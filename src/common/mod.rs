@@ -31,11 +31,10 @@ const RSL_BRANCH: &'static str = "RSL";
 const REFLOG_MSG: &'static str = "Retrieve RSL branchs from remote";
 
 pub mod errors {
-    use git2;
     error_chain!{
         foreign_links {
-            Git(git2::Error);
-        //    Serde(serde_json::Error);
+            Git(::git2::Error);
+            Serde(::serde_json::Error);
         }
     }
 }
@@ -352,7 +351,7 @@ fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
         if allowed.contains(git2::USERNAME) {
             debug_assert!(username.is_none());
             ssh_username_requested = true;
-            bail!("gonna try usernames later")
+            bail!(git2::Error::from_str("gonna try usernames later"))
         }
 
         // An "SSH_KEY" authentication indicates that we need some sort of SSH
@@ -393,7 +392,7 @@ fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
         }
 
         // Whelp, we tried our best
-        bail!("no authentication available")
+        bail!(git2::Error::from_str("no authentication available"))
     });
 
 
@@ -439,7 +438,7 @@ fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
                         return git2::Cred::ssh_key_from_agent(&s)
                     }
                 }
-                bail!("no authentication available");
+                bail!(git2::Error::from_str("no authentication available"));
             });
 
 
