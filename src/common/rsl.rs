@@ -191,7 +191,7 @@ impl HasRSL for Repository {
 
     fn read_remote_rsl(&self) -> Result<RSL> {
         let kind = RSLType::Remote;
-        let branch = self.find_branch(RSL_BRANCH, BranchType::Remote).chain_err(|| "could not find RSL branch")?;
+        let branch = self.find_branch("origin/RSL", BranchType::Remote).chain_err(|| "could not find RSL branch")?;
         let reference = branch.into_reference();
         let head = reference.target().ok_or("could not find head reference")?;
         let last_push_entry = self.find_last_push_entry(&head);
