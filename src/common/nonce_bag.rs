@@ -117,6 +117,8 @@ impl HasNonceBag for Repository {
             &tree, // tree
             &[&parent_commit])
             .chain_err(|| "failed to commit nonce bag")?;
+
+        debug_assert!(self.state() == git2::RepositoryState::Clean);
         Ok(commit_oid)
     }
 }
