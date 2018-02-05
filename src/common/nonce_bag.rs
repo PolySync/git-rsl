@@ -16,7 +16,6 @@ use git2::Error;
 use serde_json;
 
 use common::Nonce;
-use common::nonce::NonceError;
 use common::errors::*;
 
 const NONCE_BAG_PATH: &'static str = "NONCE_BAG";
@@ -80,7 +79,6 @@ impl HasNonceBag for Repository {
     }
 
     fn write_nonce_bag(&self, nonce_bag: &NonceBag) -> Result<()> {
-
         let text = nonce_bag.to_string()?;
         let nonce_bag_path = self.path().parent().unwrap().join(NONCE_BAG_PATH);
         let mut f = OpenOptions::new().write(true).create(true).open(&nonce_bag_path).chain_err(|| "couldn't open nonce bag fiile for writing")?;

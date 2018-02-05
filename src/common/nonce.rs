@@ -14,34 +14,6 @@ use serde_json;
 
 use super::errors::*;
 
-#[derive(Debug)]
-pub enum NonceError {
-    NoRandomNumberGenerator(::std::io::Error),
-    NoNonceFile(::std::io::Error),
-    NonceReadError(::std::io::Error),
-    NonceWriteError(::std::io::Error),
-    JsonError(serde_json::Error),
-}
-
-impl From<serde_json::Error> for NonceError {
-    fn from(error: serde_json::Error) -> Self {
-        NonceError::JsonError(error)
-    }
-}
-// 
-// impl error::Error for NonceError {
-//     fn description(&self) -> &str {
-//         "ahhhh"
-//     }
-// }
-
-// impl fmt::Display for NonceError {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         let string = format!("{:?}", self);
-//         Ok(string)
-//     }
-// }
-
 #[derive(Eq, PartialEq, Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct Nonce {
     pub bytes: [u8; 32],

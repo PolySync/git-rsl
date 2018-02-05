@@ -6,7 +6,7 @@ use git2::{Reference, Repository, Remote};
 use common;
 use common::{NonceBag, HasNonceBag};
 use common::rsl::{RSL, HasRSL};
-use common::nonce::{Nonce, HasNonce, NonceError};
+use common::nonce::{Nonce, HasNonce};
 use common::errors::*;
 
 pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: Vec<&str>) -> Result<()> {

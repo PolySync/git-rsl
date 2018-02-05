@@ -5,7 +5,7 @@ use std::process;
 use common::{self, PushEntry};
 use common::rsl::{RSL, HasRSL};
 use common::nonce_bag::{NonceBag, HasNonceBag};
-use common::nonce::{Nonce, HasNonce, NonceError};
+use common::nonce::{Nonce, HasNonce};
 
 use common::errors::*;
 
