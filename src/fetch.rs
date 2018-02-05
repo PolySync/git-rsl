@@ -16,6 +16,12 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
     let mut nonce_bag: NonceBag = unsafe { ::std::mem::uninitialized() };
     let mut nonce: Nonce = unsafe { ::std::mem::uninitialized() };
 
+
+    repo.fetch_rsl(&mut remote);
+    repo.init_rsl_if_needed(&mut remote);
+
+    common::checkout_branch(&repo, "RSL");
+
     //TODO paper algo uses spin lock here, probably a better alternative
 
     let mut store_counter = 5;
@@ -31,9 +37,9 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
                 _ => (),
             }
             //let original_branch = common::prep_workspace(&repo);
-
             repo.fetch_rsl(&mut remote);
-            repo.init_rsl_if_needed(&mut remote);
+
+
 
             let (remote_rsl, local_rsl, nonce_bag, nonce) = match repo.read_rsl() {
                 Ok((a,b,c,d)) => (a,b,c,d),

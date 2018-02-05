@@ -124,6 +124,21 @@ pub fn checkout_original_branch(repo: &mut Repository, branch_name: &str) -> Res
     Ok(())
 }
 
+
+pub fn checkout_branch(repo: &Repository, branch_name: &str) -> Result<()> {
+    let branch = repo.find_branch(branch_name, BranchType::Local)
+        .chain_err(|| "couldn't find branch")?
+        .into_reference()
+        .peel_to_commit()
+        .chain_err(|| "couldnt find latest RSSL commit")?
+        .into_object();
+
+    repo.checkout_tree(&branch, None).chain_err(|| "couldn't checkout RSL tree")?; // Option<CheckoutBuilder>
+    repo.set_head(branch_name).chain_err(|| "couldn't switch head to RSL")?;
+    Ok(())
+}
+
+
 pub fn fetch(repo: &Repository, remote: &mut Remote, ref_names: &[&str], _reflog_msg: Option<&str>) -> Result<()> {
     let cfg = repo.config().unwrap();
     let remote_copy = remote.clone();

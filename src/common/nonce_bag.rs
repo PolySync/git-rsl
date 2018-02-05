@@ -113,20 +113,6 @@ pub trait HasNonceBag {
 impl HasNonceBag for Repository {
 
     fn read_nonce_bag(&self) -> Result<NonceBag> {
-        let current_branch = self.head().chain_err(|| " couldn't get current branch")?;
-        let current_branch_name = current_branch.name().unwrap();
-        //let remote_nonce_branch = match self.find_branch(RSL_BRANCH, BranchType::Remote).map(|b| try!(b.name())) {
-        //    Ok(branch) => branch,
-        //    Err(e) => return Err(NonceBagError::NonceBagCheckoutError(e)),
-        //};
-
-        // TODO checkout rsl branch work tree instead of changing head, read, then checkout HEAD work tree again
-        //
-        // let branch = self.find_branch("RSL", BranchType::Local)?.into_reference().peel_to_commit()?.into_object();
-        // self.checkout_tree(&branch, None)?; // Option<CheckoutBuilder>
-
-        self.set_head(&RSL_BRANCH).chain_err(|| "couldn't checkout RSL branch")?;
-
         let nonce_bag_path = &self.path().parent().unwrap().join(NONCE_BAG_PATH);
         let mut f = OpenOptions::new().read(true).write(true).create(true).open(&nonce_bag_path).chain_err(|| "couldn't open nonce bag for reading")?;
         let mut nonce_bag = NonceBag::new();
@@ -136,7 +122,7 @@ impl HasNonceBag for Repository {
              let existing_nonce = Nonce::from_str(&l).chain_err(|| "couldn't parse into nonce bytes")?;
              &nonce_bag.insert(existing_nonce);
          }
-         &self.set_head(&current_branch_name).chain_err(|| "couldn't switch back to original branch")?;
+
          Ok(nonce_bag)
     }
 
