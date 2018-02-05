@@ -21,39 +21,6 @@ use common::nonce_bag::NonceBagError;
 const RSL_BRANCH: &'static str = "RSL";
 const REFLOG_MSG: &'static str = "Retrieve RSL branchs from remote";
 
-#[derive(Debug)]
-pub enum RSLError<E> {
-    Problem(),
-    GitError(E),
-    NonceError(NonceError),
-    NonceBagError(NonceBagError),
-    ReadError(E),
-    WriteError(E),
-}
-
-impl From<git2::Error> for RSLError<git2::Error> {
-    fn from(error: git2::Error) -> Self {
-        RSLError::GitError(error)
-    }
-}
-
-impl From<common::nonce_bag::NonceBagError> for RSLError<NonceBagError> {
-    fn from(error: NonceBagError) -> Self {
-        RSLError::NonceBagError(error)
-    }
-}
-
-impl From<common::nonce::NonceError> for RSLError<NonceError> {
-    fn from(error: NonceError) -> Self {
-        RSLError::NonceError(error)
-    }
-}
-
-// impl From<common::nonce::NonceError> for common::errors::Error {
-//     fn from(error: NonceError) -> Self {
-//         RSLError::NonceError(error)
-//     }
-// }
 
 #[derive(Debug)]
 pub enum RSLType {

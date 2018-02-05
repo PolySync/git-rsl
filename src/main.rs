@@ -96,7 +96,7 @@ fn run() -> Result<()> {
         }
     }
 
-    match common::checkout_original_branch(&mut clean_repo, current_branch_name) {
+    match common::checkout_branch(&mut clean_repo, current_branch_name) {
         Ok(()) => (),
         Err(e) => panic!("Couldn't checkout starting branch. Sorry if we messed with your repo state. Ensure you are on the desired branch. It may be necessary to apply changes from the stash: {:?}", e),
     }

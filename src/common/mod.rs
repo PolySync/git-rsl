@@ -27,9 +27,6 @@ pub use self::nonce::{Nonce, HasNonce};
 pub use self::nonce_bag::{NonceBag, HasNonceBag};
 pub use self::rsl::{RSL, HasRSL};
 
-const RSL_BRANCH: &'static str = "RSL";
-const REFLOG_MSG: &'static str = "Retrieve RSL branchs from remote";
-
 pub mod errors {
     error_chain!{
         foreign_links {
@@ -40,38 +37,6 @@ pub mod errors {
 }
 
 use self::errors::*;
-
-
-
-
-// pub fn rsl_init<'repo>(repo: &'repo Repository, remote: &mut Remote) -> (Reference<'repo>, NonceBag) {
-//
-//     // validate that RSL does not exist locally or remotely
-//     let remote_rsl = match (repo.find_branch(RSL_BRANCH, BranchType::Remote), repo.find_branch(RSL_BRANCH, BranchType::Local)) {
-//         (Ok(_), _) => panic!("RSL exists remotely. Something is wrong."),
-//         (_, Ok(_)) => panic!("Local RSL detected. something is wrong."),
-//         (Err(_), Err(_)) => (),
-//     };
-//
-//     // TODO: figure out a way to orphan branch; .branch() needs a commit ref.
-//     let initial_commit = match find_first_commit(repo) {
-//         Ok(r) => r,
-//         Err(_) => process::exit(10),
-//     };
-//     let rsl = repo.branch("RSL", &initial_commit, false).unwrap();
-//     let nonce_bag = NonceBag::new();
-//     repo.write_nonce_bag(&nonce_bag);
-//
-//     push(repo, remote, &[&rsl.name().unwrap().unwrap()]);
-//
-//     let nonce = match Nonce::new() {
-//         Ok(n) => n,
-//         Err(_) => process::exit(10)
-//     };
-//     println!("nonce: {:?}", nonce);
-//     repo.write_nonce(nonce);
-//     (rsl.into_reference(), nonce_bag)
-// }
 
 pub fn discover_repo() -> Result<Repository> {
     let current_dir = env::current_dir().unwrap();
@@ -118,13 +83,6 @@ pub fn unstash_local_changes(repo: &mut Repository, stash_id: Option<Oid>) -> Re
     Ok(())
 }
 
-pub fn checkout_original_branch(repo: &mut Repository, branch_name: &str) -> Result<()> {
-    // TODO do this right???
-    repo.set_head(branch_name)?;
-    Ok(())
-}
-
-
 pub fn checkout_branch(repo: &Repository, branch_name: &str) -> Result<()> {
     let branch = repo.find_branch(branch_name, BranchType::Local)
         .chain_err(|| "couldn't find branch")?
@@ -138,7 +96,6 @@ pub fn checkout_branch(repo: &Repository, branch_name: &str) -> Result<()> {
     Ok(())
 }
 
-
 pub fn fetch(repo: &Repository, remote: &mut Remote, ref_names: &[&str], _reflog_msg: Option<&str>) -> Result<()> {
     let cfg = repo.config().unwrap();
     let remote_copy = remote.clone();
@@ -151,7 +108,9 @@ pub fn fetch(repo: &Repository, remote: &mut Remote, ref_names: &[&str], _reflog
         let mut opts = FetchOptions::new();
         opts.remote_callbacks(cb);
 
-        remote.fetch(&ref_names, Some(&mut opts), Some(REFLOG_MSG)).chain_err(|| "could not fetch ref")
+        let reflog_msg = "Retrieve RSL branch from remote";
+
+        remote.fetch(&ref_names, Some(&mut opts), Some(&reflog_msg)).chain_err(|| "could not fetch ref")
     })
 }
 
