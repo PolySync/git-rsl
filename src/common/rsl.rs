@@ -12,12 +12,6 @@ use common::{NonceBag, HasNonceBag};
 use common::PushEntry;
 use common::errors::*;
 
-
-use common::nonce::NonceError;
-use common::nonce_bag::NonceBagError;
-
-
-
 const RSL_BRANCH: &'static str = "RSL";
 const REFLOG_MSG: &'static str = "Retrieve RSL branchs from remote";
 

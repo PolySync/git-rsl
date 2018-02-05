@@ -23,53 +23,6 @@ const NONCE_BAG_PATH: &'static str = "NONCE_BAG";
 const RSL_BRANCH: &'static str = "RSL";
 const REFLOG_MSG: &'static str = "Retrieve RSL branchs from remote";
 
-
-
-#[derive(Debug)]
-pub enum NonceBagError {
-    NoNonceBagFile(::std::io::Error),
-    NonceBagReadError(::std::io::Error),
-    NonceBagWriteError(::std::io::Error),
-    NonceBagInsertError(),
-    NonceBagUpdateError(),
-    ReadWriteError(::std::io::Error),
-    NonceError(NonceError),
-    NonceBagCheckoutError(::git2::Error),
-    InvalidNonceBag(NonceError),
-    GitError(git2::Error),
-}
-
-impl From<git2::Error> for NonceBagError {
-    fn from(error: git2::Error) -> Self {
-        NonceBagError::GitError(error)
-    }
-}
-
-impl From<::std::io::Error> for NonceBagError {
-    fn from(error: ::std::io::Error) -> Self {
-        NonceBagError::ReadWriteError(error)
-    }
-}
-
-impl From<NonceError> for NonceBagError {
-    fn from(error: NonceError) -> Self {
-        NonceBagError::NonceError(error)
-    }
-}
-
-// impl error::Error for NonceBagError {
-//     fn description(&self) -> &str {
-//         "ahhhh"
-//     }
-// }
-
-// impl fmt::Display for NonceBagError {
-//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-//         let string = format!("{:?}", self);
-//         Ok(string)
-//     }
-// }
-
 #[derive(Eq, PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct NonceBag {
     pub bag: HashSet<Nonce>,
@@ -127,15 +80,6 @@ impl HasNonceBag for Repository {
     }
 
     fn write_nonce_bag(&self, nonce_bag: &NonceBag) -> Result<()> {
-        let branch = self.find_branch("RSL", BranchType::Local)
-            .chain_err(|| "couldn't find rsl branch")?
-            .into_reference()
-            .peel_to_commit()
-            .chain_err(|| "couldnt find latest RSSL commit")?
-            .into_object();
-
-        self.checkout_tree(&branch, None).chain_err(|| "couldn't checkout RSL tree")?; // Option<CheckoutBuilder>
-        self.set_head("refs/heads/RSL").chain_err(|| "couldn't switch head to RSL")?;
 
         let text = nonce_bag.to_string()?;
         let nonce_bag_path = self.path().parent().unwrap().join(NONCE_BAG_PATH);
