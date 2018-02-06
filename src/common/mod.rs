@@ -188,7 +188,7 @@ pub fn all_push_entries_in_fetch_head(repo: &Repository, ref_names: &Vec<&str>) 
 
 pub fn validate_rsl(repo: &Repository, remote_rsl: &RSL, local_rsl: &RSL, nonce_bag: &NonceBag, repo_nonce: &Nonce) -> bool {
 
-    if !repo.graph_descendant_of(remote_rsl.head, local_rsl.head).unwrap_or(false) {
+    if !repo.graph_descendant_of(remote_rsl.head, local_rsl.head).unwrap_or(false) && (remote_rsl.head != local_rsl.head) {
         println!("Error: No path to get from Local RSL to Remote RSL");
         return false;
     }
