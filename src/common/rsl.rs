@@ -97,6 +97,8 @@ impl HasRSL for Repository {
             head: rsl_ref,
             last_push_entry: None,
         };
+        common::checkout_branch(self, "RSL")?;
+
 
         // save random nonce locally
         let nonce = Nonce::new()?;

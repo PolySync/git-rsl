@@ -92,7 +92,8 @@ pub fn checkout_branch(repo: &Repository, branch_name: &str) -> Result<()> {
         .into_object();
 
     repo.checkout_tree(&branch, None).chain_err(|| "couldn't checkout RSL tree")?; // Option<CheckoutBuilder>
-    repo.set_head(branch_name).chain_err(|| "couldn't switch head to RSL")?;
+    let name = format!("refs/heads/{}", branch_name);
+    repo.set_head(&name).chain_err(|| "couldn't switch head to RSL")?;
     Ok(())
 }
 
@@ -442,4 +443,21 @@ fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
     // we try to give a more helpful error message about precisely what we
     // tried.
     res
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use utils::test_helper::*;
+
+
+    #[test]
+    fn checkout_branch() {
+        let context = setup();
+        let repo = context.local;
+        assert!(repo.head().unwrap().name().unwrap() == "refs/heads/devel");
+        super::checkout_branch(&repo, "RSL").unwrap();
+        assert!(repo.head().unwrap().name().unwrap() == "refs/heads/RSL");
+    }
 }

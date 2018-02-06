@@ -23,7 +23,7 @@ pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names:
     repo.init_rsl_if_needed(&mut remote).chain_err(|| "Problem initializing RSL");
 
     // checkout RSL branch
-    common::checkout_branch(&repo, "RSL");
+    common::checkout_branch(&repo, "RSL")?;
 
 
     'push: loop {
@@ -80,6 +80,7 @@ mod tests {
         let mut rem = repo.find_remote("origin").unwrap();
         let refs = vec!["devel"];
         let res = super::secure_push(&repo, &mut rem, refs).unwrap();
-        assert_eq!(res, ())
+        assert_eq!(res, ());
+        assert_eq!(2,3)
     }
 }

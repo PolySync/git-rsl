@@ -94,6 +94,9 @@ impl HasNonceBag for Repository {
     }
 
     fn commit_nonce_bag(&self) -> Result<Oid> {
+        println!("current head: {:?}", self.head()?.name().unwrap());
+        assert!(self.head()?.name().unwrap() == "refs/heads/RSL");
+
         let mut index = self.index()
             .chain_err(|| "couldn't find index")?;
         let path = Path::new(NONCE_BAG_PATH);
@@ -110,7 +113,7 @@ impl HasNonceBag for Repository {
             .peel_to_commit()
             .chain_err(|| "couldn't find parent commit OID")?;
         let tree = self.find_tree(oid).chain_err(|| "couldn't find tree")?;
-        let commit_oid = self.commit(Some("HEAD"), //  point HEAD to our new commit
+        let commit_oid = self.commit(Some("refs/heads/RSL"), //  point HEAD to our new commit
             &signature, // author
             &signature, // committer
             &message, // commit message
