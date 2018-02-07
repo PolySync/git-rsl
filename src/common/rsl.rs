@@ -4,7 +4,7 @@ use std::vec::Vec;
 
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
-use git2::{self, Oid, Reference, Repository, Remote, Revwalk, BranchType, Commit};
+use git2::{self, Oid, Reference, Repository, Remote, Revwalk, BranchType, Commit, Index};
 use git2::Error;
 
 use common::{self, Nonce, HasNonce};
@@ -31,15 +31,6 @@ pub struct RSL {
 }
 
 impl RSL {
-
-    fn find_first_commit(repo: &Repository) -> Result<Commit> {
-        let mut revwalk: Revwalk = repo.revwalk().chain_err(|| "Failed to make revwalk")?;
-        revwalk.push_head();
-        let result = revwalk.last()
-            .ok_or("Couldn't find commit")?
-            .chain_err(|| "revwalk returned bad commit")?;
-        repo.find_commit(result).chain_err(|| "could not find first commit")
-    }
 
 }
 
@@ -77,27 +68,38 @@ impl HasRSL for Repository {
 
     fn rsl_init_global(&self, remote: &mut Remote) -> Result<()> {
         println!("Initializing Reference State Log for this repository.");
-        // TODO
-        // make new parentless commit, with your nonce bag in it
-        ///push it to a new branch called RSL.
+
         // if the push is successful,
         // then fetch the remote and do the verification routine and ff it to local....?
         // which if verification sees you have no local RSL branch it just lets you go ahead and fast forward? Or should it already exist?
 
-        // TODO: figure out a way to orphan branch; .branch() needs a commit ref. For now, find first commit and use that as ancestor for RSL
-        // Update: this is highly possible with the flexibility of git2rust. Just need to make a commit with no parent and then give it the name of a nonexistent rsl ref as the head to update and it will create the branch automatically
-        let initial_commit = RSL::find_first_commit(self).chain_err(|| "couldn't find first commit")?;
+        // create new parentless commit
+        let mut index = self.index().chain_err(|| "could not find index")?;
+        assert!(&index.is_empty());
+        let oid = index.write_tree().chain_err(|| "could not write tree from index")?;
+        let signature = self.signature().unwrap();
+        let message = "Initialize RSL";
+        let tree = self.find_tree(oid).chain_err(|| "could not find tree")?;
+        let rsl_head = format!("refs/heads/{}", RSL_BRANCH);
 
-        // create new RSL branch
-        // TODO try if let macro
-        let rsl_ref = self.branch(RSL_BRANCH, &initial_commit, false).chain_err(|| "coudln't find rsl branch")?.get().target().chain_err(|| "couldn't find rsl head oid")?;
+        let oid = self.commit(
+            Some(&rsl_head), //  point HEAD to our new commit
+            &signature, // author
+            &signature, // committer
+            &message, // commit message
+            &tree, // tree
+            &[] // parents
+        ).chain_err(|| "could not create initial RSL commit")?;
+
         // create new RSL
         let local_rsl = RSL {
             kind: RSLType::Local,
             //remote: remote,
-            head: rsl_ref,
+            head: oid,
             last_push_entry: None,
         };
+
+        // checkout branch
         common::checkout_branch(self, "RSL")?;
 
 
@@ -197,7 +199,7 @@ impl HasRSL for Repository {
 
     fn push_rsl(&self, remote: &mut Remote) -> Result<()> {
         println!("gets here : )");
-        common::push(self, remote, &[RSL_BRANCH]).chain_err(|| "could not push rsl");
+        common::push(self, remote, &[RSL_BRANCH]).chain_err(|| "could not push rsl")?;
         Ok(())
     }
 
