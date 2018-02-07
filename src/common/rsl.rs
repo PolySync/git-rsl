@@ -225,6 +225,23 @@ mod tests {
     }
 
     #[test]
+    fn rsl_fetch() {
+        // test that RSL fetch gets the remote branch but doesnt create a local branch if it doesn't yet exist. if it does, we need to change how we decide whether to init.
+        let mut context = setup();
+        context.without_local_rsl();
+        {
+            let repo = &context.local;
+            let mut remote = context.local.find_remote("origin").unwrap().to_owned();
+            &repo.fetch_rsl(&mut remote).unwrap();
+
+            assert!(&repo.find_branch("origin/RSL", BranchType::Remote).is_ok());
+
+            assert!(&repo.find_branch("RSL", BranchType::Local).is_err());
+        }
+        teardown(context)
+    }
+
+    #[test]
     fn commit_push_entry() {
         let mut context = setup();
         context.checkout("RSL");

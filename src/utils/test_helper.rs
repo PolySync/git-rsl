@@ -54,6 +54,15 @@ impl Context {
         if cmd.status.success() != true {
             panic!("{}", str::from_utf8(cmd.stderr.as_ref()).unwrap())
         };
+        // remove remote tracking branch without deleting in origin
+        let cmd = Command::new("git")
+            .current_dir(self.local.path().parent().unwrap())
+            .arg("branch")
+            .args(&["-D", "-r", "origin/RSL"])
+            .output().unwrap();
+        if cmd.status.success() != true {
+            panic!("{}", str::from_utf8(cmd.stderr.as_ref()).unwrap())
+        };
         self
     }
 
