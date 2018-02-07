@@ -54,6 +54,10 @@ pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names:
         // TODO commit new pushentry
         repo.commit_push_entry(&new_push_entry).expect("Couldn't commit new push entry");
 
+        // TODO push RSL branch??
+
+        repo.push_rsl(&mut remote)?;
+
         match common::push(repo, &mut remote, &ref_names) {
             Ok(_) => break 'push,
             Err(e) => {
