@@ -211,25 +211,29 @@ pub fn validate_rsl(repo: &Repository, remote_rsl: &RSL, local_rsl: &RSL, nonce_
     let remaining = revwalk.map(|oid| oid.unwrap());
 
     let result = remaining.fold(last_hash, |prev_hash, oid| {
-        // TODO: handle errors when the commit is not a push entry
-        let current_push_entry = PushEntry::from_oid(&repo, &oid).unwrap();
-        let current_prev_hash = current_push_entry.prev_hash();
+        match PushEntry::from_oid(&repo, &oid) {
+            Some(current_push_entry) => {
+                let current_prev_hash = current_push_entry.prev_hash();
 
-        // if current prev_hash == local_rsl.head (that is, we have arrived at the first push entry after the last recorded one), then check if repo_nonce in PushEntry::from_oid(oid.parent_commit) or noncebag contains repo_nonce; return false if neither holds
-        //if current_prev_hash == last_local_push_entry.hash() {
+                // if current prev_hash == local_rsl.head (that is, we have arrived at the first push entry after the last recorded one), then check if repo_nonce in PushEntry::from_oid(oid.parent_commit) or noncebag contains repo_nonce; return false if neither holds
+                //if current_prev_hash == last_local_push_entry.hash() {
 
-            // validate nonce bag (lines 1-2):
-            // TODO does this take care of when there haven't been any new entries or only one new entry?
-            //if !nonce_bag.bag.contains(&repo_nonce) && !current_push_entry.nonce_bag.bag.contains(&repo_nonce) { // repo nonce not in remote nonce bag && repo_nonce not in remote_rsl.push_after(local_rsl){
-            //    None;
-            //}
-        //}
-        let current_hash = current_push_entry.hash();
-        if prev_hash == Some(current_prev_hash) {
-            Some(current_hash)
-        } else {
-            None
+                    // validate nonce bag (lines 1-2):
+                    // TODO does this take care of when there haven't been any new entries or only one new entry?
+                    //if !nonce_bag.bag.contains(&repo_nonce) && !current_push_entry.nonce_bag.bag.contains(&repo_nonce) { // repo nonce not in remote nonce bag && repo_nonce not in remote_rsl.push_after(local_rsl){
+                    //    None;
+                    //}
+                //}
+                let current_hash = current_push_entry.hash();
+                if prev_hash == Some(current_prev_hash) {
+                    Some(current_hash)
+                } else {
+                    None
+                }
+            },
+            None => prev_hash, // this was not a pushentry. continue with previous entry in hand
         }
+
     });
 
     if result != None { bail!("invalid RSL entry"); }
