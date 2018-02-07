@@ -455,9 +455,12 @@ mod tests {
     #[test]
     fn checkout_branch() {
         let context = setup();
-        let repo = context.local;
-        assert!(repo.head().unwrap().name().unwrap() == "refs/heads/devel");
-        super::checkout_branch(&repo, "RSL").unwrap();
-        assert!(repo.head().unwrap().name().unwrap() == "refs/heads/RSL");
+        {
+            let repo = &context.local;
+            assert!(repo.head().unwrap().name().unwrap() == "refs/heads/devel");
+            super::checkout_branch(&repo, "RSL").unwrap();
+            assert!(repo.head().unwrap().name().unwrap() == "refs/heads/RSL");
+        }
+        teardown(context)
     }
 }

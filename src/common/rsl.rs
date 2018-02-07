@@ -212,13 +212,16 @@ mod tests {
     #[test]
     fn rsl_init() {
         let mut context = setup();
-        context.without_rsl();
-        let mut remote = context.local.find_remote("origin").unwrap();
-        let result = context.local.init_rsl_if_needed(&mut remote).unwrap();
-        assert_eq!(result, ()); // returns successfully
-        // local rsl branch exists
-        // local nonce exists
-        // remote rsl branch exists
+        {
+            context.without_rsl();
+            let mut remote = context.local.find_remote("origin").unwrap().to_owned();
+            let result = &context.local.init_rsl_if_needed(&mut remote).unwrap();
+            assert_eq!(result, &()); // returns successfully
+            // local rsl branch exists
+            // local nonce exists
+            // remote rsl branch exists
+        }
+        teardown(context);
     }
 
     #[test]
