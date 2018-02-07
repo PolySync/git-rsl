@@ -86,57 +86,6 @@ impl HasNonce for Repository {
         Ok(())
     }
 }
-// fn generate_nonce(repo: &Repository) -> [u8; 32] {
-//     let mut nonce_buffer: [u8; 32] = [0; 32];
-//     let mut rng = match OsRng::new() {
-//         Ok(rng) => rng,
-//         Err(e) => {
-//             println!("Error: Unable to get OS-level randon number generator to create nonce");
-//             println!("  {}", e);
-//             process::exit(60);
-//         },
-//     };
-//     rng.fill_bytes(&mut nonce_buffer);
-//     let nonce_path = repo.path().join("NONCE");
-//     let mut f = open_nonce_file(&nonce_path);
-//
-//     match f.write_all(&nonce_buffer) {
-//         Ok(_) => (),
-//         Err(e) => {
-//             println!("Error: Unable to write nonce to {}", nonce_path.display());
-//             println!("  {}", e);
-//             process::exit(62);
-//         },
-//
-//     };
-//
-//     nonce_buffer
-// }
-//
-// fn open_nonce_file(nonce_path: &Path) -> File {
-//     match File::open(&nonce_path) {
-//         Ok(f) => f,
-//         Err(e) => {
-//             println!("Error: Unable to open/create nonce in {}", nonce_path.display());
-//             println!("  {}", e);
-//             process::exit(61);
-//         },
-//     }
-// }
-//
-// fn read_current_nonce(repo: &Repository) -> Option<[u8; 32]> {
-//     let mut nonce: [u8; 32] = [0; 32];
-//     let nonce_path = repo.path().join("NONCE");
-//     let mut f = open_nonce_file(&nonce_path);
-//     match f.read_exact(&mut nonce) {
-//         Ok(_) => Some(nonce),
-//         Err(_) => {
-//             println!("Warning: No nonce found in {}", nonce_path.display());
-//             println!("  Lack of a nonce is acceptable for the first secure fetch, but a problem afterwards.");
-//             None
-//         },
-//     }
-// }
 
 #[cfg(test)]
 mod tests {
