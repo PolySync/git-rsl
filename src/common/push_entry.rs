@@ -158,17 +158,20 @@ mod tests {
 
     #[test]
     fn from_oid() {
-        let repo = setup();
-        let oid = Oid::from_str("71903a0394016f5970eb6359be0f272b69f391b4").unwrap();
-        let entry = PushEntry {
-                //related_commits: vec![oid.to_owned(), oid.to_owned()],
-                branch: String::from("branch_name"),
-                head: Oid::from_str("decbf2be529ab6557d5429922251e5ee36519817").unwrap(),
-                prev_hash: String::from("fwjjk42ofw093j"),
-                nonce_bag: NonceBag::new(),
-                signature: String::from("gpg signature"),
-        };
-        assert_eq!(PushEntry::from_oid(&repo, &oid).unwrap(), entry);
-        teardown(&repo);
+        let context = setup();
+        {
+            let repo = &context.local;
+            let oid = Oid::from_str("71903a0394016f5970eb6359be0f272b69f391b4").unwrap();
+            let entry = PushEntry {
+                    //related_commits: vec![oid.to_owned(), oid.to_owned()],
+                    branch: String::from("branch_name"),
+                    head: Oid::from_str("decbf2be529ab6557d5429922251e5ee36519817").unwrap(),
+                    prev_hash: String::from("fwjjk42ofw093j"),
+                    nonce_bag: NonceBag::new(),
+                    signature: String::from("gpg signature"),
+            };
+            assert_eq!(PushEntry::from_oid(&repo, &oid).unwrap(), entry);
+        }
+        teardown(context);
     }
 }

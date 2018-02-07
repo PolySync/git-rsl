@@ -4,6 +4,7 @@ use std::fmt;
 use std::fs::OpenOptions;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Read, Write};
+use std::error;
 
 use git2::Repository;
 use rand::os::OsRng;
@@ -11,20 +12,7 @@ use rand::{Rand, Rng};
 
 use serde_json;
 
-#[derive(Debug)]
-pub enum NonceError {
-    NoRandomNumberGenerator(::std::io::Error),
-    NoNonceFile(::std::io::Error),
-    NonceReadError(::std::io::Error),
-    NonceWriteError(::std::io::Error),
-    JsonError(serde_json::Error),
-}
-
-impl From<serde_json::Error> for NonceError {
-    fn from(error: serde_json::Error) -> Self {
-        NonceError::JsonError(error)
-    }
-}
+use super::errors::*;
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct Nonce {
@@ -32,26 +20,21 @@ pub struct Nonce {
 }
 
 impl Nonce {
-    pub fn new() -> Result<Nonce, NonceError> {
-        let mut rng = match OsRng::new() {
-            Ok(rng) => rng,
-            Err(e) => return Err(NonceError::NoRandomNumberGenerator(e)),
-        };
-
+    pub fn new() -> Result<Nonce> {
+        let mut rng = OsRng::new().chain_err(|| "no randum number generator")?;
         Ok(rng.gen())
     }
 
-    pub fn from_str(string: &str) -> Result<Nonce, NonceError> {
+    pub fn from_str(string: &str) -> Result<Nonce> {
         let mut bytes: [u8; 32] = [0; 32];
         let mut cursor = io::Cursor::new(string);
-        match cursor.read_exact(&mut bytes) {
-            Ok(_) => Ok(Nonce { bytes }),
-            Err(e) => Err(NonceError::NonceReadError(e)),
-        }
+        cursor.read_exact(&mut bytes).chain_err(|| "nonce read error")?;
+        Ok(Nonce { bytes })
     }
 
-    pub fn from_json(string: &str) -> Result<Nonce, NonceError> {
-        let result = serde_json::from_str(string)?;
+    pub fn from_json(string: &str) -> Result<Nonce> {
+        let result = serde_json::from_str(string)
+            .chain_err(|| "couldn't parse nonce from string")?;
         Ok(result)
     }
 }
@@ -79,39 +62,28 @@ impl fmt::Display for Nonce {
 
 
 pub trait HasNonce {
-    fn read_nonce(&self) -> Result<Nonce, NonceError>;
-    fn write_nonce(&self, nonce: &Nonce) -> Result<(), NonceError>;
+    fn read_nonce(&self) -> Result<Nonce>;
+    fn write_nonce(&self, nonce: &Nonce) -> Result<()>;
 }
 
 
 impl HasNonce for Repository {
 
-    fn read_nonce(&self) -> Result<Nonce, NonceError> {
+    fn read_nonce(&self) -> Result<Nonce> {
         let mut bytes: [u8; 32] = [0; 32];
         let nonce_path = &self.path().join("NONCE");
-        let mut f = match OpenOptions::new().read(true).write(true).create(true).open(&nonce_path) {
-            Ok(f) => f,
-            Err(e) => return Err(NonceError::NonceReadError(e)),
-        };
-        match f.read_exact(&mut bytes) {
-            Ok(_) => Ok(Nonce { bytes: bytes }),
-            Err(e) => Err(NonceError::NonceReadError(e)),
-        }
+        let mut f = OpenOptions::new().read(true).write(true).create(true).open(&nonce_path).chain_err(|| "could not open nonce file for reading")?;
 
+        f.read_exact(&mut bytes).chain_err(|| "could not parse nonce file")?;
+        Ok(Nonce { bytes: bytes })
     }
 
-    fn write_nonce(&self, nonce: &Nonce) -> Result<(), NonceError> {
+    fn write_nonce(&self, nonce: &Nonce) -> Result<()> {
         let nonce_path = self.path().join("NONCE");
-        let mut f = match OpenOptions::new().write(true).create(true).open(&nonce_path) {
-            Ok(f) => f,
-            Err(e) => return Err(NonceError::NonceReadError(e)),
-        };
+        let mut f = OpenOptions::new().write(true).create(true).open(&nonce_path).chain_err(|| "could not open nonce for writing")?;
 
-        match f.write_all(&nonce.bytes) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(NonceError::NonceWriteError(e)),
-
-        }
+        f.write_all(&nonce.bytes).chain_err(|| "could not write nonce")?;
+        Ok(())
     }
 }
 // fn generate_nonce(repo: &Repository) -> [u8; 32] {
@@ -188,25 +160,31 @@ mod tests {
 
     #[test]
     fn write_nonce() {
-        let repo = setup();
-        repo.write_nonce(&FAKE_NONCE);
-        let nonce_file = &repo.path().join("NONCE");
-        let mut f = File::open(&nonce_file)
-                    .expect("file not found");
-        let mut contents = vec![];
-        let string = f.read_to_end(&mut contents)
-                    .expect("something went wrong reading the file");
-        assert_eq!(contents, FAKE_NONCE.bytes);
-        teardown(&repo);
+        let context = setup();
+        {
+            let repo = &context.local;
+            repo.write_nonce(&FAKE_NONCE);
+            let nonce_file = &repo.path().join("NONCE");
+            let mut f = File::open(&nonce_file)
+                        .expect("file not found");
+            let mut contents = vec![];
+            let string = f.read_to_end(&mut contents)
+                        .expect("something went wrong reading the file");
+            assert_eq!(contents, FAKE_NONCE.bytes);
+        }
+        teardown(context);
     }
 
     #[test]
     fn read_nonce() {
-        let repo = setup();
-        let nonce = repo.read_nonce().unwrap();
-        let nonce2 = Nonce { bytes: [168, 202, 85, 60, 50, 231, 189, 13, 197, 149, 177, 98, 8, 162, 2, 25, 211, 51, 159, 84, 228, 203, 184, 235, 219, 10, 118, 213, 97, 190, 187, 239] };
-        assert_eq!(nonce, nonce2);
-        teardown(&repo);
+        let context = setup();
+        {
+            let repo = &context.local;
+            let nonce = repo.read_nonce().unwrap();
+            let nonce2 = Nonce { bytes: [168, 202, 85, 60, 50, 231, 189, 13, 197, 149, 177, 98, 8, 162, 2, 25, 211, 51, 159, 84, 228, 203, 184, 235, 219, 10, 118, 213, 97, 190, 187, 239] };
+            assert_eq!(nonce, nonce2);
+        }
+        teardown(context);
     }
 
     #[test]

@@ -9,6 +9,9 @@ extern crate serde_json;
 extern crate fs_extra;
 #[macro_use]
 extern crate serde_derive;
+#[macro_use]
+extern crate error_chain;
+
 
 use std::{env, process};
 
@@ -21,7 +24,22 @@ mod utils;
 
 
 
+use common::errors::*;
+
 fn main() {
+    if let Err(ref e) = run() {
+        println!("error: {}", e);
+        for e in e.iter().skip(1) {
+            println!("caused by: {}", e);
+        }
+        if let Some(backtrace) = e.backtrace() {
+            println!("backtrace: {:?}", backtrace);
+        }
+        std::process::exit(1);
+    }
+}
+
+fn run() -> Result<()> {
     let args: Vec<String> = env::args().collect();
     let program = args[0].clone();
 
@@ -39,17 +57,10 @@ fn main() {
                             (@arg branch: ... +required "Branch(es) to securely fetch or push (example: master)")
                             ).get_matches();
 
-    let current_branch_name: &str = &""; // yells at me that this is possibly uninitialized which is not true
-    {
-        let current_branch_ref = match messy_repo.head() {
-            Ok(h) => h,
-            Err(e) => panic!("not on a branch: {:?}", e),
-        };
-        let current_branch_name = match current_branch_ref.name() {
-            Some(name) => name,
-            None => panic!("lolwut: ur current branch has no object id"),
-        };
-    }
+    let current_branch_name = &messy_repo.head()?
+        .name()
+        .ok_or("Not on a named branch.")? // TODO allow this??
+        .to_owned();
 
     let stash_id = match common::stash_local_changes(&mut messy_repo) {
         Ok(Some(id)) => Some(id),
@@ -72,15 +83,13 @@ fn main() {
 
         let branches: Vec<&str> = matches.values_of("branch").unwrap().collect();
         if program == "git-securefetch" || matches.is_present("fetch") {
-            fetch::secure_fetch(&clean_repo, &mut remote, branches);
-            return;
+            fetch::secure_fetch(&clean_repo, &mut remote, branches).chain_err(|| "error fetching")?;
         } else if program == "git-securepush" || matches.is_present("push") {
-            push::secure_push(&clean_repo, &mut remote, branches);
-            return;
+            push::secure_push(&clean_repo, &mut remote, branches).chain_err(|| "error pushing")?;
         }
     }
 
-    match common::checkout_original_branch(&mut clean_repo, current_branch_name) {
+    match common::checkout_branch(&mut clean_repo, current_branch_name) {
         Ok(()) => (),
         Err(e) => panic!("Couldn't checkout starting branch. Sorry if we messed with your repo state. Ensure you are on the desired branch. It may be necessary to apply changes from the stash: {:?}", e),
     }
@@ -90,5 +99,5 @@ fn main() {
         Err(e) => panic!("Couldn't unstash local changes. Sorry if we messed with your repository state. It may be necessary to apply changes from the stash. {:?}", e),
     }
 
-
+    Ok(())
 }

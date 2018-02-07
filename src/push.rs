@@ -5,9 +5,11 @@ use std::process;
 use common::{self, PushEntry};
 use common::rsl::{RSL, HasRSL};
 use common::nonce_bag::{NonceBag, HasNonceBag};
-use common::nonce::{Nonce, HasNonce, NonceError};
+use common::nonce::{Nonce, HasNonce};
 
-pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: Vec<&str>) {
+use common::errors::*;
+
+pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: Vec<&str>) -> Result<()> {
 
     let mut remote_rsl: RSL;
     let mut local_rsl: RSL;
@@ -16,10 +18,17 @@ pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names:
 
     //let mut refs = ref_names.iter().filter_map(|name| &repo.find_reference(name).ok());
 
+    repo.fetch_rsl(&mut remote).chain_err(|| "Problem fetching Remote RSL. Check your connection or your SSH config");
+
+    repo.init_rsl_if_needed(&mut remote).chain_err(|| "Problem initializing RSL");
+
+    // checkout RSL branch
+    common::checkout_branch(&repo, "RSL")?;
+
+
     'push: loop {
 
-        repo.fetch_rsl(&mut remote);
-        repo.init_rsl_if_needed(&mut remote);
+        repo.fetch_rsl(&mut remote).chain_err(|| "Problem fetching Remote RSL. Check your connection or your SSH config");
 
         let (remote_rsl, local_rsl, nonce_bag, nonce) = match repo.read_rsl() {
             Ok((a,b,c,d)) => (a,b,c,d),
@@ -27,10 +36,7 @@ pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names:
         };
 
 
-        if !common::validate_rsl(repo, &remote_rsl, &local_rsl, &nonce_bag, &nonce) {
-            println!("Error: invalid remote RSL");
-            process::exit(-1);
-        }
+        common::validate_rsl(repo, &remote_rsl, &local_rsl, &nonce_bag, &nonce).chain_err(|| "Invalid remote RSL")?;
 
         // validate that fast forward is possible
 
@@ -45,6 +51,10 @@ pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names:
         // TODO commit new pushentry
         repo.commit_push_entry(&new_push_entry).expect("Couldn't commit new push entry");
 
+        // TODO push RSL branch??
+
+        repo.push_rsl(&mut remote)?;
+
         match common::push(repo, &mut remote, &ref_names) {
             Ok(_) => break 'push,
             Err(e) => {
@@ -55,4 +65,23 @@ pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names:
         };
     }
     //TODO localRSL = RemoteRSL (fastforward)
+    Ok(())
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use utils::test_helper::*;
+
+    #[test]
+    fn secure_push() {
+        let mut context = setup();
+        let repo = context.local;
+        let mut rem = repo.find_remote("origin").unwrap();
+        let refs = vec!["devel"];
+        let res = super::secure_push(&repo, &mut rem, refs).unwrap();
+        assert_eq!(res, ());
+        assert_eq!(2,3)
+    }
 }

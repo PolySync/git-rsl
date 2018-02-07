@@ -6,14 +6,21 @@ use git2::{Reference, Repository, Remote};
 use common;
 use common::{NonceBag, HasNonceBag};
 use common::rsl::{RSL, HasRSL};
-use common::nonce::{Nonce, HasNonce, NonceError};
+use common::nonce::{Nonce, HasNonce};
+use common::errors::*;
 
-pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: Vec<&str>) {
+pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: Vec<&str>) -> Result<()> {
 
     let mut remote_rsl: RSL = unsafe { ::std::mem::uninitialized() };
     let mut local_rsl: RSL = unsafe { ::std::mem::uninitialized() };
     let mut nonce_bag: NonceBag = unsafe { ::std::mem::uninitialized() };
     let mut nonce: Nonce = unsafe { ::std::mem::uninitialized() };
+
+
+    repo.fetch_rsl(&mut remote);
+    repo.init_rsl_if_needed(&mut remote);
+
+    common::checkout_branch(&repo, "RSL");
 
     //TODO paper algo uses spin lock here, probably a better alternative
 
@@ -30,9 +37,9 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
                 _ => (),
             }
             //let original_branch = common::prep_workspace(&repo);
-
             repo.fetch_rsl(&mut remote);
-            repo.init_rsl_if_needed(&mut remote);
+
+
 
             let (remote_rsl, local_rsl, nonce_bag, nonce) = match repo.read_rsl() {
                 Ok((a,b,c,d)) => (a,b,c,d),
@@ -68,28 +75,11 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
         }
 
         let new_nonce = common::Nonce::new().unwrap();
-        match repo.write_nonce(&new_nonce) {
-            Ok(_) => (),
-            Err(NonceError::NoNonceFile(e)) => {
-                println!("Error: unable to create nonce file.");
-                println!("  {}", e);
-                process::exit(52);
-            },
-            Err(NonceError::NonceWriteError(e)) => {
-                println!("Error: unable to write to nonce file.");
-                println!("  {}", e);
-                process::exit(53);
-            },
-            Err(e) => {
-                println!("Unexpected error encountered. This is a bug. Please open an issue.");
-                println!("  {:?}", e);
-                process::exit(99);
-            },
-        };
+        repo.write_nonce(&new_nonce).chain_err(|| "nonce write error")?;
 
         nonce_bag.insert(new_nonce);
-        repo.write_nonce_bag(&nonce_bag);
-        repo.commit_nonce_bag();
+        repo.write_nonce_bag(&nonce_bag).chain_err(|| "couldn't write to nonce baf file")?;
+        repo.commit_nonce_bag().chain_err(|| "couldn't commit nonce bag")?;
         match repo.push_rsl(&mut remote) {
             Ok(()) => break 'store,
             _ => (),
@@ -97,11 +87,9 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
         store_counter -= 1;
     }
 
-    if !common::validate_rsl(repo, &remote_rsl, &local_rsl, &nonce_bag, &nonce) {
-        println!("Error: invalid remote RSL");
-        process::exit(-1);
-    }
+    common::validate_rsl(repo, &remote_rsl, &local_rsl, &nonce_bag, &nonce).chain_err(|| "Invalid remote RSL")?;
 
     // fast forward fetched refs
     common::reset_local_rsl_to_remote_rsl(repo);
+    Ok(())
 }
