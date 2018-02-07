@@ -87,10 +87,7 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
         store_counter -= 1;
     }
 
-    if !common::validate_rsl(repo, &remote_rsl, &local_rsl, &nonce_bag, &nonce) {
-        println!("Error: invalid remote RSL");
-        process::exit(-1);
-    }
+    common::validate_rsl(repo, &remote_rsl, &local_rsl, &nonce_bag, &nonce).chain_err(|| "Invalid remote RSL")?;
 
     // fast forward fetched refs
     common::reset_local_rsl_to_remote_rsl(repo);

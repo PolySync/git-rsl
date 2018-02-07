@@ -36,10 +36,7 @@ pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names:
         };
 
 
-        if !common::validate_rsl(repo, &remote_rsl, &local_rsl, &nonce_bag, &nonce) {
-            println!("Error: invalid remote RSL");
-            process::exit(-1);
-        }
+        common::validate_rsl(repo, &remote_rsl, &local_rsl, &nonce_bag, &nonce).chain_err(|| "Invalid remote RSL")?;
 
         // validate that fast forward is possible
 

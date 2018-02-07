@@ -186,13 +186,19 @@ pub fn all_push_entries_in_fetch_head(repo: &Repository, ref_names: &Vec<&str>) 
     h2.is_subset(&h1)
 }
 
-pub fn validate_rsl(repo: &Repository, remote_rsl: &RSL, local_rsl: &RSL, nonce_bag: &NonceBag, repo_nonce: &Nonce) -> bool {
+pub fn validate_rsl(repo: &Repository, remote_rsl: &RSL, local_rsl: &RSL, nonce_bag: &NonceBag, repo_nonce: &Nonce) -> Result<()> {
 
-    if !repo.graph_descendant_of(remote_rsl.head, local_rsl.head).unwrap_or(false) && (remote_rsl.head != local_rsl.head) {
-        println!("Error: No path to get from Local RSL to Remote RSL");
-        return false;
+    // Ensure remote RSL head is a descendant of local RSL head.
+    let descendant = repo
+        .graph_descendant_of(remote_rsl.head, local_rsl.head)
+        .unwrap_or(false);
+    let same = (remote_rsl.head == local_rsl.head);
+    if !descendant && !same {
+        bail!("RSL invalid: No path to get from Local RSL to Remote RSL");
     }
 
+    // Walk through the commits from local RSL head, which we know is valid,
+    // validating each additional pushentry since that point one by one.
     let last_hash = match local_rsl.last_push_entry {
         Some(ref push_entry) => Some(push_entry.hash()),
         None => None, // the first push entry will have None as last_push_entry
@@ -226,15 +232,15 @@ pub fn validate_rsl(repo: &Repository, remote_rsl: &RSL, local_rsl: &RSL, nonce_
         }
     });
 
-    if result != None { return false; }
+    if result != None { bail!("invalid RSL entry"); }
 
 
-    verify_signature(remote_rsl.head)
+    verify_signature(remote_rsl.head).chain_err(|| "GPG signature of remote RSL head invalid")
 
 }
 
-fn verify_signature(_oid: Oid) -> bool {
-    return true
+fn verify_signature(_oid: Oid) -> Result<()> {
+    return Ok(())
 }
 
 fn for_each_commit_from<F>(repo: &Repository, local: Oid, remote: Oid, f: F)
