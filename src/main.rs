@@ -57,17 +57,10 @@ fn run() -> Result<()> {
                             (@arg branch: ... +required "Branch(es) to securely fetch or push (example: master)")
                             ).get_matches();
 
-    let current_branch_name: &str = &""; // yells at me that this is possibly uninitialized which is not true
-    {
-        let current_branch_ref = match messy_repo.head() {
-            Ok(h) => h,
-            Err(e) => panic!("not on a branch: {:?}", e),
-        };
-        let current_branch_name = match current_branch_ref.name() {
-            Some(name) => name,
-            None => panic!("lolwut: ur current branch has no object id"),
-        };
-    }
+    let current_branch_name = &messy_repo.head()?
+        .name()
+        .ok_or("Not on a named branch.")? // TODO allow this??
+        .to_owned();
 
     let stash_id = match common::stash_local_changes(&mut messy_repo) {
         Ok(Some(id)) => Some(id),
