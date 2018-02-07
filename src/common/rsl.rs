@@ -33,11 +33,12 @@ pub struct RSL {
 impl RSL {
 
     fn find_first_commit(repo: &Repository) -> Result<Commit> {
-        let mut revwalk: Revwalk = repo.revwalk().expect("Failed to make revwalk");
+        let mut revwalk: Revwalk = repo.revwalk().chain_err(|| "Failed to make revwalk")?;
         revwalk.push_head();
-        // Result<oid> || Result<option>
-        let result = revwalk.last().ok_or("Couldn't find commit")?.chain_err(|| "revwalk returned bad commit")?;
-        repo.find_commit(result).chain_err(|| "commit not in repo??")
+        let result = revwalk.last()
+            .ok_or("Couldn't find commit")?
+            .chain_err(|| "revwalk returned bad commit")?;
+        repo.find_commit(result).chain_err(|| "could not find first commit")
     }
 
 }
@@ -107,24 +108,16 @@ impl HasRSL for Repository {
         // create new nonce bag with initial nonce
         let mut nonce_bag = NonceBag::new();
         nonce_bag.insert(nonce).chain_err(|| "couldn't add new nonce to bag")?;
-
-        //  nonce bag (inlcuding commit)
         self.write_nonce_bag(&nonce_bag)?;
-        self.commit_nonce_bag().expect("couldn't commit nonce bag");
+        self.commit_nonce_bag()?;
 
         // push new rsl branch
         self.push_rsl(remote)?;
 
         // put this in a loop ? with a max try timeout
-        match self.fetch_rsl(remote) {
-            Ok(()) => (),
-            Err(e) => return Err(e)
-        };
+        self.fetch_rsl(remote)?;
 
-        let remote_rsl = match self.read_remote_rsl() {
-            Ok(rsl) => rsl,
-            Err(e) => return Err(e),
-        };
+        let remote_rsl = self.read_remote_rsl()?;
 
         Ok(())
 
