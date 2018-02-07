@@ -222,6 +222,10 @@ mod tests {
             // local rsl branch exists
             // local nonce exists
             // remote rsl branch exists
+            assert!(&context.local.find_branch("RSL", BranchType::Remote).is_ok());
+            assert!(&context.local.find_branch("RSL", BranchType::Local).is_ok());
+
+
         }
         teardown(context);
     }
