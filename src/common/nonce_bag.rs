@@ -12,6 +12,7 @@ use std::error;
 
 
 use git2::{self, Reference, Repository, Oid, BranchType};
+use git2::build::CheckoutBuilder;
 use git2::Error;
 use serde_json;
 
@@ -116,8 +117,19 @@ impl HasNonceBag for Repository {
             &tree, // tree
             &[&parent_commit])
             .chain_err(|| "failed to commit nonce bag")?;
-
         debug_assert!(self.state() == git2::RepositoryState::Clean);
+
+        //let head_tree = self.head()?.peel_to_tree()?;
+        //index.read_tree(&tree);
+        //index.clear()?;
+        //index.write()?;
+        //let mut opts = CheckoutBuilder::new();
+        //opts.force();
+        //self.checkout_head(Some(&mut opts))?;
+        let commit = self.find_commit(commit_oid)?;
+        self.reset_default(Some(commit.as_object()), ["NONCE_BAG"].iter())?;
+        //assert!(self.index()?.is_empty());
+
         Ok(commit_oid)
     }
 }
@@ -125,6 +137,7 @@ impl HasNonceBag for Repository {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use utils::test_helper::*;
 
     const NONCE1: Nonce = Nonce {bytes: [145,161,65,251,112,184,238,36,105,54,150,202,74,26,148,121,106,40,239,155,31,232,49,251,215,71,200,240,105,73,0,84]};
     const NONCE2: Nonce = Nonce { bytes: [100,223,169,31,154,84,127,151,178,254,47,129,230,74,10,10,170,13,31,199,167,68,28,149,131,10,110,201,71,146,214,78]};
@@ -165,5 +178,15 @@ mod tests {
         assert!(nonce_bag.bag.contains(&NONCE1));
         assert!(nonce_bag.bag.contains(&NONCE2));
         assert!(nonce_bag.bag.contains(&NONCE3));
+    }
+
+    #[test]
+    fn commit_nonce_bag() {
+        let context = setup_fresh();
+        ::common::checkout_branch(&context.local, "RSL");
+        let bag = NonceBag::new();
+        &context.local.write_nonce_bag(&bag).unwrap();
+        &context.local.commit_nonce_bag().unwrap();
+        assert!(context.local.state() == git2::RepositoryState::Clean);
     }
  }
