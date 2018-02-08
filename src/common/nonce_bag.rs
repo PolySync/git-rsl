@@ -107,13 +107,9 @@ impl HasNonceBag for Repository {
         let signature = self.signature()
             .chain_err(|| "couldn't generate sig")?;
         let message = "Update nonce bag";
-        let parent_commit = self.find_branch("RSL", BranchType::Local)
-            .chain_err(|| "coudln't find parent commit")?
-            .into_reference()
-            .peel_to_commit()
-            .chain_err(|| "couldn't find parent commit OID")?;
+        let parent_commit = self.head()?.peel_to_commit()?;
         let tree = self.find_tree(oid).chain_err(|| "couldn't find tree")?;
-        let commit_oid = self.commit(Some("refs/heads/RSL"), //  point HEAD to our new commit
+        let commit_oid = self.commit(Some("HEAD"), //  point HEAD to our new commit
             &signature, // author
             &signature, // committer
             &message, // commit message
