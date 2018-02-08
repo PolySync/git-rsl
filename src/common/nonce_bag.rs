@@ -96,7 +96,6 @@ impl HasNonceBag for Repository {
 
     fn commit_nonce_bag(&self) -> Result<Oid> {
         println!("current head: {:?}", self.head()?.name().unwrap());
-        assert!(self.head()?.name().unwrap() == "refs/heads/RSL");
 
         let mut index = self.index()
             .chain_err(|| "couldn't find index")?;
@@ -128,7 +127,6 @@ impl HasNonceBag for Repository {
         //self.checkout_head(Some(&mut opts))?;
         let commit = self.find_commit(commit_oid)?;
         self.reset_default(Some(commit.as_object()), ["NONCE_BAG"].iter())?;
-        //assert!(self.index()?.is_empty());
 
         Ok(commit_oid)
     }
@@ -183,10 +181,11 @@ mod tests {
     #[test]
     fn commit_nonce_bag() {
         let context = setup_fresh();
-        ::common::checkout_branch(&context.local, "RSL");
         let bag = NonceBag::new();
         &context.local.write_nonce_bag(&bag).unwrap();
         &context.local.commit_nonce_bag().unwrap();
         assert!(context.local.state() == git2::RepositoryState::Clean);
+        assert!(false);
+        teardown_fresh(context)
     }
  }
