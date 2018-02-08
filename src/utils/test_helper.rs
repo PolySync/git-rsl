@@ -11,6 +11,7 @@ use std::process::{Command, Output};
 
 use fs_extra::dir::*;
 use fs_extra::error::*;
+use tempdir::TempDir;
 
 use git2::{Repository, REPOSITORY_OPEN_BARE};
 use rand::{Rng, thread_rng};
@@ -84,6 +85,24 @@ impl Context {
     }
 }
 
+pub fn setup_fresh() -> Context {
+    // create temporary directory
+    // init git repo in temp directory
+    // init bare remote repo
+    // set remote origin to remote repo
+    //
+
+    //let suffix: String = thread_rng().gen_ascii_chars().take(12).collect();
+    let local_dir = TempDir::new("rsl_test").unwrap().into_path();
+    let local = Repository::init(&local_dir).unwrap();
+
+
+    let remote_dir = format!("{}.git", local_dir.to_str().unwrap());
+    create_all(&remote_dir, true);
+    let remote = Repository::init_bare(&remote_dir).unwrap();
+    &local.remote("origin", &remote_dir);
+    Context{local, remote}
+}
 
 pub fn setup() -> Context {
     let mut fixture_dir = env::current_dir().unwrap();
