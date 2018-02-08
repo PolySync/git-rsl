@@ -11,6 +11,7 @@ use std::iter::FromIterator;
 
 use git2;
 use git2::{Error, FetchOptions, PushOptions, Oid, Reference, Branch, Commit, RemoteCallbacks, Remote, Repository, Revwalk, DiffOptions, RepositoryState};
+use git2::build::CheckoutBuilder;
 use git2::BranchType;
 
 use git2::StashApplyOptions;
@@ -91,7 +92,10 @@ pub fn checkout_branch(repo: &Repository, branch_name: &str) -> Result<()> {
         .chain_err(|| "couldnt find latest RSSL commit")?
         .into_object();
 
-    repo.checkout_tree(&branch, None).chain_err(|| "couldn't checkout RSL tree")?; // Option<CheckoutBuilder>
+    let mut opts = CheckoutBuilder::new();
+    opts.force();
+    opts.remove_untracked(true); // this should be fine since we stash untracked at the beginning
+    repo.checkout_tree(&branch, Some(&mut opts)).chain_err(|| "couldn't checkout tree")?; // Option<CheckoutBuilder>
     let name = format!("refs/heads/{}", branch_name);
     repo.set_head(&name).chain_err(|| "couldn't switch head to RSL")?;
     Ok(())
