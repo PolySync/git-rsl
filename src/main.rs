@@ -11,6 +11,8 @@ extern crate fs_extra;
 extern crate serde_derive;
 #[macro_use]
 extern crate error_chain;
+extern crate tempdir;
+
 
 
 use std::{env, process};
