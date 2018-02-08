@@ -75,8 +75,8 @@ impl HasRSL for Repository {
 
         // create new parentless commit
         let mut index = self.index().chain_err(|| "could not find index")?;
-        assert!(&index.is_empty());
-        let oid = index.write_tree().chain_err(|| "could not write tree from index")?;
+        index.clear(); // remove project files from index
+        let oid = index.write_tree().chain_err(|| "could not write tree from index")?; // create empty tree
         let signature = self.signature().unwrap();
         let message = "Initialize RSL";
         let tree = self.find_tree(oid).chain_err(|| "could not find tree")?;
@@ -93,6 +93,7 @@ impl HasRSL for Repository {
 
         // checkout branch
         common::checkout_branch(self, "RSL")?;
+        debug_assert!(&index.is_empty());
 
 
         // save random nonce locally
@@ -100,6 +101,8 @@ impl HasRSL for Repository {
         self.write_nonce(&nonce).chain_err(|| "couldn't write local nonce")?;
 
         // create new nonce bag with initial nonce
+        debug_assert!(self.head()?.name().unwrap() == "refs/heads/RSL");
+
         let mut nonce_bag = NonceBag::new();
         nonce_bag.insert(nonce).chain_err(|| "couldn't add new nonce to bag")?;
         self.write_nonce_bag(&nonce_bag)?;
