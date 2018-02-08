@@ -108,11 +108,6 @@ impl HasRSL for Repository {
         // push new rsl branch
         self.push_rsl(remote)?;
 
-        // put this in a loop ? with a max try timeout
-        self.fetch_rsl(remote)?;
-
-        let remote_rsl = self.read_remote_rsl()?;
-
         Ok(())
 
     }
