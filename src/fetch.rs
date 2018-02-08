@@ -20,7 +20,7 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
     repo.fetch_rsl(&mut remote);
     repo.init_rsl_if_needed(&mut remote);
 
-    common::checkout_branch(&repo, "RSL");
+    common::checkout_branch(&repo, "refs/heads/RSL");
 
     //TODO paper algo uses spin lock here, probably a better alternative
 

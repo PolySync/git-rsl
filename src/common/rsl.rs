@@ -92,7 +92,7 @@ impl HasRSL for Repository {
         ).chain_err(|| "could not create initial RSL commit")?;
 
         // checkout branch
-        common::checkout_branch(self, "RSL")?;
+        common::checkout_branch(self, "refs/heads/RSL")?;
         debug_assert!(&index.is_empty());
 
 

@@ -84,10 +84,9 @@ pub fn unstash_local_changes(repo: &mut Repository, stash_id: Option<Oid>) -> Re
     Ok(())
 }
 
-pub fn checkout_branch(repo: &Repository, branch_name: &str) -> Result<()> {
-    let branch = repo.find_branch(branch_name, BranchType::Local)
+pub fn checkout_branch(repo: &Repository, ref_name: &str) -> Result<()> {
+    let tree = repo.find_reference(ref_name)
         .chain_err(|| "couldn't find branch")?
-        .into_reference()
         .peel_to_commit()
         .chain_err(|| "couldnt find latest RSSL commit")?
         .into_object();
@@ -95,9 +94,8 @@ pub fn checkout_branch(repo: &Repository, branch_name: &str) -> Result<()> {
     let mut opts = CheckoutBuilder::new();
     opts.force();
     opts.remove_untracked(true); // this should be fine since we stash untracked at the beginning
-    repo.checkout_tree(&branch, Some(&mut opts)).chain_err(|| "couldn't checkout tree")?; // Option<CheckoutBuilder>
-    let name = format!("refs/heads/{}", branch_name);
-    repo.set_head(&name).chain_err(|| "couldn't switch head to RSL")?;
+    repo.checkout_tree(&tree, Some(&mut opts)).chain_err(|| "couldn't checkout tree")?; // Option<CheckoutBuilder>
+    repo.set_head(&ref_name).chain_err(|| "couldn't switch head to RSL")?;
     Ok(())
 }
 
