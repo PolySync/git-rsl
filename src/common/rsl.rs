@@ -204,22 +204,22 @@ mod tests {
     use utils::test_helper::*;
 
     #[test]
-    fn rsl_init() {
-        let mut context = setup();
+    fn rsl_init_global() {
+        let mut context = setup_fresh();
         {
-            context.without_rsl();
             let mut remote = context.local.find_remote("origin").unwrap().to_owned();
-            let result = &context.local.init_rsl_if_needed(&mut remote).unwrap();
+            let result = &context.local.rsl_init_global(&mut remote).unwrap();
             assert_eq!(result, &()); // returns successfully
             // local rsl branch exists
             // local nonce exists
             // remote rsl branch exists
-            assert!(&context.local.find_branch("RSL", BranchType::Remote).is_ok());
+            assert!(&context.local.find_branch("origin/RSL", BranchType::Remote).is_ok());
             assert!(&context.local.find_branch("RSL", BranchType::Local).is_ok());
-
-
+            assert!(context.local.state() == git2::RepositoryState::Clean);
+            assert_eq!(context.local.diff_index_to_workdir(None, None).unwrap().deltas().count(), 0);
+            // TODO to test that the repo does not contain untracked NONCE_BAG file and simultaneously show deleted NONCE_BAG file?? git gets confused??? Open git2rs issue about needing to reset after commit.
         }
-        teardown(context);
+        teardown_fresh(context);
     }
 
     #[test]
