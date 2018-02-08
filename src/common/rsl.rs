@@ -91,14 +91,6 @@ impl HasRSL for Repository {
             &[] // parents
         ).chain_err(|| "could not create initial RSL commit")?;
 
-        // create new RSL
-        let local_rsl = RSL {
-            kind: RSLType::Local,
-            //remote: remote,
-            head: oid,
-            last_push_entry: None,
-        };
-
         // checkout branch
         common::checkout_branch(self, "RSL")?;
 
