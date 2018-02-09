@@ -28,7 +28,7 @@ pub fn checkout_branch(repo: &Repository, ref_name: &str) -> Result<()> {
 }
 
 pub fn discover_repo() -> Result<Repository> {
-    let current_dir = env::current_dir().unwrap();
+    let current_dir = env::current_dir()?;
     Repository::discover(current_dir).chain_err(|| "cwd is not a git repo")
 }
 

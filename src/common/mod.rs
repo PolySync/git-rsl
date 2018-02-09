@@ -33,6 +33,7 @@ pub mod errors {
         foreign_links {
             Git(::git2::Error);
             Serde(::serde_json::Error);
+            IO(::std::io::Error);
         }
     }
 }
