@@ -56,7 +56,7 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
             //    }
             //}
 
-            match common::fetch(repo, &mut remote, &ref_names, None) {
+            match git::fetch(repo, &mut remote, &ref_names, None) {
                 Ok(_) => (),
                 Err(e) => {
                     println!("Error: unable to fetch reference {} from remote {}", &ref_names.clone().join(", "), &remote.name().unwrap());

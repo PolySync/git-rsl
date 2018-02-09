@@ -173,7 +173,7 @@ impl HasRSL for Repository {
     fn fetch_rsl(&self, remote: &mut Remote) -> Result<()> {
         // not sure the behavior here if the branch doesn't exist
         // should return Some(()) or Some(Reference) if remote exists and None if it doesn't exist and Err if it failed for some other reason.
-        common::fetch(self, remote, &[RSL_BRANCH], Some(REFLOG_MSG)).chain_err(|| "could not fetch RSL")?;
+        git::fetch(self, remote, &[RSL_BRANCH], Some(REFLOG_MSG)).chain_err(|| "could not fetch RSL")?;
         Ok(())
     }
 
@@ -191,7 +191,7 @@ impl HasRSL for Repository {
 
     fn push_rsl(&self, remote: &mut Remote) -> Result<()> {
         println!("gets here : )");
-        common::push(self, remote, &[RSL_BRANCH]).chain_err(|| "could not push rsl")?;
+        git::push(self, remote, &[RSL_BRANCH]).chain_err(|| "could not push rsl")?;
         Ok(())
     }
 

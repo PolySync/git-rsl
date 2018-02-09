@@ -57,7 +57,7 @@ pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names:
 
         repo.push_rsl(&mut remote)?;
 
-        match common::push(repo, &mut remote, &ref_names) {
+        match git::push(repo, &mut remote, &ref_names) {
             Ok(_) => break 'push,
             Err(e) => {
                 println!("Error: unable to push reference(s) {:?} to remote {:?}", &ref_names.clone().join(", "), &remote.name().unwrap());
