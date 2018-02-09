@@ -28,17 +28,8 @@ pub use self::nonce::{Nonce, HasNonce};
 pub use self::nonce_bag::{NonceBag, HasNonceBag};
 pub use self::rsl::{RSL, HasRSL};
 
-pub mod errors {
-    error_chain!{
-        foreign_links {
-            Git(::git2::Error);
-            Serde(::serde_json::Error);
-            IO(::std::io::Error);
-        }
-    }
-}
 
-use self::errors::*;
+use errors::*;
 
 
 //TODO implement

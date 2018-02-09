@@ -10,7 +10,7 @@ use git2::Error;
 use common::{self, Nonce, HasNonce};
 use common::{NonceBag, HasNonceBag};
 use common::PushEntry;
-use common::errors::*;
+use errors::*;
 
 use utils::*;
 

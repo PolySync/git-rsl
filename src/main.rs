@@ -23,10 +23,11 @@ mod common;
 mod push;
 mod fetch;
 mod utils;
+mod errors;
 
 
 
-use common::errors::*;
+use errors::*;
 use utils::git;
 
 fn main() {

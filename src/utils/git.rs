@@ -9,7 +9,7 @@ use git2::BranchType;
 use git2::StashApplyOptions;
 use git2::STASH_INCLUDE_UNTRACKED;
 
-use ::common::errors::*;
+use errors::*;
 
 
 pub fn checkout_branch(repo: &Repository, ref_name: &str) -> Result<()> {

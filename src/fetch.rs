@@ -10,7 +10,7 @@ use common;
 use common::{NonceBag, HasNonceBag, PushEntry};
 use common::rsl::{RSL, HasRSL};
 use common::nonce::{Nonce, HasNonce};
-use common::errors::*;
+use errors::*;
 
 use utils::git;
 

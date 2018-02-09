@@ -17,7 +17,7 @@ use git2::Error;
 use serde_json;
 
 use common::Nonce;
-use common::errors::*;
+use errors::*;
 
 const NONCE_BAG_PATH: &'static str = "NONCE_BAG";
 const RSL_BRANCH: &'static str = "RSL";

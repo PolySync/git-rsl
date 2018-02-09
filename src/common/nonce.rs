@@ -12,7 +12,7 @@ use rand::{Rand, Rng};
 
 use serde_json;
 
-use super::errors::*;
+use errors::*;
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct Nonce {

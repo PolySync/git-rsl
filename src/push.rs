@@ -7,7 +7,7 @@ use common::rsl::{RSL, HasRSL};
 use common::nonce_bag::{NonceBag, HasNonceBag};
 use common::nonce::{Nonce, HasNonce};
 
-use common::errors::*;
+use errors::*;
 
 use utils::git;
 
