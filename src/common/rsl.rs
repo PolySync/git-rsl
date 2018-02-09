@@ -12,6 +12,8 @@ use common::{NonceBag, HasNonceBag};
 use common::PushEntry;
 use common::errors::*;
 
+use utils::git;
+
 const RSL_BRANCH: &'static str = "RSL";
 const REFLOG_MSG: &'static str = "Retrieve RSL branchs from remote";
 
@@ -92,7 +94,7 @@ impl HasRSL for Repository {
         ).chain_err(|| "could not create initial RSL commit")?;
 
         // checkout branch
-        common::checkout_branch(self, "refs/heads/RSL")?;
+        git::checkout_branch(self, "refs/heads/RSL")?;
         debug_assert!(&index.is_empty());
 
 

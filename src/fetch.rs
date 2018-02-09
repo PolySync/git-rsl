@@ -9,6 +9,8 @@ use common::rsl::{RSL, HasRSL};
 use common::nonce::{Nonce, HasNonce};
 use common::errors::*;
 
+use utils::git;
+
 pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: Vec<&str>) -> Result<()> {
 
     let mut remote_rsl: RSL = unsafe { ::std::mem::uninitialized() };
@@ -20,7 +22,7 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
     repo.fetch_rsl(&mut remote);
     repo.init_rsl_if_needed(&mut remote);
 
-    common::checkout_branch(&repo, "refs/heads/RSL");
+    git::checkout_branch(&repo, "refs/heads/RSL");
 
     //TODO paper algo uses spin lock here, probably a better alternative
 

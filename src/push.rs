@@ -9,6 +9,8 @@ use common::nonce::{Nonce, HasNonce};
 
 use common::errors::*;
 
+use utils::git;
+
 pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: Vec<&str>) -> Result<()> {
 
     let mut remote_rsl: RSL;
@@ -23,7 +25,7 @@ pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names:
     repo.init_rsl_if_needed(&mut remote).chain_err(|| "Problem initializing RSL");
 
     // checkout RSL branch
-    common::checkout_branch(&repo, "refs/heads/RSL")?;
+    git::checkout_branch(&repo, "refs/heads/RSL")?;
 
 
     'push: loop {

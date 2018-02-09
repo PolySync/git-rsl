@@ -27,6 +27,7 @@ mod utils;
 
 
 use common::errors::*;
+use utils::git;
 
 fn main() {
     if let Err(ref e) = run() {
@@ -45,7 +46,7 @@ fn run() -> Result<()> {
     let args: Vec<String> = env::args().collect();
     let program = args[0].clone();
 
-    let mut messy_repo = common::discover_repo().unwrap();
+    let mut messy_repo = git::discover_repo().unwrap();
 
     let matches = clap_app!(git_rsl =>
                             (name: program.clone())
@@ -64,13 +65,13 @@ fn run() -> Result<()> {
         .ok_or("Not on a named branch.")? // TODO allow this??
         .to_owned();
 
-    let stash_id = match common::stash_local_changes(&mut messy_repo) {
+    let stash_id = match git::stash_local_changes(&mut messy_repo) {
         Ok(Some(id)) => Some(id),
         Ok(None) => None,
         Err(e) => panic!("couldn't stash local changes, or else there were no changes to stash. not sure what libgit2 returns when there is nothing to do"),
     };
 
-    let mut clean_repo = common::discover_repo().unwrap();
+    let mut clean_repo = git::discover_repo().unwrap();
 
     {
         let remote_name = matches.value_of("remote").unwrap().clone();
@@ -91,12 +92,12 @@ fn run() -> Result<()> {
         }
     }
 
-    match common::checkout_branch(&mut clean_repo, current_branch_name) {
+    match git::checkout_branch(&mut clean_repo, current_branch_name) {
         Ok(()) => (),
         Err(e) => panic!("Couldn't checkout starting branch. Sorry if we messed with your repo state. Ensure you are on the desired branch. It may be necessary to apply changes from the stash: {:?}", e),
     }
 
-    match common::unstash_local_changes(&mut clean_repo, stash_id) {
+    match git::unstash_local_changes(&mut clean_repo, stash_id) {
         Ok(()) => (),
         Err(e) => panic!("Couldn't unstash local changes. Sorry if we messed with your repository state. It may be necessary to apply changes from the stash. {:?}", e),
     }
