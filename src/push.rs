@@ -37,8 +37,7 @@ pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names:
             Err(e) => panic!("Couldn't read RSL: {:?}", e),
         };
 
-
-        common::validate_rsl(repo, &remote_rsl, &local_rsl, &nonce_bag, &nonce).chain_err(|| "Invalid remote RSL")?;
+        repo.validate_rsl().chain_err(|| "Invalid remote RSL")?;
 
         // validate that fast forward is possible
 
