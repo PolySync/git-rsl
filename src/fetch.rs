@@ -1,10 +1,13 @@
 use std::process;
 use std::vec::Vec;
+use std::collections::HashSet;
+use std::iter::FromIterator;
 
-use git2::{Reference, Repository, Remote};
+
+use git2::{Reference, Repository, Remote, Oid, BranchType};
 
 use common;
-use common::{NonceBag, HasNonceBag};
+use common::{NonceBag, HasNonceBag, PushEntry};
 use common::rsl::{RSL, HasRSL};
 use common::nonce::{Nonce, HasNonce};
 use common::errors::*;
@@ -65,7 +68,7 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
                 },
             };
 
-            if common::all_push_entries_in_fetch_head(&repo, &ref_names) {
+            if all_push_entries_in_fetch_head(&repo, &ref_names) {
                 break 'fetch;
             }
             counter -= 1;
@@ -94,4 +97,38 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
     // fast forward fetched refs
     common::reset_local_rsl_to_remote_rsl(repo);
     Ok(())
+}
+
+
+fn all_push_entries_in_fetch_head(repo: &Repository, ref_names: &Vec<&str>) -> bool {
+
+    let mut latest_push_entries: &Vec<Oid> = &ref_names.clone().into_iter().filter_map(|ref_name| {
+        match last_push_entry_for(repo, ref_name) {
+            Some(pe) => Some(pe.head),
+            None => None,
+        }
+    }).collect();
+    let mut fetch_heads : &Vec<Oid> = &ref_names.clone().into_iter().filter_map(|ref_name| {
+        match repo.find_branch(ref_name, BranchType::Remote) {
+            Ok(branch) => branch.get().target(),
+            Err(_) => None
+        }
+    }).collect();
+    let h1: HashSet<&Oid> = HashSet::from_iter(latest_push_entries);
+    let h2: HashSet<&Oid> = HashSet::from_iter(fetch_heads);
+
+    h2.is_subset(&h1)
+}
+
+
+fn last_push_entry_for(repo: &Repository, reference: &str) -> Option<PushEntry> {
+    //TODO Actually walk the commits and look for the most recent for the branch we're interested
+    //in
+
+    // this is where it might come in yuseful to keep track of the last push entry for a branch...
+    // for each ref, try to parse into a pushentry
+    /// if you can, check if that pushentry is for the branch
+    // if it is , return that pushentry. otherwise keep going
+    // if you get to then end of the walk, return false
+    Some(PushEntry::new(repo, reference, String::from(""), NonceBag::new()))
 }
