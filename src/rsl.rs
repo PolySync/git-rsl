@@ -7,11 +7,10 @@ use crypto::sha3::Sha3;
 use git2::{self, Oid, Reference, Repository, Remote, Revwalk, BranchType, Commit, Index};
 use git2::Error;
 
-use common::{self, Nonce, HasNonce};
-use common::{NonceBag, HasNonceBag};
-use common::PushEntry;
+use nonce::{Nonce, HasNonce};
+use nonce_bag::{NonceBag, HasNonceBag};
+use push_entry::PushEntry;
 use errors::*;
-
 use utils::*;
 
 const RSL_BRANCH: &'static str = "RSL";

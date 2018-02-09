@@ -8,8 +8,8 @@ use crypto::sha3::Sha3;
 use git2::{self, Oid, Reference, Repository, ObjectType};
 use libgit2_sys::{self, git_oid, GIT_OID_RAWSZ};
 
-use common::Nonce;
-use common::nonce_bag::{NonceBag, HasNonceBag};
+use nonce::Nonce;
+use nonce_bag::{NonceBag, HasNonceBag};
 
 use serde_json;
 use serde::ser::{Serialize, Serializer, SerializeStruct};

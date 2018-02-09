@@ -6,12 +6,11 @@ use std::iter::FromIterator;
 
 use git2::{Reference, Repository, Remote, Oid, BranchType};
 
-use common;
-use common::{NonceBag, HasNonceBag, PushEntry};
-use common::rsl::{RSL, HasRSL};
-use common::nonce::{Nonce, HasNonce};
+use nonce_bag::{NonceBag, HasNonceBag};
+use push_entry::PushEntry;
+use rsl::{RSL, HasRSL};
+use nonce::{Nonce, HasNonce};
 use errors::*;
-
 use utils::git;
 
 pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: Vec<&str>) -> Result<()> {
@@ -79,7 +78,7 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
             nonce_bag.remove(&nonce);
         }
 
-        let new_nonce = common::Nonce::new().unwrap();
+        let new_nonce = Nonce::new().unwrap();
         repo.write_nonce(&new_nonce).chain_err(|| "nonce write error")?;
 
         nonce_bag.insert(new_nonce);

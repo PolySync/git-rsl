@@ -1,5 +1,7 @@
-#[macro_use]
-extern crate clap;
+#[macro_use] extern crate clap;
+#[macro_use] extern crate serde_derive;
+#[macro_use] extern crate error_chain;
+
 extern crate crypto;
 extern crate git2;
 extern crate libgit2_sys;
@@ -7,28 +9,25 @@ extern crate rand;
 extern crate serde;
 extern crate serde_json;
 extern crate fs_extra;
-#[macro_use]
-extern crate serde_derive;
-#[macro_use]
-extern crate error_chain;
 extern crate tempdir;
 
 
 
 use std::{env, process};
-
 use git2::Repository;
 
-mod common;
 mod push;
 mod fetch;
+
+mod rsl;
+mod push_entry;
+mod nonce;
+mod nonce_bag;
 mod utils;
 mod errors;
 
-
-
-use errors::*;
-use utils::git;
+pub use errors::*;
+pub use utils::git;
 
 fn main() {
     if let Err(ref e) = run() {

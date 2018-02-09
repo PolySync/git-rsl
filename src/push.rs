@@ -2,11 +2,10 @@ use git2::{Reference, Repository, Remote};
 
 use std::process;
 
-use common::{self, PushEntry};
-use common::rsl::{RSL, HasRSL};
-use common::nonce_bag::{NonceBag, HasNonceBag};
-use common::nonce::{Nonce, HasNonce};
-
+use push_entry::PushEntry;
+use rsl::{RSL, HasRSL};
+use nonce_bag::{NonceBag, HasNonceBag};
+use nonce::{Nonce, HasNonce};
 use errors::*;
 
 use utils::git;
