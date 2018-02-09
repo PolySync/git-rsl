@@ -95,7 +95,7 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
     repo.validate_rsl().chain_err(|| "Invalid remote RSL")?;
 
     // fast forward fetched refs
-    common::reset_local_rsl_to_remote_rsl(repo);
+    reset_local_rsl_to_remote_rsl(repo);
     Ok(())
 }
 
@@ -131,4 +131,8 @@ fn last_push_entry_for(repo: &Repository, reference: &str) -> Option<PushEntry> 
     // if it is , return that pushentry. otherwise keep going
     // if you get to then end of the walk, return false
     Some(PushEntry::new(repo, reference, String::from(""), NonceBag::new()))
+}
+
+//TODO implement
+fn reset_local_rsl_to_remote_rsl(_repo: &Repository) {
 }

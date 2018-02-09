@@ -30,8 +30,3 @@ pub use self::rsl::{RSL, HasRSL};
 
 
 use errors::*;
-
-
-//TODO implement
-pub fn reset_local_rsl_to_remote_rsl(_repo: &Repository) {
-}
