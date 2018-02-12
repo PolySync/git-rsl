@@ -1,11 +1,4 @@
-use std::collections::HashSet;
-use std::fmt;
-use std::vec::Vec;
-
-use crypto::digest::Digest;
-use crypto::sha3::Sha3;
-use git2::{self, Oid, Reference, Repository, Remote, Revwalk, BranchType, Commit, Index};
-use git2::Error;
+use git2::{self, Oid, Repository, Remote, Revwalk, BranchType};
 
 use nonce::{Nonce, HasNonce};
 use nonce_bag::{NonceBag, HasNonceBag};
@@ -213,10 +206,10 @@ impl HasRSL for Repository {
             Some(ref push_entry) => Some(push_entry.hash()),
             None => None, // the first push entry will have None as last_push_entry
         };
-        let mut revwalk: Revwalk = self.revwalk().unwrap();
-        revwalk.push(remote_rsl.head);
+        let mut revwalk: Revwalk = self.revwalk()?;
+        revwalk.push(remote_rsl.head)?;
         revwalk.set_sorting(git2::SORT_REVERSE);
-        revwalk.hide(local_rsl.head);
+        revwalk.hide(local_rsl.head)?;
 
         let remaining = revwalk.map(|oid| oid.unwrap());
 

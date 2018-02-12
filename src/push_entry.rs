@@ -1,18 +1,14 @@
-use std::collections::HashSet;
 use std::fmt;
-use std::vec::Vec;
-
 
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
-use git2::{self, Oid, Reference, Repository, ObjectType};
+use git2::{self, Oid, Reference, Repository};
 use libgit2_sys::{self, git_oid, GIT_OID_RAWSZ};
 
-use nonce::Nonce;
-use nonce_bag::{NonceBag, HasNonceBag};
+use nonce_bag::{NonceBag};
 
 use serde_json;
-use serde::ser::{Serialize, Serializer, SerializeStruct};
+use serde::ser::{Serialize};
 
 
 #[serde(remote = "git_oid")]

@@ -11,7 +11,6 @@ use std::process::{Command, Output};
 use super::git;
 
 use fs_extra::dir::*;
-use fs_extra::error::*;
 use tempdir::TempDir;
 
 use git2::{Repository, REPOSITORY_OPEN_BARE};
@@ -100,10 +99,10 @@ pub fn setup_fresh() -> Context {
         let mut file = File::create(file_path).unwrap();
         file.write_all(b"some work").unwrap();
     }
-    let commit_id = git::add_and_commit(&local, Some(&relative_path), "Add example text file", "master").unwrap();
+    let _commit_id = git::add_and_commit(&local, Some(&relative_path), "Add example text file", "master").unwrap();
 
     let remote_dir = format!("{}.git", &local_dir.to_str().unwrap());
-    create_all(&remote_dir, true);
+    create_all(&remote_dir, true).unwrap();
     let remote = Repository::init_bare(&remote_dir).unwrap();
     &local.remote("origin", &remote_dir);
     Context{local, remote}

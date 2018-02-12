@@ -1,4 +1,4 @@
-use std::path::Path;
+ use std::path::Path;
 use std::env;
 
 use git2;
@@ -75,7 +75,7 @@ pub fn unstash_local_changes(repo: &mut Repository, stash_id: Option<Oid>) -> Re
 pub fn add_and_commit(repo: &Repository, path: Option<&Path>, message: &str, branch: &str) -> Result<Oid> {
     let mut index = repo.index()?;
     if path.is_some() {
-        index.add_path(path.unwrap());
+        index.add_path(path.unwrap())?;
     }
     let oid = index.write_tree()?;
     let signature = repo.signature()?;
@@ -319,7 +319,6 @@ fn for_each_commit_from<F>(repo: &Repository, local: Oid, remote: Oid, f: F)
 }
 
 mod test {
-    use super::*;
     use utils::test_helper::*;
 
     #[test]

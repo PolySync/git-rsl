@@ -11,14 +11,10 @@ extern crate serde_json;
 extern crate fs_extra;
 extern crate tempdir;
 
-
-
 use std::{env, process};
-use git2::Repository;
 
 mod push;
 mod fetch;
-
 mod rsl;
 mod push_entry;
 mod nonce;

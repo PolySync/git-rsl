@@ -1,10 +1,7 @@
-use std::cmp::Eq;
-use std::cmp::PartialEq;
 use std::fmt;
 use std::fs::OpenOptions;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Read, Write};
-use std::error;
 
 use git2::Repository;
 use rand::os::OsRng;
@@ -112,7 +109,7 @@ mod tests {
         let context = setup();
         {
             let repo = &context.local;
-            repo.write_nonce(&FAKE_NONCE);
+            repo.write_nonce(&FAKE_NONCE).unwrap();
             let nonce_file = &repo.path().join("NONCE");
             let mut f = File::open(&nonce_file)
                         .expect("file not found");

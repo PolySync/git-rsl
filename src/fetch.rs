@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use std::iter::FromIterator;
 
 
-use git2::{Reference, Repository, Remote, Oid, BranchType};
+use git2::{Repository, Remote, Oid, BranchType};
 
 use nonce_bag::{NonceBag, HasNonceBag};
 use push_entry::PushEntry;
@@ -126,7 +126,7 @@ fn last_push_entry_for(repo: &Repository, reference: &str) -> Option<PushEntry> 
 
     // this is where it might come in yuseful to keep track of the last push entry for a branch...
     // for each ref, try to parse into a pushentry
-    /// if you can, check if that pushentry is for the branch
+    // if you can, check if that pushentry is for the branch
     // if it is , return that pushentry. otherwise keep going
     // if you get to then end of the walk, return false
     Some(PushEntry::new(repo, reference, String::from(""), NonceBag::new()))

@@ -1,5 +1,3 @@
-use std::cmp::Eq;
-use std::cmp::PartialEq;
 use std::io::Write;
 use std::fs::OpenOptions;
 use std::collections::HashSet;
@@ -7,13 +5,10 @@ use std::collections::HashSet;
 use std::io::BufReader;
 use std::io::BufRead;
 use std::path::Path;
-use std::fmt;
-use std::error;
 
 
-use git2::{self, Reference, Repository, Oid, BranchType};
+use git2::{self, Repository, Oid};
 use git2::build::CheckoutBuilder;
-use git2::Error;
 use serde_json;
 
 use nonce::Nonce;
@@ -185,7 +180,6 @@ mod tests {
         &context.local.write_nonce_bag(&bag).unwrap();
         &context.local.commit_nonce_bag().unwrap();
         assert!(context.local.state() == git2::RepositoryState::Clean);
-        assert!(false);
         teardown_fresh(context)
     }
  }
