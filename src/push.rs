@@ -10,7 +10,7 @@ use errors::*;
 
 use utils::git;
 
-pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: Vec<&str>) -> Result<()> {
+pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: &[&str]) -> Result<()> {
 
     let mut remote_rsl: RSL;
     let mut local_rsl: RSL;
@@ -77,10 +77,29 @@ mod tests {
     #[test]
     fn secure_push() {
         let mut context = setup_fresh();
-        let repo = context.local;
-        let mut rem = repo.find_remote("origin").unwrap();
-        let refs = vec!["master"];
-        let res = super::secure_push(&repo, &mut rem, refs).unwrap();
-        assert_eq!(res, ());
+        {
+            let repo = &context.local;
+            let mut rem = repo.find_remote("origin").unwrap().to_owned();
+            let refs = vec!["master"];
+            let res = super::secure_push(&repo, &mut rem, &refs).unwrap();
+            assert_eq!(res, ());
+        }
+        teardown_fresh(context)
+    }
+
+    #[test]
+    fn secure_push_twice() {
+        let mut context = setup_fresh();
+        {
+            let repo = &context.local;
+            let mut rem = repo.find_remote("origin").unwrap().to_owned();
+            let refs = &["master"];
+            let res = super::secure_push(&repo, &mut rem, refs).unwrap();
+            do_work_on_branch(&repo, "master");
+            let res2 = super::secure_push(&repo, &mut rem, refs).unwrap();
+            assert_eq!(res2, ());
+            assert!(false);
+        }
+        teardown_fresh(context)
     }
 }

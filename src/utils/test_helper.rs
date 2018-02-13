@@ -100,7 +100,6 @@ pub fn setup_fresh() -> Context {
         file.write_all(b"some work").unwrap();
     }
     let _commit_id = git::add_and_commit(&local, Some(&relative_path), "Add example text file", "master").unwrap();
-
     let remote_dir = format!("{}.git", &local_dir.to_str().unwrap());
     create_all(&remote_dir, true).unwrap();
     let remote = Repository::init_bare(&remote_dir).unwrap();
@@ -169,6 +168,11 @@ pub fn setup() -> Context {
 pub fn teardown(context: Context) -> () {
     rm_rf(context.local.path().parent().unwrap());
     rm_rf(context.remote.path().parent().unwrap());
+}
+
+pub fn do_work_on_branch(repo: &Repository, branch_name: &str) -> () {
+    git::checkout_branch(&repo, format!("refs/heads/{}", branch_name).as_str()).unwrap();
+    git::add_and_commit(&repo, None, "a commit with some work", "master").unwrap();
 }
 
 fn open_bare_repository<P>(path: P) -> Repository

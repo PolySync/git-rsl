@@ -84,7 +84,7 @@ fn run() -> Result<()> {
         if program == "git-securefetch" || matches.is_present("fetch") {
             fetch::secure_fetch(&clean_repo, &mut remote, branches).chain_err(|| "error fetching")?;
         } else if program == "git-securepush" || matches.is_present("push") {
-            push::secure_push(&clean_repo, &mut remote, branches).chain_err(|| "error pushing")?;
+            push::secure_push(&clean_repo, &mut remote, &branches).chain_err(|| "error pushing")?;
         }
     }
 
