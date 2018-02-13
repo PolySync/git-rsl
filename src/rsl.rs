@@ -44,6 +44,7 @@ pub trait HasRSL {
 
 impl HasRSL for Repository {
 
+    // find the last commit on the branch pointed to by the given Oid that represents a push entry
     fn find_last_push_entry(&self, tree_tip: &Oid) -> Option<PushEntry> {
         let mut revwalk: Revwalk = self.revwalk().expect("Failed to make revwalk");
         revwalk.push(tree_tip.clone());
@@ -98,9 +99,13 @@ impl HasRSL for Repository {
         debug_assert!(self.head()?.name().unwrap() == "refs/heads/RSL");
 
         let mut nonce_bag = NonceBag::new();
-        nonce_bag.insert(nonce).chain_err(|| "couldn't add new nonce to bag")?;
         self.write_nonce_bag(&nonce_bag)?;
         self.commit_nonce_bag()?;
+        nonce_bag.insert(nonce).chain_err(|| "couldn't add new nonce to bag")?;
+
+
+        let initial_pe = PushEntry::new(self, "RSL", String::from("First Push Entry"), nonce_bag);
+        self.commit_push_entry(&initial_pe);
 
         // push new rsl branch
         self.push_rsl(remote)?;
