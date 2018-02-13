@@ -98,7 +98,6 @@ mod tests {
             do_work_on_branch(&repo, "master");
             let res2 = super::secure_push(&repo, &mut rem, refs).unwrap();
             assert_eq!(res2, ());
-            assert!(false);
         }
         teardown_fresh(context)
     }
