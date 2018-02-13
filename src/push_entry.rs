@@ -24,6 +24,9 @@ struct OidDef {
     raw: libgit2_sys::git_oid,
 }
 
+// currently serializes Oid as and ASCII byte value array.
+// TODO figure out how to serde with the encoded
+// string instead
 fn get_raw_oid(oid: &Oid) -> libgit2_sys::git_oid {
     let mut oid_array: [u8; GIT_OID_RAWSZ] = Default::default();
     oid_array.copy_from_slice(oid.as_bytes());
