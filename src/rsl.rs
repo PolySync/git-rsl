@@ -244,7 +244,7 @@ impl HasRSL for Repository {
 
         });
 
-        if result != None { bail!("invalid RSL entry"); }
+        if result == None { bail!("invalid RSL entry"); }
 
 
         gpg::verify_signature(remote_rsl.head).chain_err(|| "GPG signature of remote RSL head invalid")
