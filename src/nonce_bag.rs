@@ -6,6 +6,9 @@ use std::io::BufReader;
 use std::io::BufRead;
 use std::path::Path;
 
+use std::fs::File;
+use std::io::prelude::*;
+
 
 use git2::{self, Repository, Oid};
 use git2::build::CheckoutBuilder;
@@ -60,32 +63,40 @@ pub trait HasNonceBag {
 
 impl HasNonceBag for Repository {
 
+    // TODO change read to read Nonce bag JSON object rather than
+    // naked nonces
     fn read_nonce_bag(&self) -> Result<NonceBag> {
         let nonce_bag_path = &self.path().parent().unwrap().join(NONCE_BAG_PATH);
         let mut f = OpenOptions::new().read(true).write(true).create(true).open(&nonce_bag_path).chain_err(|| "couldn't open nonce bag for reading")?;
         let mut nonce_bag = NonceBag::new();
-        let file = BufReader::new(&f);
-        for (_num, line) in file.lines().enumerate() {
-             let l = line.unwrap();
-             let existing_nonce = Nonce::from_str(&l).chain_err(|| "couldn't parse into nonce bytes")?;
-             &nonce_bag.insert(existing_nonce);
-         }
 
-         Ok(nonce_bag)
+        let file_size = f.metadata()?.len();
+        let mut bytes_read = 0u64;
+
+        let mut bytes: [u8; 32] = [0; 32];
+        let mut nonce: Nonce;
+        while bytes_read < file_size {
+            bytes_read += f.read(&mut bytes)? as u64;
+            nonce = Nonce { bytes };
+            &nonce_bag.insert(nonce);
+        }
+        Ok(nonce_bag)
     }
 
     fn write_nonce_bag(&self, nonce_bag: &NonceBag) -> Result<()> {
         let text = nonce_bag.to_string()?;
         let nonce_bag_path = self.path().parent().unwrap().join(NONCE_BAG_PATH);
         let mut f = OpenOptions::new().write(true).create(true).open(&nonce_bag_path).chain_err(|| "couldn't open nonce bag fiile for writing")?;
-         // for nonce in &nonce_bag.bag {
-         //     match f.write(&nonce.bytes) {
-         //         Ok(32) => (),
-         //         Ok(_e) => panic!("what the hell is wrong with ur nonce bag"),
-         //         Err(e) => return Err(NonceBagError::NonceBagWriteError(e)),
-         //     };
-         // }
-         f.write_all(&text.as_bytes()).chain_err(|| "couldnt write to nonce bag file")?;
+         for nonce in &nonce_bag.bag {
+             match f.write(&nonce.bytes) {
+                 Ok(32) => Ok(()),
+                 Ok(_e) => bail!("what the hell is wrong with ur nonce bag"),
+                 Err(e) => Err(e).chain_err(|| "failed to write nonce bytes to bag"),
+             };
+         }
+        // TODO change nonce file to store as JSON rather than naked nonces,
+        // then write as below
+        // f.write_all(&text.as_bytes()).chain_err(|| "couldnt write to nonce bag file")?;
          Ok(())
     }
 
@@ -162,6 +173,19 @@ mod tests {
         let result = NonceBag::to_string(&bag).unwrap();
         let bag2 = NonceBag::from_str(&result).unwrap();
         assert_eq!(bag, bag2)
+    }
+
+    #[test]
+    fn write_and_read() {
+        let context = setup_fresh();
+        {
+            let repo = &context.local;
+            let bag = bag_a();
+            &repo.write_nonce_bag(&bag).expect("bad write");
+            let res = repo.read_nonce_bag().expect("bad read");
+            assert_eq!(res, bag);
+        }
+        teardown_fresh(context);
     }
 
     #[test]
