@@ -217,10 +217,16 @@ impl HasRSL for Repository {
         revwalk.hide(local_rsl.head)?;
 
         let remaining = revwalk.map(|oid| oid.unwrap());
-
-        let result = remaining.fold(last_hash, |prev_hash, oid| {
+        println!("gets to validate");
+        let result = remaining
+            .inspect(|x| println!("about to fold: {}", x))
+            .fold(last_hash, |prev_hash, oid| {
+            //println!("last hash: {:?}", last_hash);
+            println!("prev_hash: {:?}", prev_hash);
+            println!("oid {:?}", oid);
             match PushEntry::from_oid(self, &oid) {
                 Some(current_push_entry) => {
+                    println!("is push entry!!");
                     let current_prev_hash = current_push_entry.prev_hash();
 
                     // if current prev_hash == local_rsl.head (that is, we have arrived at the first push entry after the last recorded one), then check if repo_nonce in PushEntry::from_oid(oid.parent_commit) or noncebag contains repo_nonce; return false if neither holds
@@ -232,6 +238,8 @@ impl HasRSL for Repository {
                         //    None;
                         //}
                     //}
+                    println!("current_prev_hash: {:?}", current_prev_hash);
+
                     let current_hash = current_push_entry.hash();
                     if prev_hash == Some(current_prev_hash) {
                         Some(current_hash)
@@ -239,9 +247,11 @@ impl HasRSL for Repository {
                         None
                     }
                 },
-                None => prev_hash, // this was not a pushentry. continue with previous entry in hand
+                None => {
+                    println!("this was not a pushentry. continue with previous entry in hand");
+                    prev_hash
+                },
             }
-
         });
 
         if result == None { bail!("invalid RSL entry"); }
