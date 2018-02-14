@@ -31,10 +31,7 @@ pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names:
 
         repo.fetch_rsl(&mut remote).chain_err(|| "Problem fetching Remote RSL. Check your connection or your SSH config");
 
-        let (remote_rsl, local_rsl, nonce_bag, nonce) = match repo.read_rsl() {
-            Ok((a,b,c,d)) => (a,b,c,d),
-            Err(e) => panic!("Couldn't read RSL: {:?}", e),
-        };
+        let (remote_rsl, local_rsl, nonce_bag, nonce) = repo.read_rsl().chain_err(|| "couldn't read RSL")?;
 
         repo.validate_rsl().chain_err(|| "Invalid remote RSL")?;
 
