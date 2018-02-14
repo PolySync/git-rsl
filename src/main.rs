@@ -27,13 +27,7 @@ pub use utils::git;
 
 fn main() {
     if let Err(ref e) = run() {
-        println!("error: {}", e);
-        for e in e.iter().skip(1) {
-            println!("caused by: {}", e);
-        }
-        if let Some(backtrace) = e.backtrace() {
-            println!("backtrace: {:?}", backtrace);
-        }
+        report_error(e);
         std::process::exit(1);
     }
 }
@@ -42,7 +36,8 @@ fn run() -> Result<()> {
     let args: Vec<String> = env::args().collect();
     let program = args[0].clone();
 
-    let mut messy_repo = git::discover_repo().unwrap();
+    let mut messy_repo = git::discover_repo()
+        .chain_err(|| "You don't appear to be in a git project. Please check yourself and try again")?;
 
     let matches = clap_app!(git_rsl =>
                             (name: program.clone())
@@ -58,27 +53,20 @@ fn run() -> Result<()> {
 
     let current_branch_name = &messy_repo.head()?
         .name()
-        .ok_or("Not on a named branch.")? // TODO allow this??
+        .ok_or("Not on a named branch. Please switch to one so we can put you back where you started when this is all through.")? // TODO allow this??
         .to_owned();
 
-    let stash_id = match git::stash_local_changes(&mut messy_repo) {
-        Ok(Some(id)) => Some(id),
-        Ok(None) => None,
-        Err(e) => panic!("couldn't stash local changes, or else there were no changes to stash. not sure what libgit2 returns when there is nothing to do"),
-    };
+    // TODO save current working directory and cd to project root, hop back later
+
+    let stash_id = git::stash_local_changes(&mut messy_repo)
+        .chain_err(|| "Couldn't stash local changes.")?;
 
     let mut clean_repo = git::discover_repo().unwrap();
 
     {
         let remote_name = matches.value_of("remote").unwrap().clone();
-        let mut remote = match clean_repo.find_remote(remote_name) {
-            Ok(r) => r,
-            Err(e) => {
-                println!("Error: unable to find remote named {}", remote_name);
-                println!("  {}", e);
-                process::exit(50);
-            },
-        };
+        let mut remote = clean_repo.find_remote(remote_name)
+            .chain_err(|| format!("unable to find remote named {}", remote_name))?;
 
         let branches: Vec<&str> = matches.values_of("branch").unwrap().collect();
         if program == "git-securefetch" || matches.is_present("fetch") {
@@ -88,17 +76,23 @@ fn run() -> Result<()> {
         }
     }
 
-    match git::checkout_branch(&mut clean_repo, current_branch_name) {
-        Ok(()) => (),
-        Err(e) => panic!("Couldn't checkout starting branch. Sorry if we messed with your repo state. Ensure you are on the desired branch. It may be necessary to apply changes from the stash: {:?}", e),
-    }
+    git::checkout_branch(&mut clean_repo, current_branch_name)
+        .chain_err(|| "Couldn't checkout starting branch. Sorry if we messed with your repo state. Ensure you are on the desired branch. It may be necessary to apply changes from the stash")?;
 
-    match git::unstash_local_changes(&mut clean_repo, stash_id) {
-        Ok(()) => (),
-        Err(e) => panic!("Couldn't unstash local changes. Sorry if we messed with your repository state. It may be necessary to apply changes from the stash. {:?}", e),
-    }
+    git::unstash_local_changes(&mut clean_repo, stash_id)
+        .chain_err(|| "Couldn't unstash local changes. Sorry if we messed with your repository state. It may be necessary to apply changes from the stash. {:?}")?;
 
     Ok(())
+}
+
+fn report_error(e: &Error) {
+    println!("error: {}", e);
+    for e in e.iter().skip(1) {
+        println!("caused by: {}", e);
+    }
+    if let Some(backtrace) = e.backtrace() {
+        println!("backtrace: {:?}", backtrace);
+    }
 }
 
 #[cfg(test)]
