@@ -4,9 +4,13 @@ node('xenial') {
 	  clean_checkout()
 	}
 	stage('Build') {
-	  sh 'cargo build'
+		withEnv(["PATH+CARGO=$HOME/.cargo/bin"]) {
+	  	sh 'cargo build'
+		}
 	}
 	stage('Test') {
-	  sh 'cargo test --no-fail-fast -- --nocapture'
+		withEnv(["PATH+CARGO=$HOME/.cargo/bin"]) {
+			sh 'cargo test --no-fail-fast -- --nocapture'
+		}
 	}
 }
