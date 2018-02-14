@@ -327,7 +327,7 @@ mod test {
         {
             let repo = &context.local;
             assert!(repo.head().unwrap().name().unwrap() == "refs/heads/devel");
-            super::checkout_branch(&repo, "RSL").unwrap();
+            super::checkout_branch(&repo, "refs/heads/RSL").unwrap();
             assert!(repo.head().unwrap().name().unwrap() == "refs/heads/RSL");
         }
         teardown(context)

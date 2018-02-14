@@ -344,7 +344,9 @@ mod tests {
             let obj = repo.find_commit(oid).unwrap();
             let new_head = repo.find_branch("RSL", BranchType::Local).unwrap();
             assert_eq!(oid, new_head.into_reference().target().unwrap());
-            assert_eq!(&obj.message().unwrap(), &"hello");
+
+            let msg = "{\n  \"branch\": \"branch_name\",\n  \"head\": {\n    \"raw\": {\n      \"id\": [\n        113,\n        144,\n        58,\n        3,\n        148,\n        1,\n        111,\n        89,\n        112,\n        235,\n        99,\n        89,\n        190,\n        15,\n        39,\n        43,\n        105,\n        243,\n        145,\n        180\n      ]\n    }\n  },\n  \"prev_hash\": \"hash_of_last_pushentry\",\n  \"nonce_bag\": {\n    \"bag\": []\n  },\n  \"signature\": \"gpg signature\"\n}";
+            assert_eq!(&obj.message().unwrap(), &msg);
         }
         teardown(context);
     }
