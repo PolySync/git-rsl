@@ -2,7 +2,7 @@ use std::fmt;
 
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
-use git2::{self, Oid, Reference, Repository};
+use git2::{self, Oid, Reference, Repository, BranchType};
 use libgit2_sys::{self, git_oid, GIT_OID_RAWSZ};
 
 use nonce_bag::{NonceBag};
@@ -57,10 +57,12 @@ pub struct PushEntry {
 impl PushEntry {
     //TODO Implement
     pub fn new(repo: &Repository, branch_str: &str, prev: String, nonce_bag: NonceBag) -> PushEntry {
+        let branch_head = repo.find_branch(branch_str, BranchType::Local).unwrap().get().target().unwrap();
+
         PushEntry {
 //            related_commits: Vec::new(),
             branch: String::from(branch_str),
-            head: repo.head().unwrap().target().unwrap(),
+            head: branch_head,
             prev_hash: prev,
             nonce_bag: nonce_bag,
             signature: String::from(""),
