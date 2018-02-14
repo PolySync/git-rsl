@@ -121,9 +121,9 @@ mod tests {
             assert_eq!(res2, ());
             let res3 = fetch::secure_fetch(&repo, &mut rem, refs).unwrap();
             assert_eq!(res3, ());
-            do_work_on_branch(&repo, "master");
-            let res4 = push::secure_push(&repo, &mut rem, refs).unwrap();
-            assert_eq!(res4, ());
+            // do_work_on_branch(&repo, "master");
+            // let res4 = push::secure_push(&repo, &mut rem, refs).unwrap();
+            // assert_eq!(res4, ());
 
         }
         teardown_fresh(context)

@@ -15,14 +15,14 @@ use utils::git;
 
 pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: &[&str]) -> Result<()> {
 
-    let mut remote_rsl: RSL = unsafe { ::std::mem::uninitialized() };
-    let mut local_rsl: RSL = unsafe { ::std::mem::uninitialized() };
-    let mut nonce_bag: NonceBag = unsafe { ::std::mem::uninitialized() };
-    let mut nonce: Nonce = unsafe { ::std::mem::uninitialized() };
-
+    let mut remote_rsl: RSL;
+    let mut local_rsl: RSL;
+    let mut nonce_bag: NonceBag;
+    let mut nonce: Nonce;
 
     repo.fetch_rsl(&mut remote);
     repo.init_rsl_if_needed(&mut remote);
+    //let (remote_rsl, local_rsl, nonce_bag, nonce) = repo.read_rsl()?.chain_err(|| "couldn't read RSL");
 
     git::checkout_branch(&repo, "refs/heads/RSL");
 
@@ -30,25 +30,15 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
 
     let mut store_counter = 5;
     'store: loop {
-        match store_counter {
-            0 => panic!("Couldn't store new fetch entry in RSL; check your connection and try again"),
-            _ => (),
+        if store_counter == 0  {
+            bail!("Couldn't store new fetch entry in RSL; check your connection and try again");
         }
         let mut counter = 5;
         'fetch: loop {
-            match counter {
-                0 => panic!("Couldn't fetch; check your connection and try again"),
-                _ => (),
+            if counter == 0 {
+                bail!("Couldn't fetch; check your connection and try again");
             }
-            //let original_branch = common::prep_workspace(&repo);
-            repo.fetch_rsl(&mut remote);
-
-
-
-            let (remote_rsl, local_rsl, nonce_bag, nonce) = match repo.read_rsl() {
-                Ok((a,b,c,d)) => (a,b,c,d),
-                Err(e) => panic!("Couldn't read RSL {:?}", e),
-            };
+            repo.fetch_rsl(&mut remote)?;
 
             // TODO reject if one of the branches has no rsl push entry
             //for branch in ref_names {
@@ -57,6 +47,9 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
             //        _ => error
             //    }
             //}
+
+            let (remote_rsl, local_rsl, nonce_bag, nonce) = repo.read_rsl().chain_err(|| "couldn't read RSL")?;
+
 
             match git::fetch(repo, &mut remote, ref_names, None) {
                 Ok(_) => (),
@@ -67,11 +60,13 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
                 },
             };
 
-            if all_push_entries_in_fetch_head(&repo, ref_names) {
+            if all_push_entries_in_fetch_head(repo, &remote_rsl, ref_names) {
                 break 'fetch;
             }
             counter -= 1;
         }
+
+        let (remote_rsl, local_rsl, mut nonce_bag, nonce) = repo.read_rsl().chain_err(|| "couldn't read RSL")?;
 
         // update nonce bag
         if nonce_bag.bag.contains(&nonce) {
@@ -99,17 +94,20 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
 }
 
 
-fn all_push_entries_in_fetch_head(repo: &Repository, ref_names: &[&str]) -> bool {
+fn all_push_entries_in_fetch_head(repo: &Repository, remote_rsl: &RSL, ref_names: &[&str]) -> bool {
     // find the last push entry for each branch
     let mut latest_push_entries: Vec<Oid> = ref_names.clone().into_iter().filter_map(|ref_name| {
-        match last_push_entry_for(repo, ref_name) {
-            Some(pe) => Some(pe.head),
+        match repo.find_last_push_entry_for_branch(remote_rsl, ref_name).ok() {
+            Some(Some(pe)) => Some(pe.head),
+            Some(None) => None,
             None => None,
         }
     }).collect();
+
     // find the Oid of the tip of each remote fetched branch
     let mut fetch_heads : Vec<Oid> = ref_names.clone().into_iter().filter_map(|ref_name| {
-        match repo.find_branch(ref_name, BranchType::Remote) {
+        println!("ref_name: {:?}", ref_name);
+        match repo.find_branch(&format!("origin/{}", ref_name), BranchType::Remote) {
             Ok(branch) => branch.get().target(),
             Err(_) => None
         }
@@ -117,21 +115,23 @@ fn all_push_entries_in_fetch_head(repo: &Repository, ref_names: &[&str]) -> bool
     let push_entries: HashSet<&Oid> = HashSet::from_iter(&latest_push_entries);
     let fetch_head: HashSet<&Oid> = HashSet::from_iter(&fetch_heads);
 
+    println!("latest push entries: {:?}", push_entries);
+    println!("fetch_heads {:?}", fetch_head);
     push_entries.is_subset(&fetch_head)
 }
 
 
-fn last_push_entry_for(repo: &Repository, reference: &str) -> Option<PushEntry> {
-    //TODO Actually walk the commits and look for the most recent for the branch we're interested
-    //in
-
-    // this is where it might come in yuseful to keep track of the last push entry for a branch...
-    // for each ref, try to parse into a pushentry
-    // if you can, check if that pushentry is for the branch
-    // if it is , return that pushentry. otherwise keep going
-    // if you get to then end of the walk, return false
-    Some(PushEntry::new(repo, reference, String::from(""), NonceBag::new()))
-}
+// fn last_push_entry_for(repo: &Repository, reference: &str) -> Option<PushEntry> {
+//     //TODO Actually walk the commits and look for the most recent for the branch we're interested
+//     //in
+//
+//     // this is where it might come in yuseful to keep track of the last push entry for a branch...
+//     // for each ref, try to parse into a pushentry
+//     // if you can, check if that pushentry is for the branch
+//     // if it is , return that pushentry. otherwise keep going
+//     // if you get to then end of the walk, return false
+//     Some(PushEntry::new(repo, reference, String::from(""), NonceBag::new()))
+// }
 
 //TODO implement
 fn reset_local_rsl_to_remote_rsl(_repo: &Repository) {

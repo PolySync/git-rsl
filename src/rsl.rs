@@ -26,6 +26,7 @@ pub struct RSL {
 
 impl RSL {
 
+
 }
 
 pub trait HasRSL {
@@ -39,16 +40,36 @@ pub trait HasRSL {
     fn commit_push_entry(&self, push_entry: &PushEntry) -> Result<Oid>;
     fn push_rsl(&self, remote: &mut Remote) -> Result<()>;
     fn find_last_push_entry(&self, tree_tip: &Oid) -> Option<PushEntry>;
+    fn find_last_push_entry_for_branch(&self, remote_rsl: &RSL, reference: &str) -> Result<Option<PushEntry>>;
     fn validate_rsl(&self) -> Result<()>;
 }
 
 impl HasRSL for Repository {
 
+    fn find_last_push_entry_for_branch(&self, remote_rsl: &RSL, reference: &str) -> Result<Option<PushEntry>> {
+        let mut revwalk: Revwalk = self.revwalk()?;
+        revwalk.push(remote_rsl.head)?;
+        let mut current = Some(remote_rsl.head.clone());
+        while current != None {
+            match PushEntry::from_oid(self, &current.unwrap()){
+                Some(pe) => {
+                    if pe.branch == reference {
+                        return Ok(Some(pe))
+                    } else {
+                        ()
+                    }
+                },
+                None => (),
+            }
+            current = revwalk.next().and_then(|res| res.ok()); // .next returns Opt<Res<Oid>>
+        }
+        Ok(None)
+    }
+
     // find the last commit on the branch pointed to by the given Oid that represents a push entry
     fn find_last_push_entry(&self, tree_tip: &Oid) -> Option<PushEntry> {
         let mut revwalk: Revwalk = self.revwalk().expect("Failed to make revwalk");
         revwalk.push(tree_tip.clone());
-        //revwalk.set_sorting(git2::SORT_REVERSE);
         let last_push_entry: Option<PushEntry> = None;
         let mut current = Some(tree_tip.clone());
         while current != None {
@@ -60,6 +81,8 @@ impl HasRSL for Repository {
         }
         None
     }
+
+
 
     fn rsl_init_global(&self, remote: &mut Remote) -> Result<()> {
         println!("Initializing Reference State Log for this repository.");
