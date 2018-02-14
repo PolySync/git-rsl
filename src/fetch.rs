@@ -13,7 +13,7 @@ use nonce::{Nonce, HasNonce};
 use errors::*;
 use utils::git;
 
-pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: Vec<&str>) -> Result<()> {
+pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: &[&str]) -> Result<()> {
 
     let mut remote_rsl: RSL = unsafe { ::std::mem::uninitialized() };
     let mut local_rsl: RSL = unsafe { ::std::mem::uninitialized() };
@@ -58,16 +58,16 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
             //    }
             //}
 
-            match git::fetch(repo, &mut remote, &ref_names, None) {
+            match git::fetch(repo, &mut remote, ref_names, None) {
                 Ok(_) => (),
                 Err(e) => {
-                    println!("Error: unable to fetch reference {} from remote {}", &ref_names.clone().join(", "), &remote.name().unwrap());
+                    println!("Error: unable to fetch reference {} from remote {}", ref_names.clone().join(", "), &remote.name().unwrap());
                     println!("  {}", e);
                     process::exit(51);
                 },
             };
 
-            if all_push_entries_in_fetch_head(&repo, &ref_names) {
+            if all_push_entries_in_fetch_head(&repo, ref_names) {
                 break 'fetch;
             }
             counter -= 1;
@@ -99,22 +99,22 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
 }
 
 
-fn all_push_entries_in_fetch_head(repo: &Repository, ref_names: &Vec<&str>) -> bool {
+fn all_push_entries_in_fetch_head(repo: &Repository, ref_names: &[&str]) -> bool {
 
-    let mut latest_push_entries: &Vec<Oid> = &ref_names.clone().into_iter().filter_map(|ref_name| {
+    let mut latest_push_entries: Vec<Oid> = ref_names.clone().into_iter().filter_map(|ref_name| {
         match last_push_entry_for(repo, ref_name) {
             Some(pe) => Some(pe.head),
             None => None,
         }
     }).collect();
-    let mut fetch_heads : &Vec<Oid> = &ref_names.clone().into_iter().filter_map(|ref_name| {
+    let mut fetch_heads : Vec<Oid> = ref_names.clone().into_iter().filter_map(|ref_name| {
         match repo.find_branch(ref_name, BranchType::Remote) {
             Ok(branch) => branch.get().target(),
             Err(_) => None
         }
     }).collect();
-    let h1: HashSet<&Oid> = HashSet::from_iter(latest_push_entries);
-    let h2: HashSet<&Oid> = HashSet::from_iter(fetch_heads);
+    let h1: HashSet<&Oid> = HashSet::from_iter(&latest_push_entries);
+    let h2: HashSet<&Oid> = HashSet::from_iter(&fetch_heads);
 
     h2.is_subset(&h1)
 }

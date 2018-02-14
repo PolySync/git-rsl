@@ -82,7 +82,7 @@ fn run() -> Result<()> {
 
         let branches: Vec<&str> = matches.values_of("branch").unwrap().collect();
         if program == "git-securefetch" || matches.is_present("fetch") {
-            fetch::secure_fetch(&clean_repo, &mut remote, branches).chain_err(|| "error fetching")?;
+            fetch::secure_fetch(&clean_repo, &mut remote, &branches).chain_err(|| "error fetching")?;
         } else if program == "git-securepush" || matches.is_present("push") {
             push::secure_push(&clean_repo, &mut remote, &branches).chain_err(|| "error pushing")?;
         }
@@ -99,4 +99,34 @@ fn run() -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use push;
+    use fetch;
+    use utils::test_helper::*;
+
+    #[test]
+    fn push_and_fetch() {
+        let mut context = setup_fresh();
+        {
+            let repo = &context.local;
+            let mut rem = repo.find_remote("origin").unwrap().to_owned();
+            let refs = &["master"];
+            let res = push::secure_push(&repo, &mut rem, refs).unwrap();
+            do_work_on_branch(&repo, "master");
+            let res2 = push::secure_push(&repo, &mut rem, refs).unwrap();
+            assert_eq!(res2, ());
+            let res3 = fetch::secure_fetch(&repo, &mut rem, refs).unwrap();
+            assert_eq!(res3, ());
+            do_work_on_branch(&repo, "master");
+            let res4 = push::secure_push(&repo, &mut rem, refs).unwrap();
+            assert_eq!(res4, ());
+
+        }
+        teardown_fresh(context)
+    }
+
 }
