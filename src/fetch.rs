@@ -100,23 +100,24 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
 
 
 fn all_push_entries_in_fetch_head(repo: &Repository, ref_names: &[&str]) -> bool {
-
+    // find the last push entry for each branch
     let mut latest_push_entries: Vec<Oid> = ref_names.clone().into_iter().filter_map(|ref_name| {
         match last_push_entry_for(repo, ref_name) {
             Some(pe) => Some(pe.head),
             None => None,
         }
     }).collect();
+    // find the Oid of the tip of each remote fetched branch
     let mut fetch_heads : Vec<Oid> = ref_names.clone().into_iter().filter_map(|ref_name| {
         match repo.find_branch(ref_name, BranchType::Remote) {
             Ok(branch) => branch.get().target(),
             Err(_) => None
         }
     }).collect();
-    let h1: HashSet<&Oid> = HashSet::from_iter(&latest_push_entries);
-    let h2: HashSet<&Oid> = HashSet::from_iter(&fetch_heads);
+    let push_entries: HashSet<&Oid> = HashSet::from_iter(&latest_push_entries);
+    let fetch_head: HashSet<&Oid> = HashSet::from_iter(&fetch_heads);
 
-    h2.is_subset(&h1)
+    push_entries.is_subset(&fetch_head)
 }
 
 
