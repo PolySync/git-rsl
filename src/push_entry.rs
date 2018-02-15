@@ -113,6 +113,7 @@ impl fmt::Display for PushEntry {
 mod tests {
     use super::*;
     use utils::test_helper::*;
+    use rsl::HasRSL;
 
     #[test]
     fn to_string_and_back() {
@@ -132,7 +133,7 @@ mod tests {
 
     #[test]
     fn from_string() {
-        let string = "{\n  \"branch\": \"branch_name\",\n  \"head\": {\n    \"raw\": {\n      \"id\": [\n        222,\n        203,\n        242,\n        190,\n        82,\n        154,\n        182,\n        85,\n        125,\n        84,\n        41,\n        146,\n        34,\n        81,\n        229,\n        238,\n        54,\n        81,\n        152,\n        23\n      ]\n    }\n  },\n  \"prev_hash\": \"fwjjk42ofw093j\",\n  \"nonce_bag\": {\n    \"bag\": []\n  },\n  \"signature\": \"gpg signature\"\n}";
+        let string = "{\n  \"branch\": \"branch_name\",\n  \"head\": {\n    \"raw\": \"decbf2be529ab6557d5429922251e5ee36519817\"\n  },\n  \"prev_hash\": \"fwjjk42ofw093j\",\n  \"nonce_bag\": {\n    \"bag\": []\n  },\n  \"signature\": \"gpg signature\"\n}";
         let entry = PushEntry {
                 //related_commits: vec![oid.to_owned(), oid.to_owned()],
                 branch: String::from("branch_name"),
@@ -152,7 +153,6 @@ mod tests {
         let context = setup();
         {
             let repo = &context.local;
-            let oid = Oid::from_str("71903a0394016f5970eb6359be0f272b69f391b4").unwrap();
             let entry = PushEntry {
                     //related_commits: vec![oid.to_owned(), oid.to_owned()],
                     branch: String::from("branch_name"),
@@ -161,6 +161,8 @@ mod tests {
                     nonce_bag: NonceBag::new(),
                     signature: String::from("gpg signature"),
             };
+            let oid = repo.commit_push_entry(&entry).unwrap();
+
             assert_eq!(PushEntry::from_oid(&repo, &oid).unwrap(), entry);
         }
         teardown(context);
