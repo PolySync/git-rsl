@@ -10,6 +10,7 @@ extern crate serde;
 extern crate serde_json;
 extern crate fs_extra;
 extern crate tempdir;
+extern crate hex;
 
 use std::{env, process};
 
