@@ -9,39 +9,29 @@ use nonce_bag::{NonceBag};
 
 use serde_json;
 use serde::ser::{Serialize};
+use utils;
 
-
-#[serde(remote = "git_oid")]
-#[derive(Serialize, Deserialize)]
-struct GitOidDef {
-    pub id: [u8; GIT_OID_RAWSZ],
-}
 
 #[serde(remote = "Oid")]
 #[derive(Serialize, Deserialize)]
 struct OidDef {
-    #[serde(with = "GitOidDef", getter = "get_raw_oid")]
-    raw: libgit2_sys::git_oid,
+    #[serde(serialize_with = "utils::buffer_to_hex", deserialize_with = "utils::hex_to_buffer", getter = "get_raw_oid")]
+    raw: Vec<u8>,
 }
 
-// currently serializes Oid as and ASCII byte value array.
-// TODO figure out how to serde with the encoded
-// string instead
-fn get_raw_oid(oid: &Oid) -> libgit2_sys::git_oid {
+fn get_raw_oid(oid: &Oid) -> Vec<u8> {
     let mut oid_array: [u8; GIT_OID_RAWSZ] = Default::default();
     oid_array.copy_from_slice(oid.as_bytes());
-    git_oid { id: oid_array }
+    oid_array.to_vec()
 }
 
 // Provide a conversion to construct the remote type Oid from OidDef.
 impl From<OidDef> for Oid {
     fn from(def: OidDef) -> git2::Oid {
-        Oid::from_bytes(&def.raw.id).unwrap()
+        Oid::from_bytes(&def.raw).unwrap()
     }
 }
 
-
-//#[derive(Deserialize)]
 #[derive(Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct PushEntry {
     //#[serde(with = "Vec::<OidDef>")]
