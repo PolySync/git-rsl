@@ -1,15 +1,16 @@
-use git2::{Reference, Repository, Remote};
+use git2::{Repository, Remote};
 
 use std::process;
 
-use common::{self, PushEntry};
-use common::rsl::{RSL, HasRSL};
-use common::nonce_bag::{NonceBag, HasNonceBag};
-use common::nonce::{Nonce, HasNonce};
+use push_entry::PushEntry;
+use rsl::{RSL, HasRSL};
+use nonce_bag::{NonceBag, HasNonceBag};
+use nonce::{Nonce};
+use errors::*;
 
-use common::errors::*;
+use utils::git;
 
-pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: Vec<&str>) -> Result<()> {
+pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: &[&str]) -> Result<()> {
 
     let mut remote_rsl: RSL;
     let mut local_rsl: RSL;
@@ -23,20 +24,16 @@ pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names:
     repo.init_rsl_if_needed(&mut remote).chain_err(|| "Problem initializing RSL");
 
     // checkout RSL branch
-    common::checkout_branch(&repo, "RSL")?;
+    git::checkout_branch(&repo, "refs/heads/RSL")?;
 
 
     'push: loop {
 
         repo.fetch_rsl(&mut remote).chain_err(|| "Problem fetching Remote RSL. Check your connection or your SSH config");
 
-        let (remote_rsl, local_rsl, nonce_bag, nonce) = match repo.read_rsl() {
-            Ok((a,b,c,d)) => (a,b,c,d),
-            Err(e) => panic!("Couldn't read RSL: {:?}", e),
-        };
+        let (remote_rsl, local_rsl, nonce_bag, nonce) = repo.read_rsl().chain_err(|| "couldn't read RSL")?;
 
-
-        common::validate_rsl(repo, &remote_rsl, &local_rsl, &nonce_bag, &nonce).chain_err(|| "Invalid remote RSL")?;
+        repo.validate_rsl().chain_err(|| "Invalid remote RSL")?;
 
         // validate that fast forward is possible
 
@@ -55,7 +52,7 @@ pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names:
 
         repo.push_rsl(&mut remote)?;
 
-        match common::push(repo, &mut remote, &ref_names) {
+        match git::push(repo, &mut remote, &ref_names) {
             Ok(_) => break 'push,
             Err(e) => {
                 println!("Error: unable to push reference(s) {:?} to remote {:?}", &ref_names.clone().join(", "), &remote.name().unwrap());
@@ -76,12 +73,29 @@ mod tests {
 
     #[test]
     fn secure_push() {
-        let mut context = setup();
-        let repo = context.local;
-        let mut rem = repo.find_remote("origin").unwrap();
-        let refs = vec!["devel"];
-        let res = super::secure_push(&repo, &mut rem, refs).unwrap();
-        assert_eq!(res, ());
-        assert_eq!(2,3)
+        let mut context = setup_fresh();
+        {
+            let repo = &context.local;
+            let mut rem = repo.find_remote("origin").unwrap().to_owned();
+            let refs = vec!["master"];
+            let res = super::secure_push(&repo, &mut rem, &refs).unwrap();
+            assert_eq!(res, ());
+        }
+        teardown_fresh(context)
+    }
+
+    #[test]
+    fn secure_push_twice() {
+        let mut context = setup_fresh();
+        {
+            let repo = &context.local;
+            let mut rem = repo.find_remote("origin").unwrap().to_owned();
+            let refs = &["master"];
+            let res = super::secure_push(&repo, &mut rem, refs).unwrap();
+            do_work_on_branch(&repo, "master");
+            let res2 = super::secure_push(&repo, &mut rem, refs).unwrap();
+            assert_eq!(res2, ());
+        }
+        teardown_fresh(context)
     }
 }

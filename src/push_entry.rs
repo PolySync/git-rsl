@@ -1,48 +1,37 @@
-use std::collections::HashSet;
 use std::fmt;
-use std::vec::Vec;
-
 
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
-use git2::{self, Oid, Reference, Repository, ObjectType};
+use git2::{self, Oid, Reference, Repository, BranchType};
 use libgit2_sys::{self, git_oid, GIT_OID_RAWSZ};
 
-use common::Nonce;
-use common::nonce_bag::{NonceBag, HasNonceBag};
+use nonce_bag::{NonceBag};
 
 use serde_json;
-use serde::ser::{Serialize, Serializer, SerializeStruct};
+use serde::ser::{Serialize};
+use utils;
 
-
-#[serde(remote = "git_oid")]
-#[derive(Serialize, Deserialize)]
-struct GitOidDef {
-    pub id: [u8; GIT_OID_RAWSZ],
-}
 
 #[serde(remote = "Oid")]
 #[derive(Serialize, Deserialize)]
 struct OidDef {
-    #[serde(with = "GitOidDef", getter = "get_raw_oid")]
-    raw: libgit2_sys::git_oid,
+    #[serde(serialize_with = "utils::buffer_to_hex", deserialize_with = "utils::hex_to_buffer", getter = "get_raw_oid")]
+    raw: Vec<u8>,
 }
 
-fn get_raw_oid(oid: &Oid) -> libgit2_sys::git_oid {
+fn get_raw_oid(oid: &Oid) -> Vec<u8> {
     let mut oid_array: [u8; GIT_OID_RAWSZ] = Default::default();
     oid_array.copy_from_slice(oid.as_bytes());
-    git_oid { id: oid_array }
+    oid_array.to_vec()
 }
 
 // Provide a conversion to construct the remote type Oid from OidDef.
 impl From<OidDef> for Oid {
     fn from(def: OidDef) -> git2::Oid {
-        Oid::from_bytes(&def.raw.id).unwrap()
+        Oid::from_bytes(&def.raw).unwrap()
     }
 }
 
-
-//#[derive(Deserialize)]
 #[derive(Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct PushEntry {
     //#[serde(with = "Vec::<OidDef>")]
@@ -58,10 +47,12 @@ pub struct PushEntry {
 impl PushEntry {
     //TODO Implement
     pub fn new(repo: &Repository, branch_str: &str, prev: String, nonce_bag: NonceBag) -> PushEntry {
+        let branch_head = repo.find_branch(branch_str, BranchType::Local).unwrap().get().target().unwrap();
+
         PushEntry {
 //            related_commits: Vec::new(),
             branch: String::from(branch_str),
-            head: repo.head().unwrap().target().unwrap(),
+            head: branch_head,
             prev_hash: prev,
             nonce_bag: nonce_bag,
             signature: String::from(""),
@@ -122,6 +113,7 @@ impl fmt::Display for PushEntry {
 mod tests {
     use super::*;
     use utils::test_helper::*;
+    use rsl::HasRSL;
 
     #[test]
     fn to_string_and_back() {
@@ -141,7 +133,7 @@ mod tests {
 
     #[test]
     fn from_string() {
-        let string = "{\n  \"branch\": \"branch_name\",\n  \"head\": {\n    \"raw\": {\n      \"id\": [\n        222,\n        203,\n        242,\n        190,\n        82,\n        154,\n        182,\n        85,\n        125,\n        84,\n        41,\n        146,\n        34,\n        81,\n        229,\n        238,\n        54,\n        81,\n        152,\n        23\n      ]\n    }\n  },\n  \"prev_hash\": \"fwjjk42ofw093j\",\n  \"nonce_bag\": {\n    \"bag\": []\n  },\n  \"signature\": \"gpg signature\"\n}";
+        let string = "{\n  \"branch\": \"branch_name\",\n  \"head\": {\n    \"raw\": \"decbf2be529ab6557d5429922251e5ee36519817\"\n  },\n  \"prev_hash\": \"fwjjk42ofw093j\",\n  \"nonce_bag\": {\n    \"bag\": []\n  },\n  \"signature\": \"gpg signature\"\n}";
         let entry = PushEntry {
                 //related_commits: vec![oid.to_owned(), oid.to_owned()],
                 branch: String::from("branch_name"),
@@ -161,7 +153,6 @@ mod tests {
         let context = setup();
         {
             let repo = &context.local;
-            let oid = Oid::from_str("71903a0394016f5970eb6359be0f272b69f391b4").unwrap();
             let entry = PushEntry {
                     //related_commits: vec![oid.to_owned(), oid.to_owned()],
                     branch: String::from("branch_name"),
@@ -170,6 +161,8 @@ mod tests {
                     nonce_bag: NonceBag::new(),
                     signature: String::from("gpg signature"),
             };
+            let oid = repo.commit_push_entry(&entry).unwrap();
+
             assert_eq!(PushEntry::from_oid(&repo, &oid).unwrap(), entry);
         }
         teardown(context);

@@ -1,16 +1,17 @@
 use std::path::Path;
 use std::env;
-use std::fs;
+use std::fs::{self, File};
 use std::str;
 use std::ffi::OsStr;
+use std::io::prelude::*;
 
 
 use std::process::{Command, Output};
 
-
+use super::git;
 
 use fs_extra::dir::*;
-use fs_extra::error::*;
+use tempdir::TempDir;
 
 use git2::{Repository, REPOSITORY_OPEN_BARE};
 use rand::{Rng, thread_rng};
@@ -84,12 +85,37 @@ impl Context {
     }
 }
 
+pub fn setup_fresh() -> Context {
+    // create temporary directory
+    // init git repo in temp directory
+    // init bare remote repo
+    // set remote origin to remote repo
+    let local_dir = TempDir::new("rsl_test").unwrap().into_path();
+    let local = Repository::init(&local_dir).unwrap();
+
+    let relative_path = Path::new("work.txt");
+    {
+        let file_path = local_dir.join(relative_path);
+        let mut file = File::create(file_path).unwrap();
+        file.write_all(b"some work").unwrap();
+    }
+    let _commit_id = git::add_and_commit(&local, Some(&relative_path), "Add example text file", "master").unwrap();
+    let remote_dir = format!("{}.git", &local_dir.to_str().unwrap());
+    create_all(&remote_dir, true).unwrap();
+    let remote = Repository::init_bare(&remote_dir).unwrap();
+    &local.remote("origin", &remote_dir);
+    Context{local, remote}
+}
+
+pub fn teardown_fresh(context: Context) {
+    rm_rf(context.local.path().parent().unwrap());
+    rm_rf(context.remote.path());
+}
 
 pub fn setup() -> Context {
     let mut fixture_dir = env::current_dir().unwrap();
     &fixture_dir.push("fixtures/fixture.git");
     let suffix: String = thread_rng().gen_ascii_chars().take(12).collect();
-
 
     // create remote repo dir and copy .git from fixture
     let remote_repo_name = format!("/tmp/rsl_test{}_remote", suffix);
@@ -140,16 +166,21 @@ pub fn setup() -> Context {
 }
 
 pub fn teardown(context: Context) -> () {
-    let rm_rf = |repo: Repository| -> () {
-        let path = repo.path().parent().unwrap();
-        fs::remove_dir_all(&path).unwrap();
-        ()
-    };
-    rm_rf(context.local);
-    rm_rf(context.remote);
+    rm_rf(context.local.path().parent().unwrap());
+    rm_rf(context.remote.path().parent().unwrap());
+}
+
+pub fn do_work_on_branch(repo: &Repository, branch_name: &str) -> () {
+    git::checkout_branch(&repo, format!("refs/heads/{}", branch_name).as_str()).unwrap();
+    git::add_and_commit(&repo, None, "a commit with some work", "master").unwrap();
 }
 
 fn open_bare_repository<P>(path: P) -> Repository
     where P: AsRef<Path>, P: AsRef<OsStr> {
     Repository::open_ext(&path, REPOSITORY_OPEN_BARE,  &[] as &[&OsStr]).unwrap()
+}
+
+fn rm_rf(path: &Path) -> () {
+    fs::remove_dir_all(&path).unwrap();
+    ()
 }
