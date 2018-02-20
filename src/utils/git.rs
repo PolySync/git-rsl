@@ -8,6 +8,7 @@ use git2::BranchType;
 
 use git2::StashApplyOptions;
 use git2::STASH_INCLUDE_UNTRACKED;
+use git2::MERGE_ANALYSIS_FASTFORWARD;
 
 use errors::*;
 
@@ -146,6 +147,29 @@ pub fn push(repo: &Repository, remote: &mut Remote, ref_names: &[&str]) -> Resul
         remote.push(&refs_ref, Some(&mut opts))?;
         Ok(())
     })
+}
+
+// for a f `merge --ff-only origin/branch branch`, the target is `branch` and the source is `origin/branch`
+pub fn fast_forward_possible(repo: &Repository, theirs: &str) -> Result<bool> {
+    let their_oid = repo.find_reference(theirs)?
+        .target()
+        .ok_or("not a direct reference")?;
+    let their_commit = repo.find_annotated_commit(their_oid)?;
+    let (analysis, preference) = repo.merge_analysis(&[&their_commit])?;
+    println!("merge analysis: {:?}", analysis);
+    println!("preference: {:?}", preference);
+    Ok(analysis.contains(MERGE_ANALYSIS_FASTFORWARD))
+}
+
+pub fn fast_forward_onto_head(repo: &Repository, theirs: &str) -> Result<()> {
+    let their_object = repo.find_reference(theirs)?.peel_to_commit()?.into_object();
+
+    let their_oid = repo.find_reference(theirs)?.target().ok_or("not a direct reference")?;
+    repo.checkout_tree(&their_object, None);
+    let mut head = repo.head()?;
+    let reflog_str = format!("Fastforward {} onto HEAD", theirs);
+    head.set_target(their_oid, &reflog_str)?;
+    Ok(())
 }
 
 
@@ -320,6 +344,7 @@ fn for_each_commit_from<F>(repo: &Repository, local: Oid, remote: Oid, f: F)
 
 mod test {
     use utils::test_helper::*;
+    use super::*;
 
     #[test]
     fn checkout_branch() {
@@ -331,5 +356,49 @@ mod test {
             assert!(repo.head().unwrap().name().unwrap() == "refs/heads/RSL");
         }
         teardown(context)
+    }
+
+    #[test]
+    fn fast_forward_possible() {
+        let context = setup_fresh();
+        {
+            let repo = &context.local;
+            //let mut remote = repo.find_remote(&"origin").unwrap();
+            let head = &repo.head().unwrap().peel_to_commit().unwrap();
+            let branch = &repo.branch(&"branch", &head, false).unwrap();
+            assert!(repo.head().unwrap().name().unwrap() == "refs/heads/master");
+
+            super::checkout_branch(&repo, &"refs/heads/branch").unwrap();
+            assert!(repo.head().unwrap().name().unwrap() == "refs/heads/branch");
+
+            do_work_on_branch(&repo, &"branch");
+            do_work_on_branch(&repo, &"branch");
+            super::checkout_branch(&repo, &"refs/heads/master").unwrap();
+
+            let res = super::fast_forward_possible(&repo, &"refs/heads/branch").unwrap();
+            assert_eq!(res, true);
+        }
+        teardown_fresh(context)
+    }
+
+    #[test]
+    fn fast_forward() {
+        let context = setup_fresh();
+        {
+            let repo = &context.local;
+            let head = &repo.head().unwrap().peel_to_commit().unwrap();
+            let branch = &repo.branch(&"branch", &head, false).unwrap();
+            super::checkout_branch(&repo, &"refs/heads/branch").unwrap();
+            assert!(repo.head().unwrap().name().unwrap() == "refs/heads/branch");
+
+            do_work_on_branch(&repo, &"branch");
+            do_work_on_branch(&repo, &"branch");
+            super::checkout_branch(&repo, &"refs/heads/master").unwrap();
+
+            super::fast_forward_onto_head(&repo, &"refs/heads/branch").unwrap();
+            let master_tip = repo.find_branch("master", BranchType::Local).unwrap().get().target().unwrap();
+            let branch_tip = repo.find_branch("branch", BranchType::Local).unwrap().get().target().unwrap();
+            assert_eq!(master_tip, branch_tip)
+        }
     }
 }
