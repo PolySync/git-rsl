@@ -161,6 +161,12 @@ pub fn fast_forward_possible(repo: &Repository, theirs: &str) -> Result<bool> {
     Ok(analysis.contains(MERGE_ANALYSIS_FASTFORWARD))
 }
 
+pub fn up_to_date(repo: &Repository, local_branch: &str, remote_branch: &str) -> Result<bool> {
+    let remote_oid = repo.find_branch(remote_branch, BranchType::Remote)?.get().target().ok_or("not a direct reference")?;
+    let local_oid = repo.find_branch(local_branch, BranchType::Local)?.get().target().ok_or("not a direct reference")?;
+    Ok(remote_oid == local_oid)
+}
+
 pub fn fast_forward_onto_head(repo: &Repository, theirs: &str) -> Result<()> {
     let their_object = repo.find_reference(theirs)?.peel_to_commit()?.into_object();
 

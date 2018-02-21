@@ -35,9 +35,17 @@ pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names:
 
         repo.validate_rsl().chain_err(|| "Invalid remote RSL")?;
 
-        // validate that fast forward is possible
+        // TODO deal with no change necessary
+        if !git::up_to_date(repo, "RSL", "origin/RSL")? {
+            match git::fast_forward_possible(repo, "refs/remotes/origin/RSL") {
+                Ok(true) => git::fast_forward_onto_head(repo, "refs/remotes/origin/RSL")?,
+                Ok(false) => bail!("Local RSL cannot be fastforwarded to match remote. This may indicate that someone has tampered with the RSL history. Use caution before proceeding."),
+                Err(e) => Err(e).chain_err(|| "Local RSL cannot be fastforwarded to match remote. This may indicate that someone has tampered with the RSL history. Use caution before proceeding.")?,
+            }
+        }
 
-        // checkout remote rsl detached
+
+        // TODO commit to detached HEAD instead of local RSL branch, in case someone else has updated and a fastforward is not possible
         // make new push entry
         let prev_hash = match remote_rsl.last_push_entry {
             Some(pe) => pe.hash(),
