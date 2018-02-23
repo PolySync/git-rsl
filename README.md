@@ -39,11 +39,11 @@ The above example explicitly runs the install script with a preceding `.`. This 
 ### Git Alias
 
 ```
-$ git config --global alias.secure-push "!kevlar-laces-rs --push"
-$ git config --global alias.secure-fetch "!kevlar-laces-rs --fetch"
+$ git config --global alias.secure-push '!kevlar-laces-rs --push'
+$ git config --global alias.secure-fetch '!kevlar-laces-rs --fetch'
 ```
 
-The `!` before the executable name tells git that we are not aliasing a git subcommand but running an external application.
+The `!` before the executable name tells git that we are not aliasing a git subcommand but running an external application. NB single quotes around the command are essential to properly escape the bang character.
 
 ### Symlinks
 
