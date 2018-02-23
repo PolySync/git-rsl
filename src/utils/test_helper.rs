@@ -172,7 +172,7 @@ pub fn teardown(context: Context) -> () {
 
 pub fn do_work_on_branch(repo: &Repository, branch_name: &str) -> () {
     git::checkout_branch(&repo, format!("refs/heads/{}", branch_name).as_str()).unwrap();
-    git::add_and_commit(&repo, None, "a commit with some work", "master").unwrap();
+    git::add_and_commit(&repo, None, "a commit with some work", branch_name).unwrap();
 }
 
 fn open_bare_repository<P>(path: P) -> Repository
