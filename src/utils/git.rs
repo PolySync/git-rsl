@@ -453,10 +453,12 @@ mod test {
                 let repo = &context.local;
                 let head = repo.find_commit(repo.head().unwrap().target().unwrap()).unwrap();
                 repo.branch("RSL", &head, false).unwrap();
-                // add gitignore and ignored file
+                // add gitignore and commit gitignore
                 let ignore_path = repo.path().parent().unwrap().join(".gitignore");
                 let mut f = File::create(&ignore_path).unwrap();
                 f.write_all(b"foo.txt").unwrap();
+                super::add_and_commit(repo, Some(Path::new(".gitignore")), &"add gitignore", "master").unwrap();
+                // add file to be ignored
                 path = repo.path().parent().unwrap().join("foo.txt");
                 let mut f = File::create(&path).unwrap();
                 f.write_all(b"some stuff I don't want to track with git").unwrap();
@@ -471,6 +473,7 @@ mod test {
                 // checkout RSL branch and then back to master
                 let mut repo2 = Repository::discover(context.repo_dir).unwrap();
                 super::checkout_branch(&repo2, "refs/heads/RSL").unwrap();
+                assert_eq!(path.is_file(), false);
                 super::checkout_branch(&repo2, "refs/heads/master").unwrap();
                 // pop stash
                 super::unstash_local_changes(&mut repo2, stash_id).unwrap();
