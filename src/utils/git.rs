@@ -35,7 +35,7 @@ pub fn discover_repo() -> Result<Repository> {
 
 pub fn stash_local_changes(repo: &mut Repository) -> Result<(Option<Oid>)> {
     let signature = repo.signature()?;
-    let message = "Stashing local changes for RSL business";
+    let message = "Stashing local changes, intracked and ignored files for RSL business";
 
     // check that there are indeed changes in index or untracked to stash
     {
@@ -351,6 +351,10 @@ fn for_each_commit_from<F>(repo: &Repository, local: Oid, remote: Oid, f: F)
 mod test {
     use utils::test_helper::*;
     use super::*;
+    use std::fs::{File, OpenOptions};
+    use std::io::prelude::*;
+    use std::path::PathBuf;
+
 
     #[test]
     fn checkout_branch() {
@@ -411,6 +415,60 @@ mod test {
             let master_tip = repo.find_branch("master", BranchType::Local).unwrap().get().target().unwrap();
             let branch_tip = repo.find_branch("branch", BranchType::Local).unwrap().get().target().unwrap();
             assert_eq!(master_tip, branch_tip)
+        }
+    }
+
+    #[test]
+    fn stash_local_changes() {
+        let mut context = setup_fresh();
+        let mut repo = context.local;
+
+        // make untracked files
+        let path = repo.path().parent().unwrap().join("foo.txt");
+        let mut f = File::create(&path).unwrap();
+        f.write_all(b"some stuff I don't want to track with git").unwrap();
+        // stash untracked files
+        let stash_id = super::stash_local_changes(&mut repo).unwrap();
+        // worktree should no longer contain untracked file
+        assert_eq!(path.is_file(), false);
+        // repo has changed, need to rediscover (for some terrible reason)
+        let mut repo2 = Repository::discover(context.repo_dir).unwrap();
+        super::unstash_local_changes(&mut repo2, stash_id).unwrap();
+        assert_eq!(path.is_file(), true);
+    }
+
+    #[test]
+    fn preserve_ignored_files() {
+        let path: PathBuf;
+        let mut context = setup_fresh();
+        {
+            {
+                let repo = &context.local;
+                let head = repo.find_commit(repo.head().unwrap().target().unwrap()).unwrap();
+                repo.branch("RSL", &head, false).unwrap();
+                // add gitignore and ignored file
+                let ignore_path = repo.path().parent().unwrap().join(".gitignore");
+                let mut f = File::create(&ignore_path).unwrap();
+                f.write_all(b"foo.txt").unwrap();
+                path = repo.path().parent().unwrap().join("foo.txt");
+                let mut f = File::create(&path).unwrap();
+                f.write_all(b"some stuff I don't want to track with git").unwrap();
+            }
+            // stash for RSL operations
+            let stash_id = super::stash_local_changes(&mut context.local).unwrap().to_owned();
+            // should have stashed something because we have gitignored files
+            assert!(stash_id.is_some());
+            // worktree should no longer contain untracked file
+            assert_eq!(path.is_file(), false);
+            {
+                // checkout RSL branch and then back to master
+                let mut repo2 = Repository::discover(context.repo_dir).unwrap();
+                super::checkout_branch(&repo2, "refs/heads/RSL").unwrap();
+                super::checkout_branch(&repo2, "refs/heads/master").unwrap();
+                // pop stash
+                super::unstash_local_changes(&mut repo2, stash_id).unwrap();
+            }
+            assert_eq!(path.is_file(), true);
         }
     }
 }
