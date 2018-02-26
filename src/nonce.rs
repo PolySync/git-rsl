@@ -106,7 +106,7 @@ mod tests {
 
     #[test]
     fn write_nonce() {
-        let context = setup();
+        let context = setup_fresh();
         {
             let repo = &context.local;
             repo.write_nonce(&FAKE_NONCE).unwrap();
@@ -118,19 +118,19 @@ mod tests {
                         .expect("something went wrong reading the file");
             assert_eq!(contents, FAKE_NONCE.bytes);
         }
-        teardown(context);
+        teardown_fresh(context);
     }
 
     #[test]
     fn read_nonce() {
-        let context = setup();
+        let context = setup_fresh();
         {
             let repo = &context.local;
+            repo.write_nonce(&FAKE_NONCE).unwrap();
             let nonce = repo.read_nonce().unwrap();
-            let nonce2 = Nonce { bytes: [168, 202, 85, 60, 50, 231, 189, 13, 197, 149, 177, 98, 8, 162, 2, 25, 211, 51, 159, 84, 228, 203, 184, 235, 219, 10, 118, 213, 97, 190, 187, 239] };
-            assert_eq!(nonce, nonce2);
+            assert_eq!(nonce, FAKE_NONCE);
         }
-        teardown(context);
+        teardown_fresh(context);
     }
 
     #[test]
