@@ -29,9 +29,10 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
     //TODO paper algo uses spin lock here, probably a better alternative
 
     let mut store_counter = 5;
+    let mut err: Result<()> = Err("".into());
     'store: loop {
         if store_counter == 0  {
-            bail!("Couldn't store new fetch entry in RSL; check your connection and try again");
+            err.chain_err(|| "Couldn't store new fetch entry in RSL; check your connection and try again");
         }
         let mut counter = 5;
         'fetch: loop {
@@ -68,6 +69,19 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
 
         let (remote_rsl, local_rsl, mut nonce_bag, nonce) = repo.read_rsl().chain_err(|| "couldn't read RSL")?;
 
+        // validate remote RSL
+        repo.validate_rsl().chain_err(|| "Invalid remote RSL")?;
+
+        // Fastforward valid remote RSL onto local branch
+        // TODO deal with no change necessary
+        if !git::up_to_date(repo, "RSL", "origin/RSL")? {
+            match git::fast_forward_possible(repo, "refs/remotes/origin/RSL") {
+                Ok(true) => git::fast_forward_onto_head(repo, "refs/remotes/origin/RSL")?,
+                Ok(false) => bail!("Local RSL cannot be fastforwarded to match remote. This may indicate that someone has tampered with the RSL history. Use caution before proceeding."),
+                Err(e) => Err(e).chain_err(|| "Local RSL cannot be fastforwarded to match remote. This may indicate that someone has tampered with the RSL history. Use caution before proceeding.")?,
+            }
+        }
+
         // update nonce bag
         if nonce_bag.bag.contains(&nonce) {
             nonce_bag.remove(&nonce);
@@ -81,21 +95,15 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
         repo.commit_nonce_bag().chain_err(|| "couldn't commit nonce bag")?;
         match repo.push_rsl(&mut remote) {
             Ok(()) => break 'store,
-            _ => (),
+            Err(e) => {
+                err = Err(e);
+                ()
+            },
         }
         store_counter -= 1;
     }
 
-    repo.validate_rsl().chain_err(|| "Invalid remote RSL")?;
 
-    // TODO deal with no change necessary
-    if !git::up_to_date(repo, "RSL", "origin/RSL")? {
-        match git::fast_forward_possible(repo, "refs/remotes/origin/RSL") {
-            Ok(true) => git::fast_forward_onto_head(repo, "refs/remotes/origin/RSL")?,
-            Ok(false) => bail!("Local RSL cannot be fastforwarded to match remote. This may indicate that someone has tampered with the RSL history. Use caution before proceeding."),
-            Err(e) => Err(e).chain_err(|| "Local RSL cannot be fastforwarded to match remote. This may indicate that someone has tampered with the RSL history. Use caution before proceeding.")?,
-        }
-    }
     Ok(())
 }
 
