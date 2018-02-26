@@ -87,10 +87,8 @@ impl Context {
 
 pub fn setup_fresh() -> Context {
     // create temporary directory
-    // init git repo in temp directory
-    // init bare remote repo
-    // set remote origin to remote repo
     let local_dir = TempDir::new("rsl_test").unwrap().into_path();
+    // init git repo in temp directory
     let local = Repository::init(&local_dir).unwrap();
 
     let relative_path = Path::new("work.txt");
@@ -100,9 +98,13 @@ pub fn setup_fresh() -> Context {
         file.write_all(b"some work").unwrap();
     }
     let _commit_id = git::add_and_commit(&local, Some(&relative_path), "Add example text file", "master").unwrap();
+
+    // init bare remote repo with same state
     let remote_dir = format!("{}.git", &local_dir.to_str().unwrap());
     create_all(&remote_dir, true).unwrap();
     let remote = Repository::init_bare(&remote_dir).unwrap();
+
+    // set remote origin to remote repo
     &local.remote("origin", &remote_dir);
     Context{local, remote}
 }
