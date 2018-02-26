@@ -354,14 +354,20 @@ mod test {
 
     #[test]
     fn checkout_branch() {
-        let context = setup();
+        let context = setup_fresh();
         {
             let repo = &context.local;
-            assert!(repo.head().unwrap().name().unwrap() == "refs/heads/devel");
-            super::checkout_branch(&repo, "refs/heads/RSL").unwrap();
-            assert!(repo.head().unwrap().name().unwrap() == "refs/heads/RSL");
+            // create new branch
+            let head = &repo.head().unwrap().peel_to_commit().unwrap();
+            let branch = &repo.branch(&"branch", &head, false).unwrap();
+            // make sure we are still on old branch
+            assert!(repo.head().unwrap().name().unwrap() == "refs/heads/master");
+            // checkout new branch
+            super::checkout_branch(&repo, "refs/heads/branch").unwrap();
+            // are we on new branch?
+            assert!(repo.head().unwrap().name().unwrap() == "refs/heads/branch");
         }
-        teardown(context)
+        teardown_fresh(context)
     }
 
     #[test]
