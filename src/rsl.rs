@@ -312,26 +312,34 @@ mod tests {
     #[test]
     fn rsl_fetch() {
         // test that RSL fetch gets the remote branch but doesnt create a local branch if it doesn't yet exist. if it does, we need to change how we decide whether to init.
-        let mut context = setup();
-        context.without_local_rsl();
+        let mut context = setup_fresh();
         {
             let repo = &context.local;
             let mut remote = context.local.find_remote("origin").unwrap().to_owned();
+            let result = &context.local.rsl_init_global(&mut remote).unwrap();
+
+            // delete local RSL
+            repo.find_reference("refs/heads/RSL").unwrap().delete().unwrap();
+            repo.find_reference("refs/remotes/origin/RSL").unwrap().delete().unwrap();
+
             &repo.fetch_rsl(&mut remote).unwrap();
 
             assert!(&repo.find_branch("origin/RSL", BranchType::Remote).is_ok());
 
             assert!(&repo.find_branch("RSL", BranchType::Local).is_err());
         }
-        teardown(context)
+        teardown_fresh(context)
     }
 
     #[test]
     fn commit_push_entry() {
-        let mut context = setup();
-        context.checkout("RSL");
+        let mut context = setup_fresh();
         {
             let repo = &context.local;
+            // RSL commit only works on RSL branch
+            let mut rem = repo.find_remote("origin").unwrap().to_owned();
+            repo.rsl_init_global(&mut rem).unwrap();
+            git::checkout_branch(repo, "refs/heads/RSL").unwrap();
             let entry = PushEntry {
                     //related_commits: vec![oid.to_owned(), oid.to_owned()],
                     branch: String::from("branch_name"),
@@ -344,10 +352,9 @@ mod tests {
             let obj = repo.find_commit(oid).unwrap();
             let new_head = repo.find_branch("RSL", BranchType::Local).unwrap();
             assert_eq!(oid, new_head.into_reference().target().unwrap());
-
-            let msg = "{\n  \"branch\": \"branch_name\",\n  \"head\": {\n    \"raw\": \"71903a0394016f5970eb6359be0f272b69f391b4\"\n  },\n  \"prev_hash\": \"hash_of_last_pushentry\",\n  \"nonce_bag\": {\n    \"bag\": []\n  },\n  \"signature\": \"gpg signature\"\n}";
-            assert_eq!(&obj.message().unwrap(), &msg);
+            let result = PushEntry::from_str(&obj.message().unwrap()).unwrap();
+            assert_eq!(result, entry);
         }
-        teardown(context);
+        teardown_fresh(context);
     }
 }
