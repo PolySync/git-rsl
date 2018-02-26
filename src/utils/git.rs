@@ -8,6 +8,8 @@ use git2::BranchType;
 
 use git2::StashApplyOptions;
 use git2::STASH_INCLUDE_UNTRACKED;
+use git2::STASH_INCLUDE_IGNORED;
+use git2::STASH_DEFAULT;
 use git2::MERGE_ANALYSIS_FASTFORWARD;
 
 use errors::*;
@@ -41,7 +43,7 @@ pub fn stash_local_changes(repo: &mut Repository) -> Result<(Option<Oid>)> {
     {
         let is_clean = repo.state() == RepositoryState::Clean;
         let mut diff_options = DiffOptions::new();
-        diff_options.include_untracked(true);
+        diff_options.include_untracked(true).include_ignored(true);
         let  diff = repo.diff_index_to_workdir(
             None, // defaults to head index,
             Some(&mut diff_options),
@@ -52,16 +54,21 @@ pub fn stash_local_changes(repo: &mut Repository) -> Result<(Option<Oid>)> {
             return Ok(None)
         }
     }
+    let mut stash_options = STASH_INCLUDE_UNTRACKED;
+    stash_options.insert(STASH_INCLUDE_IGNORED);
+    stash_options.remove(STASH_DEFAULT);
+    println!("stash_options: {:?}", &stash_options);
     let oid = repo.stash_save(
         &signature,
         &message,
-        Some(STASH_INCLUDE_UNTRACKED),
+        Some(stash_options),
     )?;
     Ok(Some(oid))
 }
 
 pub fn unstash_local_changes(repo: &mut Repository, stash_id: Option<Oid>) -> Result<()> {
     if stash_id == None {
+        println!("nothing to unstash");
         return Ok(());
     }
     let mut options = StashApplyOptions::new();
