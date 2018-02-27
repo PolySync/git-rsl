@@ -35,7 +35,7 @@ pub trait HasRSL {
     fn read_remote_rsl(&self) -> Result<RSL>;
     fn init_rsl_if_needed(&self, remote: &mut Remote) -> Result<()>;
     fn rsl_init_global(&self, remote: &mut Remote) -> Result<()>;
-    fn rsl_init_local(&self) -> Result<()>;
+    fn rsl_init_local(&self, remote: &mut Remote) -> Result<()>;
     fn fetch_rsl(&self, remote: &mut Remote) -> Result<()>;
     fn commit_push_entry(&self, push_entry: &PushEntry) -> Result<Oid>;
     fn push_rsl(&self, remote: &mut Remote) -> Result<()>;
@@ -137,8 +137,25 @@ impl HasRSL for Repository {
 
     }
 
-    fn rsl_init_local(&self) -> Result<()> {
-        // TODO implement
+    fn rsl_init_local(&self, remote: &mut Remote) -> Result<()> {
+        println!("Initializing local Reference State Log based on existing remote RSL.");
+        self.fetch_rsl(remote)?;
+
+        let remote_rsl = self.read_remote_rsl()?;
+        let latest_rsl_commit = self.find_commit(remote_rsl.head)?;
+        // create local rsl branch
+        self.branch(&"RSL", &latest_rsl_commit, false)?;
+
+        git::checkout_branch(self, "refs/heads/RSL")?;
+
+        let mut nonce_bag = self.read_nonce_bag()?;
+        let new_nonce = Nonce::new().unwrap();
+        self.write_nonce(&new_nonce).chain_err(|| "nonce write error")?;
+        nonce_bag.insert(new_nonce);
+        self.write_nonce_bag(&nonce_bag).chain_err(|| "couldn't write to nonce baf file")?;
+        self.commit_nonce_bag().chain_err(|| "couldn't commit nonce bag")?;
+        self.push_rsl(remote).chain_err(|| "rsl init error")?;
+
         Ok(())
     }
 
@@ -202,7 +219,7 @@ impl HasRSL for Repository {
         match (self.find_branch("origin/RSL", BranchType::Remote), self.find_branch(RSL_BRANCH, BranchType::Local)) {
             (Err(_), Err(_)) => {self.rsl_init_global(remote).chain_err(|| "could not initialize remote RSL")?;
                                 Ok(())}, // first use of git-rsl for repo
-            (Ok(_), Err(_)) => {self.rsl_init_local().chain_err(|| "could not initialize loxal rsl")?;
+            (Ok(_), Err(_)) => {self.rsl_init_local(remote).chain_err(|| "could not initialize loxal rsl")?;
                                 Ok(())}, // first use of git-rsl for this developer in this repo
             (Err(_), Ok(_)) => bail!("RSL exists locally but not globally"), // local exists but global not found
             (Ok(_), Ok(_)) => Ok(()), // RSL already set up
