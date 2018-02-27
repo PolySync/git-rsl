@@ -113,6 +113,7 @@ impl fmt::Display for PushEntry {
 mod tests {
     use super::*;
     use utils::test_helper::*;
+    use utils::git;
     use rsl::HasRSL;
 
     #[test]
@@ -150,9 +151,13 @@ mod tests {
 
     #[test]
     fn from_oid() {
-        let context = setup();
+        let context = setup_fresh();
         {
             let repo = &context.local;
+            // RSL commit only works on RSL branch
+            let mut rem = repo.find_remote("origin").unwrap().to_owned();
+            repo.rsl_init_global(&mut rem).unwrap();
+            git::checkout_branch(repo, "refs/heads/RSL").unwrap();
             let entry = PushEntry {
                     //related_commits: vec![oid.to_owned(), oid.to_owned()],
                     branch: String::from("branch_name"),
@@ -165,6 +170,6 @@ mod tests {
 
             assert_eq!(PushEntry::from_oid(&repo, &oid).unwrap(), entry);
         }
-        teardown(context);
+        teardown_fresh(context);
     }
 }

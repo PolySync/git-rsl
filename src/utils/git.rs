@@ -8,6 +8,8 @@ use git2::BranchType;
 
 use git2::StashApplyOptions;
 use git2::STASH_INCLUDE_UNTRACKED;
+use git2::STASH_INCLUDE_IGNORED;
+use git2::STASH_DEFAULT;
 use git2::MERGE_ANALYSIS_FASTFORWARD;
 
 use errors::*;
@@ -35,13 +37,13 @@ pub fn discover_repo() -> Result<Repository> {
 
 pub fn stash_local_changes(repo: &mut Repository) -> Result<(Option<Oid>)> {
     let signature = repo.signature()?;
-    let message = "Stashing local changes for RSL business";
+    let message = "Stashing local changes, intracked and ignored files for RSL business";
 
     // check that there are indeed changes in index or untracked to stash
     {
         let is_clean = repo.state() == RepositoryState::Clean;
         let mut diff_options = DiffOptions::new();
-        diff_options.include_untracked(true);
+        diff_options.include_untracked(true).include_ignored(true);
         let  diff = repo.diff_index_to_workdir(
             None, // defaults to head index,
             Some(&mut diff_options),
@@ -52,16 +54,21 @@ pub fn stash_local_changes(repo: &mut Repository) -> Result<(Option<Oid>)> {
             return Ok(None)
         }
     }
+    let mut stash_options = STASH_INCLUDE_UNTRACKED;
+    stash_options.insert(STASH_INCLUDE_IGNORED);
+    stash_options.remove(STASH_DEFAULT);
+    println!("stash_options: {:?}", &stash_options);
     let oid = repo.stash_save(
         &signature,
         &message,
-        Some(STASH_INCLUDE_UNTRACKED),
+        Some(stash_options),
     )?;
     Ok(Some(oid))
 }
 
 pub fn unstash_local_changes(repo: &mut Repository, stash_id: Option<Oid>) -> Result<()> {
     if stash_id == None {
+        println!("nothing to unstash");
         return Ok(());
     }
     let mut options = StashApplyOptions::new();
@@ -351,17 +358,27 @@ fn for_each_commit_from<F>(repo: &Repository, local: Oid, remote: Oid, f: F)
 mod test {
     use utils::test_helper::*;
     use super::*;
+    use std::fs::{File, OpenOptions};
+    use std::io::prelude::*;
+    use std::path::PathBuf;
+
 
     #[test]
     fn checkout_branch() {
-        let context = setup();
+        let context = setup_fresh();
         {
             let repo = &context.local;
-            assert!(repo.head().unwrap().name().unwrap() == "refs/heads/devel");
-            super::checkout_branch(&repo, "refs/heads/RSL").unwrap();
-            assert!(repo.head().unwrap().name().unwrap() == "refs/heads/RSL");
+            // create new branch
+            let head = &repo.head().unwrap().peel_to_commit().unwrap();
+            let branch = &repo.branch(&"branch", &head, false).unwrap();
+            // make sure we are still on old branch
+            assert!(repo.head().unwrap().name().unwrap() == "refs/heads/master");
+            // checkout new branch
+            super::checkout_branch(&repo, "refs/heads/branch").unwrap();
+            // are we on new branch?
+            assert!(repo.head().unwrap().name().unwrap() == "refs/heads/branch");
         }
-        teardown(context)
+        teardown_fresh(context)
     }
 
     #[test]
@@ -405,6 +422,63 @@ mod test {
             let master_tip = repo.find_branch("master", BranchType::Local).unwrap().get().target().unwrap();
             let branch_tip = repo.find_branch("branch", BranchType::Local).unwrap().get().target().unwrap();
             assert_eq!(master_tip, branch_tip)
+        }
+    }
+
+    #[test]
+    fn stash_local_changes() {
+        let mut context = setup_fresh();
+        let mut repo = context.local;
+
+        // make untracked files
+        let path = repo.path().parent().unwrap().join("foo.txt");
+        let mut f = File::create(&path).unwrap();
+        f.write_all(b"some stuff I don't want to track with git").unwrap();
+        // stash untracked files
+        let stash_id = super::stash_local_changes(&mut repo).unwrap();
+        // worktree should no longer contain untracked file
+        assert_eq!(path.is_file(), false);
+        // repo has changed, need to rediscover (for some terrible reason)
+        let mut repo2 = Repository::discover(context.repo_dir).unwrap();
+        super::unstash_local_changes(&mut repo2, stash_id).unwrap();
+        assert_eq!(path.is_file(), true);
+    }
+
+    #[test]
+    fn preserve_ignored_files() {
+        let path: PathBuf;
+        let mut context = setup_fresh();
+        {
+            {
+                let repo = &context.local;
+                let head = repo.find_commit(repo.head().unwrap().target().unwrap()).unwrap();
+                repo.branch("RSL", &head, false).unwrap();
+                // add gitignore and commit gitignore
+                let ignore_path = repo.path().parent().unwrap().join(".gitignore");
+                let mut f = File::create(&ignore_path).unwrap();
+                f.write_all(b"foo.txt").unwrap();
+                super::add_and_commit(repo, Some(Path::new(".gitignore")), &"add gitignore", "master").unwrap();
+                // add file to be ignored
+                path = repo.path().parent().unwrap().join("foo.txt");
+                let mut f = File::create(&path).unwrap();
+                f.write_all(b"some stuff I don't want to track with git").unwrap();
+            }
+            // stash for RSL operations
+            let stash_id = super::stash_local_changes(&mut context.local).unwrap().to_owned();
+            // should have stashed something because we have gitignored files
+            assert!(stash_id.is_some());
+            // worktree should no longer contain untracked file
+            assert_eq!(path.is_file(), false);
+            {
+                // checkout RSL branch and then back to master
+                let mut repo2 = Repository::discover(context.repo_dir).unwrap();
+                super::checkout_branch(&repo2, "refs/heads/RSL").unwrap();
+                assert_eq!(path.is_file(), false);
+                super::checkout_branch(&repo2, "refs/heads/master").unwrap();
+                // pop stash
+                super::unstash_local_changes(&mut repo2, stash_id).unwrap();
+            }
+            assert_eq!(path.is_file(), true);
         }
     }
 }

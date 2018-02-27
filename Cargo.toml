@@ -1,5 +1,5 @@
 [package]
-name = "git-rsl"
+name = "kevlar-laces-rs"
 version = "0.1.0"
 authors = ["Jeff Weiss <jweiss@polysync.io>"]
 
