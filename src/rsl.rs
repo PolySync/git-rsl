@@ -199,7 +199,7 @@ impl HasRSL for Repository {
 
     fn init_rsl_if_needed(&self, remote: &mut Remote) -> Result<()> {
         // validate that RSL does not exist locally or remotely
-        match (self.find_branch(RSL_BRANCH, BranchType::Remote), self.find_branch(RSL_BRANCH, BranchType::Local)) {
+        match (self.find_branch("origin/RSL", BranchType::Remote), self.find_branch(RSL_BRANCH, BranchType::Local)) {
             (Err(_), Err(_)) => {self.rsl_init_global(remote).chain_err(|| "could not initialize remote RSL")?;
                                 Ok(())}, // first use of git-rsl for repo
             (Ok(_), Err(_)) => {self.rsl_init_local().chain_err(|| "could not initialize loxal rsl")?;
