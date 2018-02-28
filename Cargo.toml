@@ -1,7 +1,8 @@
 [package]
 name = "kevlar-laces-rs"
 version = "0.1.0"
-authors = ["Jeff Weiss <jweiss@polysync.io>"]
+authors = ["Gabriella Chronis <gchronis@polysync.io>",
+           "Jeff Weiss <jeffweiss@polysync.io>"]
 
 [dependencies]
 clap = "2"
