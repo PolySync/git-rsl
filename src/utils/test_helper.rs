@@ -15,7 +15,7 @@ use super::git;
 use fs_extra::dir::*;
 use tempdir::TempDir;
 
-use git2::{Repository, REPOSITORY_OPEN_BARE};
+use git2::{Repository, REPOSITORY_OPEN_BARE, Config};
 use rand::{Rng, thread_rng};
 
 pub struct Context {
@@ -40,8 +40,13 @@ impl Context {
 pub fn setup_fresh() -> Context {
     // create temporary directory
     let local_dir = TempDir::new("rsl_test").unwrap().into_path();
+
     // init git repo in temp directory
     let local = Repository::init(&local_dir).unwrap();
+
+    // copy test config into local git repo dir
+    let config_path = &local.path().join("config");
+    fs::copy("fixtures/fixture.gitconfig", config_path).unwrap();
 
     let relative_path = Path::new("work.txt");
     {
@@ -56,9 +61,10 @@ pub fn setup_fresh() -> Context {
     create_all(&remote_dir, true).unwrap();
     let remote = Repository::init_bare(&remote_dir).unwrap();
 
+    let repo_dir = local_dir;
+
     // set remote origin to remote repo
     &local.remote("origin", &remote_dir);
-    let repo_dir = local_dir;
     Context{local, remote, repo_dir}
 }
 
@@ -80,4 +86,19 @@ fn open_bare_repository<P>(path: P) -> Repository
 fn rm_rf(path: &Path) -> () {
     fs::remove_dir_all(&path).unwrap();
     ()
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn setup_config() {
+        let context = setup_fresh();
+        let cfg = Config::open(&context.local.path().join("config")).unwrap();
+        let username = cfg.get_entry("user.username").unwrap();
+        assert_eq!(username.value(), Some("idontexistanythingaboutthat"));
+        teardown_fresh(context)
+    }
 }
