@@ -1,4 +1,5 @@
 use git2::{self, Oid, Repository, Remote, Revwalk, BranchType};
+use git2::build::CheckoutBuilder;
 
 use nonce::{Nonce, HasNonce};
 use nonce_bag::{NonceBag, HasNonceBag};
@@ -87,11 +88,14 @@ impl HasRSL for Repository {
     fn rsl_init_global(&self, remote: &mut Remote) -> Result<()> {
         println!("Initializing Reference State Log for this repository.");
 
-        // if the push is successful,
-        // then fetch the remote and do the verification routine and ff it to local....?
-        // which if verification sees you have no local RSL branch it just lets you go ahead and fast forward? Or should it already exist?
+        // get current branch name
+        let head_name = self.head()?
+            .name()
+            .ok_or("not on a named branch")?
+            .clone()
+            .to_owned();
 
-        // create new parentless commit
+        // create new parentless orphan commit
         let mut index = self.index().chain_err(|| "could not find index")?;
         index.clear(); // remove project files from index
         let oid = index.write_tree().chain_err(|| "could not write tree from index")?; // create empty tree
@@ -99,7 +103,6 @@ impl HasRSL for Repository {
         let message = "Initialize RSL";
         let tree = self.find_tree(oid).chain_err(|| "could not find tree")?;
         let rsl_head = format!("refs/heads/{}", RSL_BRANCH);
-
         let oid = self.commit(
             Some(&rsl_head), //  point HEAD to our new commit
             &signature, // author
@@ -109,31 +112,64 @@ impl HasRSL for Repository {
             &[] // parents
         ).chain_err(|| "could not create initial RSL commit")?;
 
-        // checkout branch
+        // checkout unborn orphan branch of parentless commit
         git::checkout_branch(self, "refs/heads/RSL")?;
+
+        /// after checking out an orphan branch, the index and work tree match
+        /// the original branch. Meaning in git cli terms that alllll of our
+        /// project files are staged in green in the index. We want to get rid
+        /// of them so we don't commit them with the nonce bag. However, we
+        /// want to keep the ignored files, so we don't lose compiled binaries
+        /// when switching back to a regular branch. For this reason, we want
+        /// to run the equivalent of
+        ///
+        /// 1: > git checkout --force master
+        /// 2: > git checkout RSL
+        ///
+        /// to remove all untracked files from the working directory. To do
+        /// this we checkout the
+        /// original branch, allowing conflicts (not a problem because all the
+        /// files are the exact same. And then we come back to the
+        /// RSL branch to continue initialization.
         debug_assert!(&index.is_empty());
 
+        // 1. perform the custom checkout
+        let tree = self.find_reference(&head_name)
+            .chain_err(|| "couldn't find branch")?
+            .peel_to_commit()
+            .chain_err(|| "couldnt find latest RSL commit")?
+            .into_object();
+        let mut opts = CheckoutBuilder::new();
+        opts.allow_conflicts(true);
+        self.checkout_tree(&tree, Some(&mut opts)).chain_err(|| "couldn't checkout tree")?; // Option<CheckoutBuilder>
+        self.set_head(&head_name).chain_err(|| "couldn't switch head")?;
+
+        // 2. checkout RSL again to continue init
+        git::checkout_branch(self, "refs/heads/RSL")?;
+        debug_assert!(&index.is_empty());
 
         // save random nonce locally
         let nonce = Nonce::new()?;
         self.write_nonce(&nonce).chain_err(|| "couldn't write local nonce")?;
 
         // create new nonce bag with initial nonce
-        debug_assert!(self.head()?.name().unwrap() == "refs/heads/RSL");
-
         let mut nonce_bag = NonceBag::new();
         self.write_nonce_bag(&nonce_bag)?;
         self.commit_nonce_bag()?;
         nonce_bag.insert(nonce).chain_err(|| "couldn't add new nonce to bag")?;
 
-
+        // create initial bootstrapping push entry
         let initial_pe = PushEntry::new(self, "RSL", String::from("First Push Entry"), nonce_bag);
         self.commit_push_entry(&initial_pe);
 
         // push new rsl branch
         self.push_rsl(remote)?;
 
+
+
+
         Ok(())
+
 
     }
 
@@ -306,6 +342,7 @@ impl HasRSL for Repository {
 mod tests {
     use super::*;
     use utils::test_helper::*;
+    use std::path::Path;
 
     #[test]
     fn rsl_init_global() {
@@ -322,6 +359,39 @@ mod tests {
             assert!(context.local.state() == git2::RepositoryState::Clean);
             assert_eq!(context.local.diff_index_to_workdir(None, None).unwrap().deltas().count(), 0);
             // TODO to test that the repo does not contain untracked NONCE_BAG file and simultaneously show deleted NONCE_BAG file?? git gets confused??? Open git2rs issue about needing to reset after commit.
+        }
+        teardown_fresh(context);
+    }
+
+    #[test]
+    fn rsl_init_with_gitignore() {
+        let mut context = setup_fresh();
+        {
+            let repo = &context.local;
+            let mut remote = context.local.find_remote("origin").unwrap().to_owned();
+
+            // add foo.txt to gitignore & commit
+            let ignore_path = repo.path().parent().unwrap().join(".gitignore");
+            create_file_with_text(&ignore_path, &"foo.txt");
+            let _commit_id = git::add_and_commit(&repo, Some(&Path::new(".gitignore")), "Add gitignore", "master").unwrap();
+
+            // add foo.txt
+            let foo_path = repo.path().parent().unwrap().join("foo.txt");
+            create_file_with_text(&foo_path, &"some ignored text");
+
+            // init RSL
+            let result = &repo.rsl_init_global(&mut remote).unwrap();
+
+            // switch back to master branch
+            git::checkout_branch(&repo, "refs/heads/master").unwrap();
+
+            // check that foo.txt is still there
+            assert_eq!(foo_path.is_file(), true);
+
+            // checkout RSL and ensure wwork.txt is not there and foo.txt is and is untracked
+            git::checkout_branch(&repo, "refs/heads/RSL").unwrap();
+            assert!(!repo.workdir().unwrap().join("work.txt").is_file());
+
         }
         teardown_fresh(context);
     }
