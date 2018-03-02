@@ -24,8 +24,7 @@ pub fn checkout_branch(repo: &Repository, ref_name: &str) -> Result<()> {
 
     let mut opts = CheckoutBuilder::new();
     opts.force();
-    opts.remove_untracked(true); // this should be fine since we stash untracked at the beginning
-    repo.checkout_tree(&tree, Some(&mut opts)).chain_err(|| "couldn't checkout tree")?; // Option<CheckoutBuilder>
+    repo.checkout_tree(&tree, Some(&mut opts)).chain_err(|| "couldn't checkout tree")?;
     repo.set_head(&ref_name).chain_err(|| "couldn't switch head to RSL")?;
     Ok(())
 }
@@ -43,7 +42,7 @@ pub fn stash_local_changes(repo: &mut Repository) -> Result<(Option<Oid>)> {
     {
         let is_clean = repo.state() == RepositoryState::Clean;
         let mut diff_options = DiffOptions::new();
-        diff_options.include_untracked(true).include_ignored(true);
+        diff_options.include_untracked(true);
         let  diff = repo.diff_index_to_workdir(
             None, // defaults to head index,
             Some(&mut diff_options),
@@ -55,7 +54,6 @@ pub fn stash_local_changes(repo: &mut Repository) -> Result<(Option<Oid>)> {
         }
     }
     let mut stash_options = STASH_INCLUDE_UNTRACKED;
-    stash_options.insert(STASH_INCLUDE_IGNORED);
     stash_options.remove(STASH_DEFAULT);
     println!("stash_options: {:?}", &stash_options);
     let oid = repo.stash_save(
@@ -444,6 +442,7 @@ mod test {
         assert_eq!(path.is_file(), true);
     }
 
+    // this is a terrible test! as it was designed to test a feature that I have since removed...so now it isn't really testing anything until I add more assertions about what should be happening
     #[test]
     fn preserve_ignored_files() {
         let path: PathBuf;
@@ -465,15 +464,15 @@ mod test {
             }
             // stash for RSL operations
             let stash_id = super::stash_local_changes(&mut context.local).unwrap().to_owned();
-            // should have stashed something because we have gitignored files
-            assert!(stash_id.is_some());
-            // worktree should no longer contain untracked file
-            assert_eq!(path.is_file(), false);
+            // should NOT have stashed something because we are no longer stashing ignored files
+            assert!(stash_id.is_none());
+            // worktree should still contain untracked file
+            assert_eq!(path.is_file(), true);
             {
                 // checkout RSL branch and then back to master
                 let mut repo2 = Repository::discover(context.repo_dir).unwrap();
                 super::checkout_branch(&repo2, "refs/heads/RSL").unwrap();
-                assert_eq!(path.is_file(), false);
+                assert_eq!(path.is_file(), true);
                 super::checkout_branch(&repo2, "refs/heads/master").unwrap();
                 // pop stash
                 super::unstash_local_changes(&mut repo2, stash_id).unwrap();
