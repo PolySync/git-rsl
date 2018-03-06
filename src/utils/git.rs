@@ -353,6 +353,7 @@ fn for_each_commit_from<F>(repo: &Repository, local: Oid, remote: Oid, f: F)
     }
 }
 
+#[cfg(test)]
 mod test {
     use utils::test_helper::*;
     use super::*;
