@@ -11,6 +11,7 @@ extern crate serde_json;
 extern crate fs_extra;
 extern crate tempdir;
 extern crate hex;
+extern crate gpgme;
 
 use std::{env, process};
 
