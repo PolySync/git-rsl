@@ -10,6 +10,7 @@ extern crate serde;
 extern crate serde_json;
 extern crate fs_extra;
 extern crate tempdir;
+extern crate tempfile;
 extern crate hex;
 extern crate gpgme;
 
