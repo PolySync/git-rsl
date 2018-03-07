@@ -48,12 +48,10 @@ pub fn setup_fresh() -> Context {
     let config_path = &local.path().join("config");
     fs::copy("fixtures/fixture.gitconfig", config_path).unwrap();
 
+    // add and commit some work
     let relative_path = Path::new("work.txt");
-    {
-        let file_path = local_dir.join(relative_path);
-        let mut file = File::create(file_path).unwrap();
-        file.write_all(b"some work").unwrap();
-    }
+    let absolute_path = &local.path().parent().unwrap().join(&relative_path);
+    create_file_with_text(&absolute_path, &"some work");
     let _commit_id = git::add_and_commit(&local, Some(&relative_path), "Add example text file", "master").unwrap();
 
     // init bare remote repo with same state
@@ -66,6 +64,12 @@ pub fn setup_fresh() -> Context {
     // set remote origin to remote repo
     &local.remote("origin", &remote_dir);
     Context{local, remote, repo_dir}
+}
+
+pub fn create_file_with_text<P: AsRef<Path>>(path: P, text: &str) -> () {
+    //let file_path = path.as_path();
+    let mut file = File::create(path.as_ref()).unwrap();
+    file.write_all(text.as_bytes()).unwrap();
 }
 
 pub fn teardown_fresh(context: Context) {
