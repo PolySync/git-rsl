@@ -131,7 +131,12 @@ impl HasNonceBag for Repository {
         //let mut opts = CheckoutBuilder::new();
         //opts.force();
         //self.checkout_head(Some(&mut opts))?;
+
+        // TODO sign commit after making it
+        // git::sign_commit(self, oid)
+
         let commit = self.find_commit(commit_oid)?;
+
         self.reset_default(Some(commit.as_object()), ["NONCE_BAG"].iter())?;
 
         Ok(commit_oid)

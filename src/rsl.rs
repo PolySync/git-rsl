@@ -112,6 +112,9 @@ impl HasRSL for Repository {
             &[] // parents
         ).chain_err(|| "could not create initial RSL commit")?;
 
+        // TODO sign commit after making it
+        // git::sign_commit(self, oid)?; // will return Result<Oid>
+
         // checkout unborn orphan branch of parentless commit
         git::checkout_branch(self, "refs/heads/RSL")?;
 
@@ -240,6 +243,9 @@ impl HasRSL for Repository {
             &tree, // tree
             &[&parent_commit]
         ).chain_err(|| "could not commit push entry")
+
+        // TODO sign commit after making it
+        // git::sign_commit(self, oid)? // will return Result<Oid>
     }
 
 
