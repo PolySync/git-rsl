@@ -16,8 +16,14 @@ pub fn verify_commit_signature(_oid: Oid) -> Result<()> {
 /// or else uses the default signing key
 pub fn detached_sign(input: &str, key_id: Option<&str>, gpghome: Option<&str>) -> Result<Vec<u8>> {
     let mut ctx = Context::from_protocol(Protocol::OpenPgp)?;
+
+    // resolve gpg home in order of provided path, environment variable, default, or give up
     if let Some(path) = gpghome {
         ctx.set_engine_home_dir(path);
+    } else if let Some(path) = find_gpg_home() {
+        ctx.set_engine_home_dir(path);
+    } else {
+        bail!("couldn't generate signature; gpg home not set");
     }
 
     let mut output = Vec::new();
@@ -29,14 +35,20 @@ pub fn detached_sign(input: &str, key_id: Option<&str>, gpghome: Option<&str>) -
 pub fn verify_detached_signature(sig: &Vec<u8>, buf: &str, gpghome: Option<&str>) -> Result<bool> {
     // create new context for operations
     let mut ctx = Context::from_protocol(Protocol::OpenPgp)?;
+
+    // resolve gpg home in order of provided path, environment variable, default, or give up
     if let Some(path) = gpghome {
         ctx.set_engine_home_dir(path);
+    } else if let Some(path) = find_gpg_home() {
+        ctx.set_engine_home_dir(path);
+    } else {
+        bail!("couldn't generate signature; gpg home not set");
     }
+
     let result = ctx.verify_detached(sig, buf).chain_err(|| "gpg verification failed")?;
 
-    // TODO what settings do you need for the context?
+    // return true if we verified successfully
     Ok(true)
-    // verify
 }
 
 /// gpg2 --detach-sig <buf>
@@ -51,8 +63,10 @@ pub fn cli_detached_sign(buf: &str, gpghome: Option<&str>) -> Result<Vec<u8>> {
     cmd.arg("--detach-sign");
     cmd.arg(file.path());
 
-    // add gpghome if using other than default
+    // set gpghome if provided or search for default
     if let Some(path) = gpghome {
+        cmd.env("GNUPGHOME", path);
+    } else if let Some(path) = find_gpg_home() {
         cmd.env("GNUPGHOME", path);
     }
 
@@ -82,7 +96,10 @@ pub fn cli_verify_detached_signature(sig: &Vec<u8>, buf: &str, gpghome: Option<&
     cmd.arg(sig_file.path());
     cmd.arg(message_file.path());
 
+    // set gpghome if provided or search for default
     if let Some(path) = gpghome {
+        cmd.env("GNUPGHOME", path);
+    } else if let Some(path) = find_gpg_home() {
         cmd.env("GNUPGHOME", path);
     }
 
@@ -90,6 +107,19 @@ pub fn cli_verify_detached_signature(sig: &Vec<u8>, buf: &str, gpghome: Option<&
         .expect("failed to execute process");
 
     Ok(status.success()) // 0 exit code means verified
+}
+
+fn find_gpg_home() -> Option<String> {
+    if let Ok(home) = std::env::var("GNUPGHOME") {
+        Some(home)
+    } else if let Some(path) = std::env::home_dir() {
+        match path.join(".gnupg").into_os_string().into_string() {
+            Ok(p) => Some(p),
+            Err(_e) => None,
+        }
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]
