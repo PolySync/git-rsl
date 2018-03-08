@@ -15,7 +15,7 @@ use super::git;
 use fs_extra::dir::*;
 use tempdir::TempDir;
 
-use git2::{Repository, REPOSITORY_OPEN_BARE, Config};
+use git2::{Repository, RepositoryOpenFlags, Config};
 use rand::{Rng, thread_rng};
 
 pub struct Context {
@@ -84,7 +84,7 @@ pub fn do_work_on_branch(repo: &Repository, branch_name: &str) -> () {
 
 fn open_bare_repository<P>(path: P) -> Repository
     where P: AsRef<Path>, P: AsRef<OsStr> {
-    Repository::open_ext(&path, REPOSITORY_OPEN_BARE,  &[] as &[&OsStr]).unwrap()
+    Repository::open_ext(&path, RepositoryOpenFlags::BARE,  &[] as &[&OsStr]).unwrap()
 }
 
 fn rm_rf(path: &Path) -> () {

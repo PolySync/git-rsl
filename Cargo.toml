@@ -6,8 +6,8 @@ authors = ["Gabriella Chronis <gchronis@polysync.io>",
 
 [dependencies]
 clap = "2"
-git2 = "0.6"
-libgit2-sys = "0.6"
+git2 = "0.7"
+libgit2-sys = "0.7"
 gpgme = "0.6"
 lazy_static = "0.2"
 rand = "0.3"

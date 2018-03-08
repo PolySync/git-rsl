@@ -7,10 +7,10 @@ use git2::build::CheckoutBuilder;
 use git2::BranchType;
 
 use git2::StashApplyOptions;
-use git2::STASH_INCLUDE_UNTRACKED;
-use git2::STASH_INCLUDE_IGNORED;
-use git2::STASH_DEFAULT;
-use git2::MERGE_ANALYSIS_FASTFORWARD;
+use git2::StashFlags;
+use git2::MergeAnalysis;
+use git2::CredentialType;
+use git2::Sort;
 
 use errors::*;
 
@@ -53,8 +53,8 @@ pub fn stash_local_changes(repo: &mut Repository) -> Result<(Option<Oid>)> {
             return Ok(None)
         }
     }
-    let mut stash_options = STASH_INCLUDE_UNTRACKED;
-    stash_options.remove(STASH_DEFAULT);
+    let mut stash_options = StashFlags::INCLUDE_UNTRACKED;
+    stash_options.remove(StashFlags::DEFAULT);
     println!("stash_options: {:?}", &stash_options);
     let oid = repo.stash_save(
         &signature,
@@ -182,7 +182,7 @@ pub fn fast_forward_possible(repo: &Repository, theirs: &str) -> Result<bool> {
     let (analysis, preference) = repo.merge_analysis(&[&their_commit])?;
     println!("merge analysis: {:?}", analysis);
     println!("preference: {:?}", preference);
-    Ok(analysis.contains(MERGE_ANALYSIS_FASTFORWARD))
+    Ok(analysis.contains(MergeAnalysis::ANALYSIS_FASTFORWARD))
 }
 
 pub fn up_to_date(repo: &Repository, local_branch: &str, remote_branch: &str) -> Result<bool> {
@@ -236,7 +236,7 @@ fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
         // usernames during one authentication session with libgit2, so to
         // handle this we bail out of this authentication session after setting
         // the flag `ssh_username_requested`, and then we handle this below.
-        if allowed.contains(git2::USERNAME) {
+        if allowed.contains(CredentialType::USERNAME) {
             debug_assert!(username.is_none());
             ssh_username_requested = true;
             bail!(git2::Error::from_str("gonna try usernames later"))
@@ -250,7 +250,7 @@ fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
         // If we get called with this then the only way that should be possible
         // is if a username is specified in the URL itself (e.g. `username` is
         // Some), hence the unwrap() here. We try custom usernames down below.
-        if allowed.contains(git2::SSH_KEY) && !tried_sshkey {
+        if allowed.contains(CredentialType::SSH_KEY) && !tried_sshkey {
             // If ssh-agent authentication fails, libgit2 will keep
             // calling this callback asking for other authentication
             // methods to try. Make sure we only try ssh-agent once,
@@ -267,7 +267,7 @@ fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
         // but we currently don't! Right now the only way we support fetching a
         // plaintext password is through the `credential.helper` support, so
         // fetch that here.
-        if allowed.contains(git2::USER_PASS_PLAINTEXT) {
+        if allowed.contains(CredentialType::USER_PASS_PLAINTEXT) {
             let r = git2::Cred::credential_helper(cfg, url, username);
             cred_helper_bad = Some(r.is_err());
             return r
@@ -275,7 +275,7 @@ fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
 
         // I'm... not sure what the DEFAULT kind of authentication is, but seems
         // easy to support?
-        if allowed.contains(git2::DEFAULT) {
+        if allowed.contains(CredentialType::DEFAULT) {
             return git2::Cred::default()
         }
 
@@ -313,12 +313,12 @@ fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
             // we bail out.
             let mut attempts = 0;
             res = f(&mut |_url, username, allowed| {
-                if allowed.contains(git2::USERNAME) {
+                if allowed.contains(CredentialType::USERNAME) {
                     println!("username: {}", &s);
 
                     return git2::Cred::username(&s);
                 }
-                if allowed.contains(git2::SSH_KEY) {
+                if allowed.contains(CredentialType::SSH_KEY) {
                     debug_assert_eq!(Some(&s[..]), username);
                     attempts += 1;
                     if attempts == 1 {
@@ -363,7 +363,7 @@ fn for_each_commit_from<F>(repo: &Repository, local: Oid, remote: Oid, f: F)
 {
     let mut revwalk: Revwalk = repo.revwalk().unwrap();
     revwalk.push(remote);
-    revwalk.set_sorting(git2::SORT_REVERSE);
+    revwalk.set_sorting(Sort::REVERSE);
     revwalk.hide(local);
     let remaining = revwalk.map(|oid| oid.unwrap());
 

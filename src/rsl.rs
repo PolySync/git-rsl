@@ -1,4 +1,4 @@
-use git2::{self, Oid, Repository, Remote, Revwalk, BranchType};
+use git2::{self, Oid, Repository, Remote, Revwalk, BranchType, Sort};
 use git2::build::CheckoutBuilder;
 
 use nonce::{Nonce, HasNonce};
@@ -295,7 +295,7 @@ impl HasRSL for Repository {
         };
         let mut revwalk: Revwalk = self.revwalk()?;
         revwalk.push(remote_rsl.head)?;
-        revwalk.set_sorting(git2::SORT_REVERSE);
+        revwalk.set_sorting(Sort::REVERSE);
         revwalk.hide(local_rsl.head)?;
 
         let remaining = revwalk.map(|oid| oid.unwrap());
