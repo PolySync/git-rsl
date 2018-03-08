@@ -13,6 +13,7 @@ extern crate tempdir;
 extern crate tempfile;
 extern crate hex;
 extern crate gpgme;
+extern crate regex;
 
 use std::{env, process};
 
@@ -38,6 +39,8 @@ fn main() {
 fn run() -> Result<()> {
     let args: Vec<String> = env::args().collect();
     let program = args[0].clone();
+
+    // TODO exit unless gpgtools are present
 
     let mut messy_repo = git::discover_repo()
         .chain_err(|| "You don't appear to be in a git project. Please check yourself and try again")?;

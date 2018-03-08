@@ -109,6 +109,25 @@ pub fn add_and_commit(repo: &Repository, path: Option<&Path>, message: &str, bra
     }
 }
 
+pub fn sign_commit(repo: &Repository, commit_id: Oid) -> Result<()> {
+    // get the commit
+    // let commit = repo.find_commit(commit_id)?;
+    // get the commit contents in a string buff(header and message glommed together)
+    // let contents = commit_as_str(&commit)
+    // create detached signature with the string buf contents
+    // let (sig, _signed) = gpg::detached_sign(contents, None, None)?;
+    // TODO add signature to commit
+    // repo.commit_signed(commit_content, signature, None)?; // waiting on git2rs
+    Ok(())
+}
+
+// TODO it's possible you will need another newline between the message and headers. Unclear as yet
+pub fn commit_as_str(commit: &Commit) -> Result<String> {
+    let message = commit.message_raw().ok_or("invalid utf8")?;
+    let headers = commit.raw_header().ok_or("invalid utf8")?;
+    Ok(format!("{}\n{}", headers, message))
+}
+
 pub fn fetch(repo: &Repository, remote: &mut Remote, ref_names: &[&str], _reflog_msg: Option<&str>) -> Result<()> {
     let cfg = repo.config().unwrap();
     let remote_copy = remote.clone();
@@ -360,6 +379,7 @@ mod test {
     use std::fs::{File, OpenOptions};
     use std::io::prelude::*;
     use std::path::PathBuf;
+    use regex::Regex;
 
 
     #[test]
@@ -479,6 +499,19 @@ mod test {
                 super::unstash_local_changes(&mut repo2, stash_id).unwrap();
             }
             assert_eq!(path.is_file(), true);
+        }
+    }
+
+    #[test]
+    fn commit_as_str() {
+        let context = setup_fresh();
+        let repo = &context.local;
+        {
+            let commit_contents = Regex::new(r"tree 692efdfa32dfcd41dd14a6e36aa518b2b4459c79\nauthor Testy McTesterson <idontexistanythingaboutthat@email.com> [0-9]{10} -[0-9]{4}\ncommitter Testy McTesterson <idontexistanythingaboutthat@email.com> [0-9]{10} -[0-9]{4}\n\nAdd example text file").unwrap();
+            let commit_oid = repo.head().unwrap().target().unwrap();
+            let commit = repo.find_commit(commit_oid).unwrap();
+            let contents = super::commit_as_str(&commit).unwrap();
+            assert!(commit_contents.is_match(&contents))
         }
     }
 }
