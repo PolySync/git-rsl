@@ -14,7 +14,7 @@ pub fn verify_commit_signature(_oid: Oid) -> Result<()> {
 
 /// Signs with the provided key,
 /// or else uses the default signing key
-pub fn detached_sign(input: &str, key_id: Option<&str>, gpghome: Option<&str>) -> Result<Vec<u8>> {
+pub fn detached_sign(input: &str, key_id: Option<&str>, gpghome: Option<&str>) -> Result<String> {
     let mut ctx = Context::from_protocol(Protocol::OpenPgp)?;
 
     // resolve gpg home in order of provided path, environment variable, default, or give up
@@ -25,14 +25,17 @@ pub fn detached_sign(input: &str, key_id: Option<&str>, gpghome: Option<&str>) -
     } else {
         bail!("couldn't generate signature; gpg home not set");
     }
+    ctx.set_armor(true);
 
     let mut output = Vec::new();
     let result = ctx.sign_detached(input, &mut output).chain_err(|| "gpg signing failed")?;
+    // TODO this should always be valid utf8  if the ascii-armored signature succeeded and we get this far but still...get rid of this unwrap please
+    let string_version = String::from_utf8(output).unwrap();
 
-    Ok(output)
+    Ok(string_version)
 }
 
-pub fn verify_detached_signature(sig: &Vec<u8>, buf: &str, gpghome: Option<&str>) -> Result<bool> {
+pub fn verify_detached_signature(sig: &str, buf: &str, gpghome: Option<&str>) -> Result<bool> {
     // create new context for operations
     let mut ctx = Context::from_protocol(Protocol::OpenPgp)?;
 
@@ -44,7 +47,7 @@ pub fn verify_detached_signature(sig: &Vec<u8>, buf: &str, gpghome: Option<&str>
     } else {
         bail!("couldn't generate signature; gpg home not set");
     }
-
+    ctx.set_armor(true);
     let result = ctx.verify_detached(sig, buf).chain_err(|| "gpg verification failed")?;
 
     // return true if we verified successfully
@@ -151,11 +154,11 @@ mod tests {
 
         // get document and signature to be verified
         let mut doc_data = String::new();
-        let mut sig_data = Vec::new();
+        let mut sig_data = String::new();
         let mut document = File::open("./fixtures/test.txt").unwrap();
         document.read_to_string(&mut doc_data).unwrap();
-        let mut sig = File::open("./fixtures/test.txt.sig").unwrap();
-        sig.read_to_end(&mut sig_data);
+        let mut sig = File::open("./fixtures/test.txt.asc").unwrap();
+        sig.read_to_string(&mut sig_data).unwrap();
 
         let result = super::verify_detached_signature(&sig_data, &doc_data, Some(&gpghome)).unwrap();
         assert!(result)
@@ -168,15 +171,14 @@ mod tests {
 
         // get document and signature to be verified
         let mut doc_data = String::new();
-        let mut sig_data = Vec::new();
+        let mut sig_data = String::new();
         let mut document = File::open("./fixtures/test.txt").unwrap();
         document.read_to_string(&mut doc_data).unwrap();
-        let mut sig = File::open("./fixtures/test.txt.sig").unwrap();
-        sig.read_to_end(&mut sig_data);
+        let mut sig = File::open("./fixtures/test.txt.asc").unwrap();
+        sig.read_to_string(&mut sig_data);
 
         // mess with signature
-        sig_data[10] += 1;
-        sig_data = vec![0,1,2,3];
+        sig_data = String::from("fhio2340929f3");
 
         let result = super::verify_detached_signature(&sig_data, &doc_data, Some(&gpghome));
         assert!(result.is_err())
@@ -192,7 +194,7 @@ mod tests {
         let mut sig_data = Vec::new();
         let mut document = File::open("./fixtures/test.txt").unwrap();
         document.read_to_string(&mut doc_data).unwrap();
-        let mut sig = File::open("./fixtures/test.txt.sig").unwrap();
+        let mut sig = File::open("./fixtures/test.txt.asc").unwrap();
         sig.read_to_end(&mut sig_data);
 
         let result = super::cli_verify_detached_signature(&sig_data, &doc_data, Some(&gpghome)).unwrap();
