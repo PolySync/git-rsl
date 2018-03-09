@@ -1,8 +1,8 @@
- use std::path::Path;
+use std::path::Path;
 use std::env;
 
 use git2;
-use git2::{Error, FetchOptions, PushOptions, Oid, Reference, Signature, Branch, Commit, RemoteCallbacks, Remote, Repository, Revwalk, DiffOptions, RepositoryState};
+use git2::{Error, FetchOptions, PushOptions, Oid, Reference, Signature, Branch, Commit, RemoteCallbacks, Remote, Repository, Revwalk, DiffOptions, RepositoryState, Tree};
 use git2::build::CheckoutBuilder;
 use git2::BranchType;
 
@@ -12,6 +12,7 @@ use git2::MergeAnalysis;
 use git2::CredentialType;
 use git2::Sort;
 
+use utils::gpg;
 use errors::*;
 
 
@@ -109,16 +110,46 @@ pub fn add_and_commit(repo: &Repository, path: Option<&Path>, message: &str, bra
     }
 }
 
-pub fn sign_commit(repo: &Repository, commit_id: Oid) -> Result<()> {
+// TODO use the libgit2 function commit_create_buffer (will need to write git2rs bindings for this) to make the commit object without writing it to the git object database, so we don't actually create two commits. However, even if we do this, we might still need to manually update the target reference afterwards, since `git2::Repo::commit_signed` doesn't seem to do this.
+pub fn commit_signed(
+    repo: &Repository,
+    update_ref: &str,
+    author: &Signature,
+    committer: &Signature,
+    message: &str,
+    tree: &Tree,
+    parents: &[&Commit]
+) -> Result<Oid> {
+
+    let oid1 = repo.commit(
+        Some(update_ref), //  point HEAD to our new commit
+        author, // author
+        committer, // committer
+        message, // commit message
+        tree, // tree
+        parents
+    ).chain_err(|| "could not create unsigned commit")?;
+
+    // sign commit--creates a new object in odb with new oid
+    let oid2 = create_signed_commit(repo, oid1)?;
+
+    // point update ref to the *signed* commit and just pretend like the in-between commit does not exist
+    let reflog_msg = "Switching heaf to signed commit";
+    let reference = repo.find_reference(update_ref)?.set_target(oid2, &reflog_msg)?;
+
+    Ok(oid2)
+}
+
+fn create_signed_commit(repo: &Repository, commit_id: Oid) -> Result<Oid> {
     // get the commit
-    // let commit = repo.find_commit(commit_id)?;
+    let commit = repo.find_commit(commit_id)?;
     // get the commit contents in a string buff(header and message glommed together)
-    // let contents = commit_as_str(&commit)
+    let commit_contents = commit_as_str(&commit)?;
     // create detached signature with the string buf contents
-    // let (sig, _signed) = gpg::detached_sign(contents, None, None)?;
+    let signature = gpg::detached_sign(&commit_contents, None, None)?;
     // TODO add signature to commit
-    // repo.commit_signed(commit_content, signature, None)?; // waiting on git2rs
-    Ok(())
+    let oid = repo.commit_signed(&commit_contents, &signature, None)?;
+    Ok(oid)
 }
 
 // TODO it's possible you will need another newline between the message and headers. Unclear as yet
@@ -442,25 +473,27 @@ mod test {
             let branch_tip = repo.find_branch("branch", BranchType::Local).unwrap().get().target().unwrap();
             assert_eq!(master_tip, branch_tip)
         }
+        teardown_fresh(context)
     }
 
     #[test]
     fn stash_local_changes() {
         let mut context = setup_fresh();
-        let mut repo = context.local;
-
-        // make untracked files
-        let path = repo.path().parent().unwrap().join("foo.txt");
-        let mut f = File::create(&path).unwrap();
-        f.write_all(b"some stuff I don't want to track with git").unwrap();
-        // stash untracked files
-        let stash_id = super::stash_local_changes(&mut repo).unwrap();
-        // worktree should no longer contain untracked file
-        assert_eq!(path.is_file(), false);
-        // repo has changed, need to rediscover (for some terrible reason)
-        let mut repo2 = Repository::discover(context.repo_dir).unwrap();
-        super::unstash_local_changes(&mut repo2, stash_id).unwrap();
-        assert_eq!(path.is_file(), true);
+        {
+            // make untracked files
+            let path = &context.local.path().parent().unwrap().join("foo.txt");
+            let mut f = File::create(&path).unwrap();
+            f.write_all(b"some stuff I don't want to track with git").unwrap();
+            // stash untracked files
+            let stash_id = super::stash_local_changes(&mut context.local).unwrap();
+            // worktree should no longer contain untracked file
+            assert_eq!(path.is_file(), false);
+            // repo has changed, need to rediscover (for some terrible reason)
+            let mut repo2 = Repository::discover(&context.repo_dir).unwrap();
+            super::unstash_local_changes(&mut repo2, stash_id).unwrap();
+            assert_eq!(path.is_file(), true);
+        }
+        teardown_fresh(context)
     }
 
     // this is a terrible test! as it was designed to test a feature that I have since removed...so now it isn't really testing anything until I add more assertions about what should be happening
@@ -491,7 +524,7 @@ mod test {
             assert_eq!(path.is_file(), true);
             {
                 // checkout RSL branch and then back to master
-                let mut repo2 = Repository::discover(context.repo_dir).unwrap();
+                let mut repo2 = Repository::discover(&context.repo_dir).unwrap();
                 super::checkout_branch(&repo2, "refs/heads/RSL").unwrap();
                 assert_eq!(path.is_file(), true);
                 super::checkout_branch(&repo2, "refs/heads/master").unwrap();
@@ -500,18 +533,62 @@ mod test {
             }
             assert_eq!(path.is_file(), true);
         }
+        teardown_fresh(context);
     }
 
     #[test]
     fn commit_as_str() {
         let context = setup_fresh();
-        let repo = &context.local;
         {
+            let repo = &context.local;
             let commit_contents = Regex::new(r"tree 692efdfa32dfcd41dd14a6e36aa518b2b4459c79\nauthor Testy McTesterson <idontexistanythingaboutthat@email.com> [0-9]{10} -[0-9]{4}\ncommitter Testy McTesterson <idontexistanythingaboutthat@email.com> [0-9]{10} -[0-9]{4}\n\nAdd example text file").unwrap();
             let commit_oid = repo.head().unwrap().target().unwrap();
             let commit = repo.find_commit(commit_oid).unwrap();
             let contents = super::commit_as_str(&commit).unwrap();
             assert!(commit_contents.is_match(&contents))
         }
+        teardown_fresh(context)
+    }
+
+    #[test]
+    fn create_signed_commit() {
+        let context = setup_fresh();
+        env::set_var("GNUPGHOME", "./fixtures/fixture.gnupghome");
+        {
+            let repo = &context.local;
+
+            let header_pattern = "gpgsig -----BEGIN PGP SIGNATURE-----";
+            let message_string = "Add example text file";
+            let commit_oid = repo.head().unwrap().target().unwrap();
+            let signed_commit_oid = super::create_signed_commit(repo, commit_oid).unwrap();
+            assert_ne!(commit_oid, signed_commit_oid);
+            let signed_commit = repo.find_commit(signed_commit_oid).unwrap();
+            let header = &signed_commit.raw_header().unwrap();
+            let message = &signed_commit.message_raw().unwrap();
+            assert!(header.contains(&header_pattern));
+            assert_eq!(message, &message_string)
+        }
+        teardown_fresh(context)
+    }
+
+    #[test]
+    fn commit_signed() {
+        let context = setup_fresh();
+        env::set_var("GNUPGHOME", "./fixtures/fixture.gnupghome");
+        {
+            let repo = &context.local;
+
+            let header_pattern = "gpgsig -----BEGIN PGP SIGNATURE-----";
+            let message_string = "Add example text file";
+            let commit_oid = repo.head().unwrap().target().unwrap();
+            let signed_commit_oid = super::create_signed_commit(repo, commit_oid).unwrap();
+            assert_ne!(commit_oid, signed_commit_oid);
+            let signed_commit = repo.find_commit(signed_commit_oid).unwrap();
+            let header = &signed_commit.raw_header().unwrap();
+            let message = &signed_commit.message_raw().unwrap();
+            assert!(header.contains(&header_pattern));
+            assert_eq!(message, &message_string)
+        }
+        teardown_fresh(context)
     }
 }

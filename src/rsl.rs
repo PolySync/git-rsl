@@ -103,8 +103,9 @@ impl HasRSL for Repository {
         let message = "Initialize RSL";
         let tree = self.find_tree(oid).chain_err(|| "could not find tree")?;
         let rsl_head = format!("refs/heads/{}", RSL_BRANCH);
-        let oid = self.commit(
-            Some(&rsl_head), //  point HEAD to our new commit
+        let oid = git::commit_signed(
+            self,
+            &rsl_head, //  point HEAD to our new commit
             &signature, // author
             &signature, // committer
             &message, // commit message
@@ -235,8 +236,8 @@ impl HasRSL for Repository {
         let tree = self.find_tree(oid).chain_err(|| "could not find tree")?;
         let rsl_head = format!("refs/heads/{}", RSL_BRANCH);
 
-        self.commit(
-            Some(&rsl_head), //  point HEAD to our new commit
+        git::commit_signed(self,
+            &rsl_head, //  point HEAD to our new commit
             &signature, // author
             &signature, // committer
             &message, // commit message
@@ -449,6 +450,9 @@ mod tests {
             assert_eq!(oid, new_head.into_reference().target().unwrap());
             let result = PushEntry::from_str(&obj.message().unwrap()).unwrap();
             assert_eq!(result, entry);
+
+            // commit is signed and we are on the right branch
+            assert!(false)
         }
         teardown_fresh(context);
     }

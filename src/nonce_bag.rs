@@ -16,6 +16,7 @@ use serde_json;
 
 use nonce::Nonce;
 use errors::*;
+use utils::git;
 
 const NONCE_BAG_PATH: &'static str = "NONCE_BAG";
 const RSL_BRANCH: &'static str = "RSL";
@@ -115,7 +116,9 @@ impl HasNonceBag for Repository {
         let message = "Update nonce bag";
         let parent_commit = self.head()?.peel_to_commit()?;
         let tree = self.find_tree(oid).chain_err(|| "couldn't find tree")?;
-        let commit_oid = self.commit(Some("HEAD"), //  point HEAD to our new commit
+        let commit_oid = git::commit_signed(
+            self,
+            &"refs/heads/RSL", //  point HEAD to our new commit
             &signature, // author
             &signature, // committer
             &message, // commit message
