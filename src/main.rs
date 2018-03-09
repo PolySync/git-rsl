@@ -4,7 +4,7 @@
 
 extern crate crypto;
 extern crate git2;
-extern crate libgit2_sys;
+//extern crate libgit2_sys;
 extern crate rand;
 extern crate serde;
 extern crate serde_json;

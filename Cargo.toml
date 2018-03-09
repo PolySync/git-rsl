@@ -6,8 +6,10 @@ authors = ["Gabriella Chronis <gchronis@polysync.io>",
 
 [dependencies]
 clap = "2"
-git2 = "0.7"
-libgit2-sys = "0.7"
+#git2 = "~0.7.1"
+git2 = { git = "ssh://git@github.com/alexcrichton/git2-rs", branch = "master" }
+
+#libgit2-sys = "~0.7.1"
 gpgme = "0.6"
 lazy_static = "0.2"
 rand = "0.3"

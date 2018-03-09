@@ -3,7 +3,7 @@ use std::fmt;
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
 use git2::{self, Oid, Reference, Repository, BranchType};
-use libgit2_sys::{self, git_oid, GIT_OID_RAWSZ};
+//use libgit2_sys::GIT_OID_RAWSZ;
 
 use nonce_bag::{NonceBag};
 
@@ -20,7 +20,10 @@ struct OidDef {
 }
 
 fn get_raw_oid(oid: &Oid) -> Vec<u8> {
-    let mut oid_array: [u8; GIT_OID_RAWSZ] = Default::default();
+    // TODO this should be changed back to [u8: GIT_OID_RAWSZ] when libgit2-sys can be added as a dependency again (i.e. when both of the packages are tagged at or above 0.7.1)
+    //let mut oid_array: [u8; GIT_OID_RAWSZ] = Default::default();
+
+    let mut oid_array: [u8; 20] = Default::default();
     oid_array.copy_from_slice(oid.as_bytes());
     oid_array.to_vec()
 }
