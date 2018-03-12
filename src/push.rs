@@ -4,7 +4,7 @@ use std::process;
 
 use push_entry::PushEntry;
 use rsl::{RSL, HasRSL};
-use nonce_bag::{NonceBag, HasNonceBag};
+use nonce_bag::NonceBag;
 use nonce::{Nonce};
 use errors::*;
 
@@ -76,7 +76,6 @@ pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names:
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use utils::test_helper::*;
 
     #[test]

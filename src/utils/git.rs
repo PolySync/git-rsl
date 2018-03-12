@@ -2,7 +2,7 @@ use std::path::Path;
 use std::env;
 
 use git2;
-use git2::{Error, FetchOptions, PushOptions, Oid, Reference, Signature, Branch, Commit, RemoteCallbacks, Remote, Repository, Revwalk, DiffOptions, RepositoryState, Tree};
+use git2::{FetchOptions, PushOptions, Oid, Signature, Commit, RemoteCallbacks, Remote, Repository, DiffOptions, RepositoryState, Tree};
 use git2::build::CheckoutBuilder;
 use git2::BranchType;
 
@@ -10,7 +10,6 @@ use git2::StashApplyOptions;
 use git2::StashFlags;
 use git2::MergeAnalysis;
 use git2::CredentialType;
-use git2::Sort;
 
 use utils::gpg;
 use errors::*;
@@ -407,7 +406,7 @@ fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
 mod test {
     use utils::test_helper::*;
     use super::*;
-    use std::fs::{File, OpenOptions};
+    use std::fs::File;
     use std::io::prelude::*;
     use std::path::PathBuf;
     use regex::Regex;

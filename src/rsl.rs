@@ -1,4 +1,4 @@
-use git2::{self, Oid, Repository, Remote, Revwalk, BranchType, Sort};
+use git2::{Oid, Repository, Remote, Revwalk, BranchType, Sort};
 use git2::build::CheckoutBuilder;
 
 use nonce::{Nonce, HasNonce};
@@ -282,7 +282,7 @@ impl HasRSL for Repository {
         let descendant = self
             .graph_descendant_of(remote_rsl.head, local_rsl.head)
             .unwrap_or(false);
-        let same = (remote_rsl.head == local_rsl.head);
+        let same = remote_rsl.head == local_rsl.head;
         if !descendant && !same {
             bail!("RSL invalid: No path to get from Local RSL to Remote RSL");
         }
@@ -352,6 +352,7 @@ mod tests {
     use utils::test_helper::*;
     use std::path::Path;
     use std::process::Command;
+    use git2::RepositoryState;
 
     #[test]
     fn rsl_init_global() {
@@ -365,7 +366,7 @@ mod tests {
             // remote rsl branch exists
             assert!(&context.local.find_branch("origin/RSL", BranchType::Remote).is_ok());
             assert!(&context.local.find_branch("RSL", BranchType::Local).is_ok());
-            assert!(context.local.state() == git2::RepositoryState::Clean);
+            assert!(context.local.state() == RepositoryState::Clean);
             assert_eq!(context.local.diff_index_to_workdir(None, None).unwrap().deltas().count(), 0);
             // TODO to test that the repo does not contain untracked NONCE_BAG file and simultaneously show deleted NONCE_BAG file?? git gets confused??? Open git2rs issue about needing to reset after commit.
         }

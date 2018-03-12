@@ -2,21 +2,16 @@ use std::path::Path;
 use std::env;
 use std::fs::{self, File};
 use std::str;
-use std::ffi::OsStr;
 use std::io::prelude::*;
 use std::path::PathBuf;
 
-
-
-use std::process::{Command, Output};
 
 use super::git;
 
 use fs_extra::dir::*;
 use tempdir::TempDir;
 
-use git2::{Repository, RepositoryOpenFlags, Config};
-use rand::{Rng, thread_rng};
+use git2::{Repository};
 
 pub struct Context {
     pub local: Repository,
@@ -82,6 +77,7 @@ fn rm_rf(path: &Path) -> () {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use git2::Config;
 
     #[test]
     fn setup_config() {

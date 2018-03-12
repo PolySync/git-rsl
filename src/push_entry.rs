@@ -8,7 +8,6 @@ use git2::{self, Oid, Reference, Repository, BranchType};
 use nonce_bag::{NonceBag};
 
 use serde_json;
-use serde::ser::{Serialize};
 use utils;
 
 

@@ -17,7 +17,7 @@ extern crate hex;
 extern crate gpgme;
 extern crate regex;
 
-use std::{env, process};
+use std::env;
 
 mod push;
 mod fetch;
@@ -105,7 +105,6 @@ fn report_error(e: &Error) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use push;
     use fetch;
     use utils::test_helper::*;

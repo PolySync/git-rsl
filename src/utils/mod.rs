@@ -1,4 +1,4 @@
-use hex::{self, FromHex, ToHex};
+use hex::{self, FromHex};
 use serde::{Serializer, Deserialize, Deserializer};
 
 

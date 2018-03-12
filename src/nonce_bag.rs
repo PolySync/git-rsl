@@ -2,16 +2,12 @@ use std::io::Write;
 use std::fs::OpenOptions;
 use std::collections::HashSet;
 
-use std::io::BufReader;
-use std::io::BufRead;
 use std::path::Path;
 
-use std::fs::File;
 use std::io::prelude::*;
 
 
 use git2::{self, Repository, Oid};
-use git2::build::CheckoutBuilder;
 use serde_json;
 
 use nonce::Nonce;

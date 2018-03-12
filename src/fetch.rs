@@ -7,7 +7,6 @@ use std::iter::FromIterator;
 use git2::{Repository, Remote, Oid, BranchType};
 
 use nonce_bag::{NonceBag, HasNonceBag};
-use push_entry::PushEntry;
 use rsl::{RSL, HasRSL};
 use nonce::{Nonce, HasNonce};
 use errors::*;
