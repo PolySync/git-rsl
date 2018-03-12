@@ -352,6 +352,7 @@ mod tests {
     use super::*;
     use utils::test_helper::*;
     use std::path::Path;
+    use std::process::Command;
 
     #[test]
     fn rsl_init_global() {
@@ -432,10 +433,13 @@ mod tests {
         let mut context = setup_fresh();
         {
             let repo = &context.local;
-            // RSL commit only works on RSL branch
+
+            // RSL commit only works on RSL branch; we have to initialize it and check it out
             let mut rem = repo.find_remote("origin").unwrap().to_owned();
             repo.rsl_init_global(&mut rem).unwrap();
             git::checkout_branch(repo, "refs/heads/RSL").unwrap();
+
+            // try commit
             let entry = PushEntry {
                     //related_commits: vec![oid.to_owned(), oid.to_owned()],
                     branch: String::from("branch_name"),
@@ -445,14 +449,27 @@ mod tests {
                     signature: String::from("gpg signature"),
             };
             let oid = repo.commit_push_entry(&entry).unwrap();
+
+            // we are on the correct branch with new commit at the tip
+            let head = repo.head().unwrap();
+            let ref_name = head.name().unwrap();
+            let tip = head.target().unwrap();
+            assert_eq!(ref_name, "refs/heads/RSL");
+            assert_eq!(oid, tip);
+
+            // check text of commit
             let obj = repo.find_commit(oid).unwrap();
-            let new_head = repo.find_branch("RSL", BranchType::Local).unwrap();
-            assert_eq!(oid, new_head.into_reference().target().unwrap());
             let result = PushEntry::from_str(&obj.message().unwrap()).unwrap();
             assert_eq!(result, entry);
 
             // commit is signed and we are on the right branch
-            assert!(false)
+            let status = Command::new("git")
+                .env("GNUPGHOME", "./fixtures/fixture.gnupghome")
+                .args(&["--exec-path", &context.repo_dir.to_str().unwrap()])
+                .args(&["verify-commit", "HEAD"])
+                .status()
+                .unwrap();
+            assert!(status.success());
         }
         teardown_fresh(context);
     }
