@@ -134,8 +134,8 @@ pub fn commit_signed(
     let oid2 = create_signed_commit(repo, oid1)?;
 
     // point update ref to the *signed* commit and just pretend like the in-between commit does not exist
-    let reflog_msg = "Switching heaf to signed commit";
-    let reference = repo.find_reference(update_ref)?.set_target(oid2, &reflog_msg)?;
+    let reflog_msg = "Switching head to signed commit";
+    repo.find_reference(update_ref)?.set_target(oid2, &reflog_msg)?;
 
     Ok(oid2)
 }
@@ -420,7 +420,7 @@ mod test {
             let repo = &context.local;
             // create new branch
             let head = &repo.head().unwrap().peel_to_commit().unwrap();
-            let branch = &repo.branch(&"branch", &head, false).unwrap();
+            &repo.branch(&"branch", &head, false).unwrap();
             // make sure we are still on old branch
             assert!(repo.head().unwrap().name().unwrap() == "refs/heads/master");
             // checkout new branch
@@ -438,7 +438,7 @@ mod test {
             let repo = &context.local;
             //let mut remote = repo.find_remote(&"origin").unwrap();
             let head = &repo.head().unwrap().peel_to_commit().unwrap();
-            let branch = &repo.branch(&"branch", &head, false).unwrap();
+            &repo.branch(&"branch", &head, false).unwrap();
             assert!(repo.head().unwrap().name().unwrap() == "refs/heads/master");
 
             super::checkout_branch(&repo, &"refs/heads/branch").unwrap();
@@ -460,7 +460,7 @@ mod test {
         {
             let repo = &context.local;
             let head = &repo.head().unwrap().peel_to_commit().unwrap();
-            let branch = &repo.branch(&"branch", &head, false).unwrap();
+            &repo.branch(&"branch", &head, false).unwrap();
             super::checkout_branch(&repo, &"refs/heads/branch").unwrap();
             assert!(repo.head().unwrap().name().unwrap() == "refs/heads/branch");
 

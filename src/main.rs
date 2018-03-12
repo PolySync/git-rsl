@@ -118,6 +118,7 @@ mod tests {
             let mut rem = repo.find_remote("origin").unwrap().to_owned();
             let refs = &["master"];
             let res = push::secure_push(&repo, &mut rem, refs).unwrap();
+            assert_eq!(res, ());
             do_work_on_branch(&repo, "master");
             let res2 = push::secure_push(&repo, &mut rem, refs).unwrap();
             assert_eq!(res2, ());

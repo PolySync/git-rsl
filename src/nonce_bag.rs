@@ -19,8 +19,6 @@ use errors::*;
 use utils::git;
 
 const NONCE_BAG_PATH: &'static str = "NONCE_BAG";
-const RSL_BRANCH: &'static str = "RSL";
-const REFLOG_MSG: &'static str = "Retrieve RSL branchs from remote";
 
 #[derive(Eq, PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct NonceBag {
@@ -85,7 +83,7 @@ impl HasNonceBag for Repository {
     }
 
     fn write_nonce_bag(&self, nonce_bag: &NonceBag) -> Result<()> {
-        let text = nonce_bag.to_string()?;
+        //let text = nonce_bag.to_string()?;
         let nonce_bag_path = self.path().parent().unwrap().join(NONCE_BAG_PATH);
         let mut f = OpenOptions::new().write(true).create(true).open(&nonce_bag_path).chain_err(|| "couldn't open nonce bag file for writing")?;
          for nonce in &nonce_bag.bag {

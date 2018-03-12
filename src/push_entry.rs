@@ -125,7 +125,7 @@ mod tests {
         let entry = PushEntry {
                 //related_commits: vec![oid.to_owned(), oid.to_owned()],
                 branch: String::from("branch_name"),
-                head: Oid::from_str("decbf2be529ab6557d5429922251e5ee36519817").unwrap(),
+                head: oid,
                 prev_hash: String::from("fwjjk42ofw093j"),
                 nonce_bag: NonceBag::new(),
                 signature: String::from("gpg signature"),

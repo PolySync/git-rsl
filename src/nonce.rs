@@ -114,7 +114,7 @@ mod tests {
             let mut f = File::open(&nonce_file)
                         .expect("file not found");
             let mut contents = vec![];
-            let string = f.read_to_end(&mut contents)
+            f.read_to_end(&mut contents)
                         .expect("something went wrong reading the file");
             assert_eq!(contents, FAKE_NONCE.bytes);
         }

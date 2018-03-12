@@ -24,19 +24,6 @@ pub struct Context {
     pub repo_dir: PathBuf,
 }
 
-impl Context {
-    pub fn checkout(&mut self, branch: &str) -> &mut Context {
-        let cmd = Command::new("git")
-        .current_dir(self.local.path().parent().unwrap())
-        .args(&["checkout", branch])
-        .output().unwrap();
-        if cmd.status.success() != true {
-            panic!("{}", str::from_utf8(cmd.stderr.as_ref()).unwrap())
-        }
-        self
-    }
-}
-
 pub fn setup_fresh() -> Context {
     // create temporary directory
     let local_dir = TempDir::new("rsl_test").unwrap().into_path();
@@ -84,11 +71,6 @@ pub fn teardown_fresh(context: Context) {
 pub fn do_work_on_branch(repo: &Repository, branch_name: &str) -> () {
     git::checkout_branch(&repo, format!("refs/heads/{}", branch_name).as_str()).unwrap();
     git::add_and_commit(&repo, None, "a commit with some work", branch_name).unwrap();
-}
-
-fn open_bare_repository<P>(path: P) -> Repository
-    where P: AsRef<Path>, P: AsRef<OsStr> {
-    Repository::open_ext(&path, RepositoryOpenFlags::BARE,  &[] as &[&OsStr]).unwrap()
 }
 
 fn rm_rf(path: &Path) -> () {

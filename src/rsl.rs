@@ -71,7 +71,6 @@ impl HasRSL for Repository {
     fn find_last_push_entry(&self, tree_tip: &Oid) -> Option<PushEntry> {
         let mut revwalk: Revwalk = self.revwalk().expect("Failed to make revwalk");
         revwalk.push(tree_tip.clone());
-        let last_push_entry: Option<PushEntry> = None;
         let mut current = Some(tree_tip.clone());
         while current != None {
             match PushEntry::from_oid(self, &current.unwrap()){
@@ -103,7 +102,7 @@ impl HasRSL for Repository {
         let message = "Initialize RSL";
         let tree = self.find_tree(oid).chain_err(|| "could not find tree")?;
         let rsl_head = format!("refs/heads/{}", RSL_BRANCH);
-        let oid = git::commit_signed(
+        let _oid = git::commit_signed(
             self,
             &rsl_head, //  point HEAD to our new commit
             &signature, // author
@@ -277,7 +276,7 @@ impl HasRSL for Repository {
 
     fn validate_rsl(&self) -> Result<()> {
 
-        let (remote_rsl, local_rsl, nonce_bag, nonce) = self.read_rsl()?;
+        let (remote_rsl, local_rsl, _nonce_bag, _nonce) = self.read_rsl()?;
 
         // Ensure remote RSL head is a descendant of local RSL head.
         let descendant = self

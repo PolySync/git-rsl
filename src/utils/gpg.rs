@@ -14,7 +14,7 @@ pub fn verify_commit_signature(_oid: Oid) -> Result<()> {
 
 /// Signs with the provided key,
 /// or else uses the default signing key
-pub fn detached_sign(input: &str, key_id: Option<&str>, gpghome: Option<&str>) -> Result<String> {
+pub fn detached_sign(input: &str, _key_id: Option<&str>, gpghome: Option<&str>) -> Result<String> {
     let mut ctx = Context::from_protocol(Protocol::OpenPgp)?;
 
     // resolve gpg home in order of provided path, environment variable, default, or give up
@@ -48,7 +48,7 @@ pub fn verify_detached_signature(sig: &str, buf: &str, gpghome: Option<&str>) ->
         bail!("couldn't generate signature; gpg home not set");
     }
     ctx.set_armor(true);
-    let result = ctx.verify_detached(sig, buf).chain_err(|| "gpg verification failed")?;
+    ctx.verify_detached(sig, buf).chain_err(|| "gpg verification failed")?;
 
     // return true if we verified successfully
     Ok(true)
