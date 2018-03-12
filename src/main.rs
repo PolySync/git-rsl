@@ -112,7 +112,7 @@ mod tests {
 
     #[test]
     fn push_and_fetch() {
-        let mut context = setup_fresh();
+        let context = setup_fresh();
         {
             let repo = &context.local;
             let mut rem = repo.find_remote("origin").unwrap().to_owned();

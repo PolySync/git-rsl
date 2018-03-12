@@ -19,9 +19,9 @@ pub fn detached_sign(input: &str, key_id: Option<&str>, gpghome: Option<&str>) -
 
     // resolve gpg home in order of provided path, environment variable, default, or give up
     if let Some(path) = gpghome {
-        ctx.set_engine_home_dir(path);
+        ctx.set_engine_home_dir(path)?;
     } else if let Some(path) = find_gpg_home() {
-        ctx.set_engine_home_dir(path);
+        ctx.set_engine_home_dir(path)?;
     } else {
         bail!("couldn't generate signature; gpg home not set");
     }
@@ -41,9 +41,9 @@ pub fn verify_detached_signature(sig: &str, buf: &str, gpghome: Option<&str>) ->
 
     // resolve gpg home in order of provided path, environment variable, default, or give up
     if let Some(path) = gpghome {
-        ctx.set_engine_home_dir(path);
+        ctx.set_engine_home_dir(path)?;
     } else if let Some(path) = find_gpg_home() {
-        ctx.set_engine_home_dir(path);
+        ctx.set_engine_home_dir(path)?;
     } else {
         bail!("couldn't generate signature; gpg home not set");
     }
@@ -90,9 +90,9 @@ pub fn cli_detached_sign(buf: &str, gpghome: Option<&str>) -> Result<Vec<u8>> {
 // gpg2 --verify sig doc
 pub fn cli_verify_detached_signature(sig: &Vec<u8>, buf: &str, gpghome: Option<&str>) -> Result<bool> {
     let mut message_file = NamedTempFile::new()?;
-    message_file.write_all(&buf.as_bytes());
+    message_file.write_all(&buf.as_bytes())?;
     let mut sig_file = NamedTempFile::new()?;
-    sig_file.write_all(&sig);
+    sig_file.write_all(&sig)?;
 
     let mut cmd = Command::new("gpg2");
     cmd.arg("--verify");
@@ -175,7 +175,7 @@ mod tests {
         let mut document = File::open("./fixtures/test.txt").unwrap();
         document.read_to_string(&mut doc_data).unwrap();
         let mut sig = File::open("./fixtures/test.txt.asc").unwrap();
-        sig.read_to_string(&mut sig_data);
+        sig.read_to_string(&mut sig_data).unwrap();
 
         // mess with signature
         sig_data = String::from("fhio2340929f3");
@@ -195,7 +195,7 @@ mod tests {
         let mut document = File::open("./fixtures/test.txt").unwrap();
         document.read_to_string(&mut doc_data).unwrap();
         let mut sig = File::open("./fixtures/test.txt.asc").unwrap();
-        sig.read_to_end(&mut sig_data);
+        sig.read_to_end(&mut sig_data).unwrap();
 
         let result = super::cli_verify_detached_signature(&sig_data, &doc_data, Some(&gpghome)).unwrap();
         assert!(result)

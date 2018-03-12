@@ -188,7 +188,7 @@ pub fn push(repo: &Repository, remote: &mut Remote, ref_names: &[&str]) -> Resul
         let mut opts = PushOptions::new();
         opts.remote_callbacks(cb);
 
-        let mut refs: Vec<String> = ref_names
+        let refs: Vec<String> = ref_names
             .to_vec()
             .iter()
             .map(|name: &&str| format!("refs/heads/{}:refs/heads/{}", name.to_string(), name.to_string()))
@@ -226,7 +226,7 @@ pub fn fast_forward_onto_head(repo: &Repository, theirs: &str) -> Result<()> {
     let their_object = repo.find_reference(theirs)?.peel_to_commit()?.into_object();
 
     let their_oid = repo.find_reference(theirs)?.target().ok_or("not a direct reference")?;
-    repo.checkout_tree(&their_object, None);
+    repo.checkout_tree(&their_object, None)?;
     let mut head = repo.head()?;
     let reflog_str = format!("Fastforward {} onto HEAD", theirs);
     head.set_target(their_oid, &reflog_str)?;
@@ -389,19 +389,19 @@ fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
     res
 }
 
-fn for_each_commit_from<F>(repo: &Repository, local: Oid, remote: Oid, f: F)
-    where F: Fn(Oid) -> ()
-{
-    let mut revwalk: Revwalk = repo.revwalk().unwrap();
-    revwalk.push(remote);
-    revwalk.set_sorting(Sort::REVERSE);
-    revwalk.hide(local);
-    let remaining = revwalk.map(|oid| oid.unwrap());
-
-    for oid in remaining {
-        f(oid)
-    }
-}
+// fn for_each_commit_from<F>(repo: &Repository, local: Oid, remote: Oid, f: F)
+//     where F: Fn(Oid) -> ()
+// {
+//     let mut revwalk: Revwalk = repo.revwalk().unwrap();
+//     revwalk.push(remote)?;
+//     revwalk.set_sorting(Sort::REVERSE);
+//     revwalk.hide(local);
+//     let remaining = revwalk.map(|oid| oid.unwrap());
+//
+//     for oid in remaining {
+//         f(oid)
+//     }
+// }
 
 #[cfg(test)]
 mod test {
@@ -553,7 +553,7 @@ mod test {
     #[test]
     fn create_signed_commit() {
         let context = setup_fresh();
-        env::set_var("GNUPGHOME", "./fixtures/fixture.gnupghome");
+        //env::set_var("GNUPGHOME", "./fixtures/fixture.gnupghome");
         {
             let repo = &context.local;
 
@@ -574,7 +574,7 @@ mod test {
     #[test]
     fn commit_signed() {
         let context = setup_fresh();
-        env::set_var("GNUPGHOME", "./fixtures/fixture.gnupghome");
+        //env::set_var("GNUPGHOME", "./fixtures/fixture.gnupghome");
         {
             let repo = &context.local;
 
