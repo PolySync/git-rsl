@@ -97,7 +97,7 @@ impl HasRSL for Repository {
 
         // create new parentless orphan commit
         let mut index = self.index().chain_err(|| "could not find index")?;
-        index.clear(); // remove project files from index
+        index.clear()?; // remove project files from index
         let oid = index.write_tree().chain_err(|| "could not write tree from index")?; // create empty tree
         let signature = self.signature().unwrap();
         let message = "Initialize RSL";
@@ -164,7 +164,7 @@ impl HasRSL for Repository {
 
         // create initial bootstrapping push entry
         let initial_pe = PushEntry::new(self, "RSL", String::from("First Push Entry"), nonce_bag);
-        self.commit_push_entry(&initial_pe);
+        self.commit_push_entry(&initial_pe)?;
 
         // push new rsl branch
         self.push_rsl(remote)?;
@@ -191,7 +191,7 @@ impl HasRSL for Repository {
         let mut nonce_bag = self.read_nonce_bag()?;
         let new_nonce = Nonce::new().unwrap();
         self.write_nonce(&new_nonce).chain_err(|| "nonce write error")?;
-        nonce_bag.insert(new_nonce);
+        nonce_bag.insert(new_nonce)?;
         self.write_nonce_bag(&nonce_bag).chain_err(|| "couldn't write to nonce baf file")?;
         self.commit_nonce_bag().chain_err(|| "couldn't commit nonce bag")?;
         self.push_rsl(remote).chain_err(|| "rsl init error")?;
@@ -356,7 +356,7 @@ mod tests {
 
     #[test]
     fn rsl_init_global() {
-        let mut context = setup_fresh();
+        let context = setup_fresh();
         {
             let mut remote = context.local.find_remote("origin").unwrap().to_owned();
             let result = &context.local.rsl_init_global(&mut remote).unwrap();
@@ -375,7 +375,7 @@ mod tests {
 
     #[test]
     fn rsl_init_with_gitignore() {
-        let mut context = setup_fresh();
+        let context = setup_fresh();
         {
             let repo = &context.local;
             let mut remote = context.local.find_remote("origin").unwrap().to_owned();
@@ -409,7 +409,7 @@ mod tests {
     #[test]
     fn rsl_fetch() {
         // test that RSL fetch gets the remote branch but doesnt create a local branch if it doesn't yet exist. if it does, we need to change how we decide whether to init.
-        let mut context = setup_fresh();
+        let context = setup_fresh();
         {
             let repo = &context.local;
             let mut remote = context.local.find_remote("origin").unwrap().to_owned();
@@ -430,7 +430,7 @@ mod tests {
 
     #[test]
     fn commit_push_entry() {
-        let mut context = setup_fresh();
+        let context = setup_fresh();
         {
             let repo = &context.local;
 
@@ -464,7 +464,7 @@ mod tests {
 
             // commit is signed and we are on the right branch
             let status = Command::new("git")
-                .env("GNUPGHOME", "./fixtures/fixture.gnupghome")
+                //.env("GNUPGHOME", "./fixtures/fixture.gnupghome")
                 .args(&["--exec-path", &context.repo_dir.to_str().unwrap()])
                 .args(&["verify-commit", "HEAD"])
                 .status()

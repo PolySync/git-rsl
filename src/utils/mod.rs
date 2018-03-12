@@ -6,11 +6,6 @@ pub mod test_helper;
 pub mod git;
 pub mod gpg;
 
-fn run_successfully() {
-    // TODO implement
-}
-
-
 /// Serializes `buffer` to a lowercase hex string.
 pub fn buffer_to_hex<T, S>(buffer: &T, serializer: S) -> Result<S::Ok, S::Error>
   where T: AsRef<[u8]>,

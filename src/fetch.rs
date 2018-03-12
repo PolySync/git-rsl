@@ -15,16 +15,16 @@ use utils::git;
 
 pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: &[&str]) -> Result<()> {
 
-    let mut remote_rsl: RSL;
-    let mut local_rsl: RSL;
-    let mut nonce_bag: NonceBag;
-    let mut nonce: Nonce;
+    let remote_rsl: RSL;
+    let local_rsl: RSL;
+    let nonce_bag: NonceBag;
+    let nonce: Nonce;
 
-    repo.fetch_rsl(&mut remote);
-    repo.init_rsl_if_needed(&mut remote);
+    repo.fetch_rsl(&mut remote)?;
+    repo.init_rsl_if_needed(&mut remote)?;
     //let (remote_rsl, local_rsl, nonce_bag, nonce) = repo.read_rsl()?.chain_err(|| "couldn't read RSL");
 
-    git::checkout_branch(&repo, "refs/heads/RSL");
+    git::checkout_branch(&repo, "refs/heads/RSL")?;
 
     //TODO paper algo uses spin lock here, probably a better alternative
 
@@ -32,7 +32,7 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
     let mut err: Result<()> = Err("".into());
     'store: loop {
         if store_counter == 0  {
-            err.chain_err(|| "Couldn't store new fetch entry in RSL; check your connection and try again");
+            err.chain_err(|| "Couldn't store new fetch entry in RSL; check your connection and try again")?;
         }
         let mut counter = 5;
         'fetch: loop {
@@ -84,13 +84,13 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
 
         // update nonce bag
         if nonce_bag.bag.contains(&nonce) {
-            nonce_bag.remove(&nonce);
+            nonce_bag.remove(&nonce)?;
         }
 
         let new_nonce = Nonce::new().unwrap();
         repo.write_nonce(&new_nonce).chain_err(|| "nonce write error")?;
 
-        nonce_bag.insert(new_nonce);
+        nonce_bag.insert(new_nonce)?;
         repo.write_nonce_bag(&nonce_bag).chain_err(|| "couldn't write to nonce baf file")?;
         repo.commit_nonce_bag().chain_err(|| "couldn't commit nonce bag")?;
         match repo.push_rsl(&mut remote) {
@@ -110,7 +110,7 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
 
 fn all_push_entries_in_fetch_head(repo: &Repository, remote_rsl: &RSL, ref_names: &[&str]) -> bool {
     // find the last push entry for each branch
-    let mut latest_push_entries: Vec<Oid> = ref_names.clone().into_iter().filter_map(|ref_name| {
+    let latest_push_entries: Vec<Oid> = ref_names.clone().into_iter().filter_map(|ref_name| {
         match repo.find_last_push_entry_for_branch(remote_rsl, ref_name).ok() {
             Some(Some(pe)) => Some(pe.head),
             Some(None) => None,
@@ -119,7 +119,7 @@ fn all_push_entries_in_fetch_head(repo: &Repository, remote_rsl: &RSL, ref_names
     }).collect();
 
     // find the Oid of the tip of each remote fetched branch
-    let mut fetch_heads : Vec<Oid> = ref_names.clone().into_iter().filter_map(|ref_name| {
+    let fetch_heads : Vec<Oid> = ref_names.clone().into_iter().filter_map(|ref_name| {
         println!("ref_name: {:?}", ref_name);
         match repo.find_branch(&format!("origin/{}", ref_name), BranchType::Remote) {
             Ok(branch) => branch.get().target(),

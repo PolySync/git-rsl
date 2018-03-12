@@ -87,7 +87,7 @@ impl HasNonceBag for Repository {
     fn write_nonce_bag(&self, nonce_bag: &NonceBag) -> Result<()> {
         let text = nonce_bag.to_string()?;
         let nonce_bag_path = self.path().parent().unwrap().join(NONCE_BAG_PATH);
-        let mut f = OpenOptions::new().write(true).create(true).open(&nonce_bag_path).chain_err(|| "couldn't open nonce bag fiile for writing")?;
+        let mut f = OpenOptions::new().write(true).create(true).open(&nonce_bag_path).chain_err(|| "couldn't open nonce bag file for writing")?;
          for nonce in &nonce_bag.bag {
              match f.write(&nonce.bytes) {
                  Ok(32) => Ok(()),
@@ -177,7 +177,7 @@ mod tests {
 
     #[test]
     fn to_string_and_back() {
-        let mut bag = bag_a();
+        let bag = bag_a();
         let result = NonceBag::to_string(&bag).unwrap();
         let bag2 = NonceBag::from_str(&result).unwrap();
         assert_eq!(bag, bag2)

@@ -12,16 +12,16 @@ use utils::git;
 
 pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: &[&str]) -> Result<()> {
 
-    let mut remote_rsl: RSL;
-    let mut local_rsl: RSL;
-    let mut nonce_bag: NonceBag;
-    let mut nonce: Nonce;
+    let remote_rsl: RSL;
+    let local_rsl: RSL;
+    let nonce_bag: NonceBag;
+    let nonce: Nonce;
 
     //let mut refs = ref_names.iter().filter_map(|name| &repo.find_reference(name).ok());
 
-    repo.fetch_rsl(&mut remote).chain_err(|| "Problem fetching Remote RSL. Check your connection or your SSH config");
+    repo.fetch_rsl(&mut remote).chain_err(|| "Problem fetching Remote RSL. Check your connection or your SSH config")?;
 
-    repo.init_rsl_if_needed(&mut remote).chain_err(|| "Problem initializing RSL");
+    repo.init_rsl_if_needed(&mut remote).chain_err(|| "Problem initializing RSL")?;
 
     // checkout RSL branch
     git::checkout_branch(&repo, "refs/heads/RSL")?;
@@ -81,7 +81,7 @@ mod tests {
 
     #[test]
     fn secure_push() {
-        let mut context = setup_fresh();
+        let context = setup_fresh();
         {
             let repo = &context.local;
             let mut rem = repo.find_remote("origin").unwrap().to_owned();
@@ -94,7 +94,7 @@ mod tests {
 
     #[test]
     fn secure_push_twice() {
-        let mut context = setup_fresh();
+        let context = setup_fresh();
         {
             let repo = &context.local;
             let mut rem = repo.find_remote("origin").unwrap().to_owned();
