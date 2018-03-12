@@ -48,6 +48,9 @@ pub fn setup_fresh() -> Context {
     let config_path = &local.path().join("config");
     fs::copy("fixtures/fixture.gitconfig", config_path).unwrap();
 
+    // set gpghome for this process
+    env::set_var("GNUPGHOME", "./fixtures/fixture.gnupghome");
+
     // add and commit some work
     let relative_path = Path::new("work.txt");
     let absolute_path = &local.path().parent().unwrap().join(&relative_path);
