@@ -7,8 +7,8 @@ use push_entry::PushEntry;
 use errors::*;
 use utils::*;
 
-const RSL_BRANCH: &'static str = "RSL";
-const REFLOG_MSG: &'static str = "Retrieve RSL branchs from remote";
+const RSL_BRANCH: &str = "RSL";
+const REFLOG_MSG: &str = "Retrieve RSL branchs from remote";
 
 
 #[derive(Debug)]
@@ -50,19 +50,15 @@ impl HasRSL for Repository {
     fn find_last_push_entry_for_branch(&self, remote_rsl: &RSL, reference: &str) -> Result<Option<PushEntry>> {
         let mut revwalk: Revwalk = self.revwalk()?;
         revwalk.push(remote_rsl.head)?;
-        let mut current = Some(remote_rsl.head.clone());
+        let mut current = Some(remote_rsl.head);
         while current != None {
-            match PushEntry::from_oid(self, &current.unwrap())? {
-                Some(pe) => {
-                    if pe.branch == reference {
-                        return Ok(Some(pe))
-                    } else {
-                        ()
-                    }
-                },
-                None => (),
+            if let Some(pe) = PushEntry::from_oid(self, &current.unwrap())? {
+                if pe.branch == reference {
+                    return Ok(Some(pe))
+                }
             }
-            current = revwalk.next().and_then(|res| res.ok()); // .next returns Opt<Res<Oid>>
+            // .next returns Opt<Res<Oid>>
+            current = revwalk.next().and_then(|res| res.ok());
         }
         Ok(None)
     }
@@ -106,7 +102,7 @@ impl HasRSL for Repository {
             &rsl_head, //  point HEAD to our new commit
             &signature, // author
             &signature, // committer
-            &message, // commit message
+            message, // commit message
             &tree, // tree
             &[] // parents
         ).chain_err(|| "could not create initial RSL commit")?;
@@ -182,7 +178,7 @@ impl HasRSL for Repository {
         let remote_rsl = self.read_remote_rsl()?;
         let latest_rsl_commit = self.find_commit(remote_rsl.head)?;
         // create local rsl branch
-        self.branch(&"RSL", &latest_rsl_commit, false)?;
+        self.branch("RSL", &latest_rsl_commit, false)?;
 
         git::checkout_branch(self, "refs/heads/RSL")?;
 
@@ -390,7 +386,7 @@ mod tests {
             create_file_with_text(&foo_path, &"some ignored text");
 
             // init RSL
-            let result = &repo.rsl_init_global(&mut remote).unwrap();
+            &repo.rsl_init_global(&mut remote).unwrap();
 
             // switch back to master branch
             git::checkout_branch(&repo, "refs/heads/master").unwrap();
@@ -413,7 +409,7 @@ mod tests {
         {
             let repo = &context.local;
             let mut remote = context.local.find_remote("origin").unwrap().to_owned();
-            let result = &context.local.rsl_init_global(&mut remote).unwrap();
+            &context.local.rsl_init_global(&mut remote).unwrap();
 
             // delete local RSL
             repo.find_reference("refs/heads/RSL").unwrap().delete().unwrap();

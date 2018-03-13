@@ -14,7 +14,7 @@ use nonce::Nonce;
 use errors::*;
 use utils::git;
 
-const NONCE_BAG_PATH: &'static str = "NONCE_BAG";
+const NONCE_BAG_PATH: & str = "NONCE_BAG";
 
 #[derive(Eq, PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct NonceBag {
@@ -27,16 +27,18 @@ impl NonceBag {
     }
 
     pub fn insert(&mut self, nonce: Nonce) -> Result<()> {
-        match self.bag.insert(nonce) {
-            true => Ok(()),
-            false => bail!("problem inserting nonce into bag"),
+        if self.bag.insert(nonce) {
+            Ok(())
+        } else {
+            bail!("problem inserting nonce into bag")
         }
     }
 
     pub fn remove(&mut self, nonce: &Nonce) -> Result<()> {
-        match self.bag.remove(nonce) {
-            true => Ok(()),
-            false => bail!("problem removing nonce from bag"),
+        if self.bag.remove(nonce) {
+            Ok(())
+        } else {
+            bail!("problem removing nonce from bag")
         }
     }
 
@@ -73,7 +75,7 @@ impl HasNonceBag for Repository {
         while bytes_read < file_size {
             bytes_read += f.read(&mut bytes)? as u64;
             nonce = Nonce { bytes };
-            &nonce_bag.insert(nonce);
+            nonce_bag.insert(nonce)?;
         }
         Ok(nonce_bag)
     }
@@ -101,7 +103,7 @@ impl HasNonceBag for Repository {
         let mut index = self.index()
             .chain_err(|| "couldn't find index")?;
         let path = Path::new(NONCE_BAG_PATH);
-        index.add_path(&path)
+        index.add_path(path)
             .chain_err(|| "couldn't add path")?;
         let oid = index.write_tree()
             .chain_err(|| "couldn't write tree")?;
@@ -112,10 +114,10 @@ impl HasNonceBag for Repository {
         let tree = self.find_tree(oid).chain_err(|| "couldn't find tree")?;
         let commit_oid = git::commit_signed(
             self,
-            &"refs/heads/RSL", //  point HEAD to our new commit
+            "refs/heads/RSL", //  point HEAD to our new commit
             &signature, // author
             &signature, // committer
-            &message, // commit message
+            message, // commit message
             &tree, // tree
             &[&parent_commit])
             .chain_err(|| "failed to commit nonce bag")?;

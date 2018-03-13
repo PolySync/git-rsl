@@ -84,7 +84,7 @@ fn run() -> Result<()> {
         }
     }
 
-    git::checkout_branch(&mut clean_repo, current_branch_name)
+    git::checkout_branch(&clean_repo, current_branch_name)
         .chain_err(|| "Couldn't checkout starting branch. Sorry if we messed with your repo state. Ensure you are on the desired branch. It may be necessary to apply changes from the stash")?;
 
     git::unstash_local_changes(&mut clean_repo, stash_id)

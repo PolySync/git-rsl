@@ -57,7 +57,7 @@ impl PushEntry {
             branch: String::from(branch_str),
             head: branch_head,
             prev_hash: prev,
-            nonce_bag: nonce_bag,
+            nonce_bag,
             signature: String::from(""),
         }
     }
@@ -91,7 +91,7 @@ impl PushEntry {
     pub fn from_oid(repo: &Repository, oid: &Oid) -> Result<Option<PushEntry>> {
         let commit = repo.find_commit(oid.clone()).chain_err(|| "could not find commit for push entry")?;
         let message = commit.message().chain_err(|| "commit message contains invalid utf8")?;
-        match serde_json::from_str(&message) {
+        match serde_json::from_str(message) {
             Ok(p) => Ok(Some(p)),
             Err(_) => Ok(None),
         }

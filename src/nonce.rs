@@ -72,7 +72,7 @@ impl HasNonce for Repository {
         let mut f = OpenOptions::new().read(true).write(true).create(true).open(&nonce_path).chain_err(|| "could not open nonce file for reading")?;
 
         f.read_exact(&mut bytes).chain_err(|| "could not parse nonce file")?;
-        Ok(Nonce { bytes: bytes })
+        Ok(Nonce { bytes })
     }
 
     fn write_nonce(&self, nonce: &Nonce) -> Result<()> {

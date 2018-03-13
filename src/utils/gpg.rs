@@ -9,7 +9,7 @@ use std::process::Command;
 use tempfile::NamedTempFile;
 
 pub fn verify_commit_signature(_oid: Oid) -> Result<()> {
-    return Ok(())
+    Ok(())
 }
 
 /// Signs with the provided key,
@@ -60,7 +60,7 @@ pub fn cli_detached_sign(buf: &str, gpghome: Option<&str>) -> Result<Vec<u8>> {
     // write content to be signed to temporary file
     let cwd = std::env::current_dir()?;
     let mut file = NamedTempFile::new_in(cwd)?;
-    file.write_all(&buf.as_bytes())?;
+    file.write_all(buf.as_bytes())?;
 
     let mut cmd = Command::new("gpg2");
     cmd.arg("--detach-sign");
@@ -88,11 +88,11 @@ pub fn cli_detached_sign(buf: &str, gpghome: Option<&str>) -> Result<Vec<u8>> {
 }
 
 // gpg2 --verify sig doc
-pub fn cli_verify_detached_signature(sig: &Vec<u8>, buf: &str, gpghome: Option<&str>) -> Result<bool> {
+pub fn cli_verify_detached_signature(sig: &[u8], buf: &str, gpghome: Option<&str>) -> Result<bool> {
     let mut message_file = NamedTempFile::new()?;
-    message_file.write_all(&buf.as_bytes())?;
+    message_file.write_all(buf.as_bytes())?;
     let mut sig_file = NamedTempFile::new()?;
-    sig_file.write_all(&sig)?;
+    sig_file.write_all(sig)?;
 
     let mut cmd = Command::new("gpg2");
     cmd.arg("--verify");

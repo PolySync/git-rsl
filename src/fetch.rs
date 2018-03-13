@@ -12,13 +12,13 @@ use nonce::{Nonce, HasNonce};
 use errors::*;
 use utils::git;
 
-pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: &[&str]) -> Result<()> {
+pub fn secure_fetch(repo: &Repository, mut remote: &mut Remote, ref_names: &[&str]) -> Result<()> {
 
     repo.fetch_rsl(&mut remote)?;
     repo.init_rsl_if_needed(&mut remote)?;
     //let (remote_rsl, local_rsl, nonce_bag, nonce) = repo.read_rsl()?.chain_err(|| "couldn't read RSL");
 
-    git::checkout_branch(&repo, "refs/heads/RSL")?;
+    git::checkout_branch(repo, "refs/heads/RSL")?;
 
     //TODO paper algo uses spin lock here, probably a better alternative
 
@@ -107,8 +107,7 @@ fn all_push_entries_in_fetch_head(repo: &Repository, remote_rsl: &RSL, ref_names
     let latest_push_entries: Vec<Oid> = ref_names.clone().into_iter().filter_map(|ref_name| {
         match repo.find_last_push_entry_for_branch(remote_rsl, ref_name).ok() {
             Some(Some(pe)) => Some(pe.head),
-            Some(None) => None,
-            None => None,
+            Some(None)| None => None,
         }
     }).collect();
 

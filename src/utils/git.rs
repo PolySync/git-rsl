@@ -25,7 +25,7 @@ pub fn checkout_branch(repo: &Repository, ref_name: &str) -> Result<()> {
     let mut opts = CheckoutBuilder::new();
     opts.force();
     repo.checkout_tree(&tree, Some(&mut opts)).chain_err(|| "couldn't checkout tree")?;
-    repo.set_head(&ref_name).chain_err(|| "couldn't switch head to RSL")?;
+    repo.set_head(ref_name).chain_err(|| "couldn't switch head to RSL")?;
     Ok(())
 }
 
@@ -58,7 +58,7 @@ pub fn stash_local_changes(repo: &mut Repository) -> Result<(Option<Oid>)> {
     println!("stash_options: {:?}", &stash_options);
     let oid = repo.stash_save(
         &signature,
-        &message,
+        message,
         Some(stash_options),
     )?;
     Ok(Some(oid))
@@ -134,7 +134,7 @@ pub fn commit_signed(
 
     // point update ref to the *signed* commit and just pretend like the in-between commit does not exist
     let reflog_msg = "Switching head to signed commit";
-    repo.find_reference(update_ref)?.set_target(oid2, &reflog_msg)?;
+    repo.find_reference(update_ref)?.set_target(oid2, reflog_msg)?;
 
     Ok(oid2)
 }
@@ -172,7 +172,7 @@ pub fn fetch(repo: &Repository, remote: &mut Remote, ref_names: &[&str], _reflog
 
         let reflog_msg = "Retrieve RSL branch from remote";
 
-        remote.fetch(&ref_names, Some(&mut opts), Some(&reflog_msg)).chain_err(|| "could not fetch ref")
+        remote.fetch(ref_names, Some(&mut opts), Some(reflog_msg)).chain_err(|| "could not fetch ref")
     })
 }
 
@@ -195,7 +195,7 @@ pub fn push(repo: &Repository, remote: &mut Remote, ref_names: &[&str]) -> Resul
 
         let mut refs_ref: Vec<&str> = vec![];
         for name in &refs {
-            refs_ref.push(&name)
+            refs_ref.push(name)
         }
 
         remote.push(&refs_ref, Some(&mut opts))?;

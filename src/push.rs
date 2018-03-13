@@ -1,14 +1,12 @@
 use git2::{Repository, Remote};
 
-use std::process;
-
 use push_entry::PushEntry;
 use rsl::HasRSL;
 use errors::*;
 
 use utils::git;
 
-pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: &[&str]) -> Result<()> {
+pub fn secure_push(repo: &Repository, mut remote: &mut Remote, ref_names: &[&str]) -> Result<()> {
 
     //let mut refs = ref_names.iter().filter_map(|name| &repo.find_reference(name).ok());
 
@@ -17,7 +15,7 @@ pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names:
     repo.init_rsl_if_needed(&mut remote).chain_err(|| "Problem initializing RSL")?;
 
     // checkout RSL branch
-    git::checkout_branch(&repo, "refs/heads/RSL")?;
+    git::checkout_branch(repo, "refs/heads/RSL")?;
 
 
     'push: loop {
@@ -53,12 +51,11 @@ pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names:
 
         repo.push_rsl(&mut remote)?;
 
-        match git::push(repo, &mut remote, &ref_names) {
+        match git::push(repo, &mut remote, ref_names) {
             Ok(_) => break 'push,
             Err(e) => {
-                println!("Error: unable to push reference(s) {:?} to remote {:?}", &ref_names.clone().join(", "), &remote.name().unwrap());
+                println!("Error: unable to push reference(s) {:?} to remote {:?}", ref_names.clone().join(", "), &remote.name().unwrap());
                 println!("  {}", e);
-                process::exit(51);
             },
         };
     }
@@ -91,10 +88,10 @@ mod tests {
             let repo = &context.local;
             let mut rem = repo.find_remote("origin").unwrap().to_owned();
             let refs = &["master"];
-            let res = super::secure_push(&repo, &mut rem, refs).unwrap();
+            super::secure_push(&repo, &mut rem, refs).unwrap();
             do_work_on_branch(&repo, "master");
-            let res2 = super::secure_push(&repo, &mut rem, refs).unwrap();
-            assert_eq!(res2, ());
+            super::secure_push(&repo, &mut rem, refs).unwrap();
+            // TODO add conditions
         }
         teardown_fresh(context)
     }
