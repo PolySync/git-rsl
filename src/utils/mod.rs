@@ -1,7 +1,7 @@
 use hex::{self, FromHex};
 use serde::{Serializer, Deserialize, Deserializer};
 
-
+#[cfg(test)]
 pub mod test_helper;
 pub mod git;
 pub mod gpg;

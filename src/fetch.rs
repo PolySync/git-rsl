@@ -6,18 +6,13 @@ use std::iter::FromIterator;
 
 use git2::{Repository, Remote, Oid, BranchType};
 
-use nonce_bag::{NonceBag, HasNonceBag};
+use nonce_bag::HasNonceBag;
 use rsl::{RSL, HasRSL};
 use nonce::{Nonce, HasNonce};
 use errors::*;
 use utils::git;
 
 pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: &[&str]) -> Result<()> {
-
-    let remote_rsl: RSL;
-    let local_rsl: RSL;
-    let nonce_bag: NonceBag;
-    let nonce: Nonce;
 
     repo.fetch_rsl(&mut remote)?;
     repo.init_rsl_if_needed(&mut remote)?;
@@ -48,7 +43,7 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
             //    }
             //}
 
-            let (remote_rsl, local_rsl, nonce_bag, nonce) = repo.read_rsl().chain_err(|| "couldn't read RSL")?;
+            let (remote_rsl, _local_rsl, _nonce_bag, _nonce) = repo.read_rsl().chain_err(|| "couldn't read RSL")?;
 
 
             match git::fetch(repo, &mut remote, ref_names, None) {
@@ -66,7 +61,7 @@ pub fn secure_fetch<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names
             counter -= 1;
         }
 
-        let (remote_rsl, local_rsl, mut nonce_bag, nonce) = repo.read_rsl().chain_err(|| "couldn't read RSL")?;
+        let (_remote_rsl, _local_rsl, mut nonce_bag, nonce) = repo.read_rsl().chain_err(|| "couldn't read RSL")?;
 
         // validate remote RSL
         repo.validate_rsl().chain_err(|| "Invalid remote RSL")?;

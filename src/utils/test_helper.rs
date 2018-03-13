@@ -13,6 +13,9 @@ use tempdir::TempDir;
 
 use git2::{Repository};
 
+#[cfg(test)]
+
+
 pub struct Context {
     pub local: Repository,
     pub remote: Repository,

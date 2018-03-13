@@ -40,7 +40,7 @@ pub trait HasRSL {
     fn fetch_rsl(&self, remote: &mut Remote) -> Result<()>;
     fn commit_push_entry(&self, push_entry: &PushEntry) -> Result<Oid>;
     fn push_rsl(&self, remote: &mut Remote) -> Result<()>;
-    fn find_last_push_entry(&self, tree_tip: &Oid) -> Option<PushEntry>;
+    fn find_last_push_entry(&self, tree_tip: &Oid) -> Result<Option<PushEntry>>;
     fn find_last_push_entry_for_branch(&self, remote_rsl: &RSL, reference: &str) -> Result<Option<PushEntry>>;
     fn validate_rsl(&self) -> Result<()>;
 }
@@ -52,7 +52,7 @@ impl HasRSL for Repository {
         revwalk.push(remote_rsl.head)?;
         let mut current = Some(remote_rsl.head.clone());
         while current != None {
-            match PushEntry::from_oid(self, &current.unwrap()){
+            match PushEntry::from_oid(self, &current.unwrap())? {
                 Some(pe) => {
                     if pe.branch == reference {
                         return Ok(Some(pe))
@@ -68,18 +68,17 @@ impl HasRSL for Repository {
     }
 
     // find the last commit on the branch pointed to by the given Oid that represents a push entry
-    fn find_last_push_entry(&self, tree_tip: &Oid) -> Option<PushEntry> {
+    fn find_last_push_entry(&self, tree_tip: &Oid) -> Result<Option<PushEntry>> {
         let mut revwalk: Revwalk = self.revwalk().expect("Failed to make revwalk");
-        revwalk.push(tree_tip.clone());
+        revwalk.push(tree_tip.clone())?;
         let mut current = Some(tree_tip.clone());
         while current != None {
-            match PushEntry::from_oid(self, &current.unwrap()){
-                Some(pe) => return Some(pe),
-                None => (),
+            if let Some(pe) = PushEntry::from_oid(self, &current.unwrap())? {
+                return Ok(Some(pe))
             }
             current = revwalk.next().and_then(|res| res.ok()); // .next returns Opt<Res<Oid>>
         }
-        None
+        Ok(None)
     }
 
 
@@ -211,7 +210,7 @@ impl HasRSL for Repository {
         let branch = self.find_branch(RSL_BRANCH, BranchType::Local).chain_err(|| "couldnt find RSL branch")?;
         let reference = branch.into_reference();
         let head = reference.target().ok_or("could not find RSL branch tip OID")?;
-        let last_push_entry = self.find_last_push_entry(&head);
+        let last_push_entry = self.find_last_push_entry(&head)?;
         Ok(RSL {kind, head, last_push_entry})
     }
 
@@ -220,7 +219,7 @@ impl HasRSL for Repository {
         let branch = self.find_branch("origin/RSL", BranchType::Remote).chain_err(|| "could not find RSL branch")?;
         let reference = branch.into_reference();
         let head = reference.target().ok_or("could not find head reference")?;
-        let last_push_entry = self.find_last_push_entry(&head);
+        let last_push_entry = self.find_last_push_entry(&head)?;
         Ok(RSL {kind, head, last_push_entry})
     }
 
@@ -306,10 +305,11 @@ impl HasRSL for Repository {
             //println!("last hash: {:?}", last_hash);
             println!("prev_hash: {:?}", prev_hash);
             println!("oid {:?}", oid);
-            match PushEntry::from_oid(self, &oid) {
-                Some(current_push_entry) => {
+            let current_push_entry = PushEntry::from_oid(self, &oid).unwrap_or(None);
+            match current_push_entry {
+                Some(entry) => {
                     println!("is push entry!!");
-                    let current_prev_hash = current_push_entry.prev_hash();
+                    let current_prev_hash = entry.prev_hash();
 
                     // if current prev_hash == local_rsl.head (that is, we have arrived at the first push entry after the last recorded one), then check if repo_nonce in PushEntry::from_oid(oid.parent_commit) or noncebag contains repo_nonce; return false if neither holds
                     //if current_prev_hash == last_local_push_entry.hash() {
@@ -322,7 +322,7 @@ impl HasRSL for Repository {
                     //}
                     println!("current_prev_hash: {:?}", current_prev_hash);
 
-                    let current_hash = current_push_entry.hash();
+                    let current_hash = entry.hash();
                     if prev_hash == Some(current_prev_hash) {
                         Some(current_hash)
                     } else {

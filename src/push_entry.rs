@@ -9,6 +9,7 @@ use nonce_bag::{NonceBag};
 
 use serde_json;
 use utils;
+use errors::*;
 
 
 #[serde(remote = "Oid")]
@@ -80,25 +81,19 @@ impl PushEntry {
         }
     }
 
-    pub fn from_ref(repo: &Repository, reference: &Reference) -> Option<PushEntry> {
+    pub fn from_ref(repo: &Repository, reference: &Reference) -> Result<Option<PushEntry>> {
         match reference.target() {
             Some(oid) => PushEntry::from_oid(repo, &oid),
-            None => None,
+            None => Ok(None),
         }
     }
 
-    pub fn from_oid(repo: &Repository, oid: &Oid) -> Option<PushEntry> {
-        let commit = match repo.find_commit(oid.clone()) {
-            Ok(c) => c,
-            Err(e) => panic!("couldn't find commit {:?}", oid),
-        };
-        let message = match commit.message() {
-            Some(m) => m,
-            None => panic!("commit message contains invalid UTF-8"),
-        };
+    pub fn from_oid(repo: &Repository, oid: &Oid) -> Result<Option<PushEntry>> {
+        let commit = repo.find_commit(oid.clone()).chain_err(|| "could not find commit for push entry")?;
+        let message = commit.message().chain_err(|| "commit message contains invalid utf8")?;
         match serde_json::from_str(&message) {
-            Ok(p) => Some(p),
-            Err(_) => None,
+            Ok(p) => Ok(Some(p)),
+            Err(_) => Ok(None),
         }
     }
 
@@ -170,7 +165,7 @@ mod tests {
             };
             let oid = repo.commit_push_entry(&entry).unwrap();
 
-            assert_eq!(PushEntry::from_oid(&repo, &oid).unwrap(), entry);
+            assert_eq!(PushEntry::from_oid(&repo, &oid).unwrap().unwrap(), entry);
         }
         teardown_fresh(context);
     }

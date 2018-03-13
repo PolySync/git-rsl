@@ -28,7 +28,7 @@ pub fn detached_sign(input: &str, _key_id: Option<&str>, gpghome: Option<&str>) 
     ctx.set_armor(true);
 
     let mut output = Vec::new();
-    let result = ctx.sign_detached(input, &mut output).chain_err(|| "gpg signing failed")?;
+    ctx.sign_detached(input, &mut output).chain_err(|| "gpg signing failed")?;
     // TODO this should always be valid utf8  if the ascii-armored signature succeeded and we get this far but still...get rid of this unwrap please
     let string_version = String::from_utf8(output).unwrap();
 

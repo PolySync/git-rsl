@@ -3,19 +3,12 @@ use git2::{Repository, Remote};
 use std::process;
 
 use push_entry::PushEntry;
-use rsl::{RSL, HasRSL};
-use nonce_bag::NonceBag;
-use nonce::{Nonce};
+use rsl::HasRSL;
 use errors::*;
 
 use utils::git;
 
 pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names: &[&str]) -> Result<()> {
-
-    let remote_rsl: RSL;
-    let local_rsl: RSL;
-    let nonce_bag: NonceBag;
-    let nonce: Nonce;
 
     //let mut refs = ref_names.iter().filter_map(|name| &repo.find_reference(name).ok());
 
@@ -31,7 +24,7 @@ pub fn secure_push<'repo>(repo: &Repository, mut remote: &mut Remote, ref_names:
 
         repo.fetch_rsl(&mut remote).chain_err(|| "Problem fetching Remote RSL. Check your connection or your SSH config")?;
 
-        let (remote_rsl, local_rsl, nonce_bag, nonce) = repo.read_rsl().chain_err(|| "couldn't read RSL")?;
+        let (remote_rsl, _local_rsl, nonce_bag, _nonce) = repo.read_rsl().chain_err(|| "couldn't read RSL")?;
 
         repo.validate_rsl().chain_err(|| "Invalid remote RSL")?;
 
