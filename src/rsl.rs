@@ -126,6 +126,14 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
         git::push(self.repo, &mut self.remote, &[RSL_BRANCH]).chain_err(|| "could not push rsl")?;
         Ok(())
     }
+
+    pub fn add_push_entry(&self, ref_names: &[&str]) -> Result<Oid>{
+        let prev_hash = self.last_remote_push_entry.hash();
+        let new_push_entry = PushEntry::new(self.repo, ref_names.first().unwrap(), prev_hash, self.nonce_bag.clone());
+
+        // commit new pushentry (TODO commit to detached HEAD instead of local RSL branch, in case someone else has updated and a fastforward is not possible)
+        self.repo.commit_push_entry(&new_push_entry).chain_err(|| "Couldn't commit new push entry")
+    }
 }
 
 pub trait HasRSL<'repo> {
@@ -261,8 +269,6 @@ impl<'repo> HasRSL<'repo> for Repository {
         git::push(self, remote, &["RSL"]).chain_err(|| "rsl init error")?;
 
         Ok(())
-
-
     }
 
     fn rsl_init_local(&self, remote: &mut Remote) -> Result<()> {
@@ -286,25 +292,6 @@ impl<'repo> HasRSL<'repo> for Repository {
 
         Ok(())
     }
-
-
-    // fn read_local_rsl(&self) -> Result<RSL> {
-    //     let kind = RSLType::Local;
-    //     let branch = self.find_branch(RSL_BRANCH, BranchType::Local).chain_err(|| "couldnt find RSL branch")?;
-    //     let reference = branch.into_reference();
-    //     let head = reference.target().ok_or("could not find RSL branch tip OID")?;
-    //     let last_push_entry = self.find_last_push_entry(&head)?;
-    //     Ok(RSL {kind, head, last_push_entry})
-    // }
-
-    // fn read_remote_rsl(&self) -> Result<RSL> {
-    //     let kind = RSLType::Remote;
-    //     let branch = self.find_branch("origin/RSL", BranchType::Remote).chain_err(|| "could not find RSL branch")?;
-    //     let reference = branch.into_reference();
-    //     let head = reference.target().ok_or("could not find head reference")?;
-    //     let last_push_entry = self.find_last_push_entry(&head)?;
-    //     Ok(RSL {kind, head, last_push_entry})
-    // }
 
     fn commit_push_entry(&self, push_entry: &PushEntry) -> Result<Oid> {
         let mut index = self.index().chain_err(|| "could not find index")?;

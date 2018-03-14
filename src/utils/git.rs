@@ -90,6 +90,8 @@ pub fn add_and_commit(repo: &Repository, path: Option<&Path>, message: &str, bra
     let oid = index.write_tree()?;
     let signature = repo.signature()?;
     let ref_name = format!("refs/heads/{}", branch);
+
+    // If this is the first commit, it will have no parents
     let parent = repo.find_reference(&ref_name).and_then(|x| x.peel_to_commit()).ok();
     let tree = repo.find_tree(oid)?;
 

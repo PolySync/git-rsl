@@ -34,15 +34,7 @@ pub fn secure_push<'remote, 'repo: 'remote>(repo: &'repo Repository, mut remote:
             }
         }
 
-        // Make new push entry
-        // find last push entry on remote rsl branch
-        let prev_hash = rsl.last_remote_push_entry.hash();
-
-
-        let new_push_entry = PushEntry::new(repo, ref_names.first().unwrap(), prev_hash, rsl.nonce_bag.clone());
-
-        // commit new pushentry (TODO commit to detached HEAD instead of local RSL branch, in case someone else has updated and a fastforward is not possible)
-        repo.commit_push_entry(&new_push_entry).expect("Couldn't commit new push entry");
+        rsl.add_push_entry(ref_names)?;
 
         // push RSL branch
         rsl.push()?;
