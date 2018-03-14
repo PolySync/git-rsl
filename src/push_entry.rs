@@ -54,7 +54,8 @@ impl PushEntry {
 
         PushEntry {
 //            related_commits: Vec::new(),
-            branch: String::from(branch_str),
+            branch: String::from(branch_str), //TODO change this to be all ref_names
+
             head: branch_head,
             prev_hash: prev,
             nonce_bag,

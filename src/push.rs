@@ -34,31 +34,27 @@ pub fn secure_push<'remote, 'repo: 'remote>(repo: &'repo Repository, mut remote:
             }
         }
 
-
-        // TODO commit to detached HEAD instead of local RSL branch, in case someone else has updated and a fastforward is not possible
-        // make new push entry
-
+        // Make new push entry
         // find last push entry on remote rsl branch
         let prev_hash = rsl.last_remote_push_entry.hash();
 
-        //TODO change this to be all ref_names
+
         let new_push_entry = PushEntry::new(repo, ref_names.first().unwrap(), prev_hash, rsl.nonce_bag.clone());
-        // TODO commit new pushentry
+
+        // commit new pushentry (TODO commit to detached HEAD instead of local RSL branch, in case someone else has updated and a fastforward is not possible)
         repo.commit_push_entry(&new_push_entry).expect("Couldn't commit new push entry");
 
-        // TODO push RSL branch??
-
+        // push RSL branch
         rsl.push()?;
 
-        match git::push(repo, &mut remote, ref_names) {
+        match git::push(repo, rsl.remote, ref_names) {
             Ok(_) => break 'push,
             Err(e) => {
-                println!("Error: unable to push reference(s) {:?} to remote {:?}", ref_names.clone().join(", "), &remote.name().unwrap());
+                println!("Error: unable to push reference(s) {:?} to remote {:?}", ref_names.clone().join(", "), &rsl.remote.name().unwrap());
                 println!("  {}", e);
             },
         };
     }
-    //TODO localRSL = RemoteRSL (fastforward)
     Ok(())
 }
 

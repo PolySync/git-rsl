@@ -46,10 +46,10 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(repo: &'repo Repository, mut remote
             let mut rsl = RSL::read(repo, &mut remote).chain_err(|| "couldn't read RSL")?;
 
 
-            match git::fetch(repo, &mut remote, ref_names, None) {
+            match git::fetch(repo, &mut rsl.remote, ref_names, None) {
                 Ok(_) => (),
                 Err(e) => {
-                    println!("Error: unable to fetch reference {} from remote {}", ref_names.clone().join(", "), &remote.name().unwrap());
+                    println!("Error: unable to fetch reference {} from remote {}", ref_names.clone().join(", "), &rsl.remote.name().unwrap());
                     println!("  {}", e);
                     process::exit(51);
                 },
