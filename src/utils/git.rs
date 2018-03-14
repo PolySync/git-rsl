@@ -14,6 +14,10 @@ use git2::CredentialType;
 use utils::gpg;
 use errors::*;
 
+pub fn oid_from_long_name(repo: &Repository, ref_name: &str) -> Result<Oid> {
+    let oid = repo.find_reference(ref_name)?.target().ok_or("Not a named reference")?;
+    Ok(oid)
+}
 
 pub fn checkout_branch(repo: &Repository, ref_name: &str) -> Result<()> {
     let tree = repo.find_reference(ref_name)
@@ -35,9 +39,6 @@ pub fn discover_repo() -> Result<Repository> {
 }
 
 pub fn stash_local_changes(repo: &mut Repository) -> Result<(Option<Oid>)> {
-    let signature = repo.signature()?;
-    let message = "Stashing local changes, intracked and ignored files for RSL business";
-
     // check that there are indeed changes in index or untracked to stash
     {
         let is_clean = repo.state() == RepositoryState::Clean;
@@ -53,9 +54,12 @@ pub fn stash_local_changes(repo: &mut Repository) -> Result<(Option<Oid>)> {
             return Ok(None)
         }
     }
+    let signature = repo.signature()?;
+    let message = "Stashing local changes and untracked files for RSL business";
+
+    println!("Stashing local changes for RSL operations");
     let mut stash_options = StashFlags::INCLUDE_UNTRACKED;
     stash_options.remove(StashFlags::DEFAULT);
-    println!("stash_options: {:?}", &stash_options);
     let oid = repo.stash_save(
         &signature,
         message,

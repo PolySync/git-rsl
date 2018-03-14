@@ -12,7 +12,7 @@ use nonce::{Nonce, HasNonce};
 use errors::*;
 use utils::git;
 
-pub fn secure_fetch(repo: &Repository, mut remote: &mut Remote, ref_names: &[&str]) -> Result<()> {
+pub fn secure_fetch<'remote, 'repo: 'remote>(repo: &'repo Repository, mut remote: &'remote mut Remote<'repo>, ref_names: &[&str]) -> Result<()> {
 
     repo.fetch_rsl(&mut remote)?;
     repo.init_rsl_if_needed(&mut remote)?;
@@ -43,7 +43,7 @@ pub fn secure_fetch(repo: &Repository, mut remote: &mut Remote, ref_names: &[&st
             //    }
             //}
 
-            let (remote_rsl, _local_rsl, _nonce_bag, _nonce) = repo.read_rsl().chain_err(|| "couldn't read RSL")?;
+            let mut rsl = RSL::read(repo, &mut remote).chain_err(|| "couldn't read RSL")?;
 
 
             match git::fetch(repo, &mut remote, ref_names, None) {
@@ -55,16 +55,16 @@ pub fn secure_fetch(repo: &Repository, mut remote: &mut Remote, ref_names: &[&st
                 },
             };
 
-            if all_push_entries_in_fetch_head(repo, &remote_rsl, ref_names) {
+            if all_push_entries_in_fetch_head(repo, &rsl, ref_names) {
                 break 'fetch;
             }
             counter -= 1;
         }
 
-        let (_remote_rsl, _local_rsl, mut nonce_bag, nonce) = repo.read_rsl().chain_err(|| "couldn't read RSL")?;
+        let mut rsl = RSL::read(&repo, &mut remote).chain_err(|| "couldn't read RSL")?;
 
         // validate remote RSL
-        repo.validate_rsl().chain_err(|| "Invalid remote RSL")?;
+        rsl.validate().chain_err(|| "Invalid remote RSL")?;
 
         // Fastforward valid remote RSL onto local branch
         // TODO deal with no change necessary
@@ -77,17 +77,19 @@ pub fn secure_fetch(repo: &Repository, mut remote: &mut Remote, ref_names: &[&st
         }
 
         // update nonce bag
-        if nonce_bag.bag.contains(&nonce) {
-            nonce_bag.remove(&nonce)?;
+        if rsl.nonce_bag.bag.contains(&rsl.nonce) {
+            rsl.nonce_bag.remove(&rsl.nonce)?;
         }
 
-        let new_nonce = Nonce::new().unwrap();
+        let new_nonce = Nonce::new()?;
+        rsl.nonce = new_nonce;
         repo.write_nonce(&new_nonce).chain_err(|| "nonce write error")?;
 
-        nonce_bag.insert(new_nonce)?;
-        repo.write_nonce_bag(&nonce_bag).chain_err(|| "couldn't write to nonce baf file")?;
+        rsl.nonce_bag.insert(new_nonce)?;
+        repo.write_nonce_bag(&rsl.nonce_bag).chain_err(|| "couldn't write to nonce baf file")?;
         repo.commit_nonce_bag().chain_err(|| "couldn't commit nonce bag")?;
-        match repo.push_rsl(&mut remote) {
+
+        match rsl.push() {
             Ok(()) => break 'store,
             Err(e) => {
                 err = Err(e);
@@ -102,10 +104,10 @@ pub fn secure_fetch(repo: &Repository, mut remote: &mut Remote, ref_names: &[&st
 }
 
 
-fn all_push_entries_in_fetch_head(repo: &Repository, remote_rsl: &RSL, ref_names: &[&str]) -> bool {
+fn all_push_entries_in_fetch_head(repo: &Repository, rsl: &RSL, ref_names: &[&str]) -> bool {
     // find the last push entry for each branch
     let latest_push_entries: Vec<Oid> = ref_names.clone().into_iter().filter_map(|ref_name| {
-        match repo.find_last_push_entry_for_branch(remote_rsl, ref_name).ok() {
+        match repo.find_last_remote_push_entry_for_branch(rsl, ref_name).ok() {
             Some(Some(pe)) => Some(pe.head),
             Some(None)| None => None,
         }

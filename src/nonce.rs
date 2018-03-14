@@ -57,7 +57,6 @@ impl fmt::Display for Nonce {
     }
 }
 
-
 pub trait HasNonce {
     fn read_nonce(&self) -> Result<Nonce>;
     fn write_nonce(&self, nonce: &Nonce) -> Result<()>;

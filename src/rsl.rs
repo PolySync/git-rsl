@@ -17,40 +17,140 @@ pub enum RSLType {
     Remote,
 }
 
-#[derive(Debug)]
-pub struct RSL {
-    pub kind: RSLType,
+//#[derive(Debug)]
+pub struct RSL<'remote, 'repo: 'remote> {
+    pub remote: &'remote mut Remote<'repo>,
+    pub repo: &'remote Repository,
     //remote: &'repo Remote,
-    pub head: Oid,
-    pub last_push_entry: Option<PushEntry>,
+    pub local_head: Oid,
+    pub remote_head: Oid,
+    pub last_local_push_entry: Option<PushEntry>,
+    pub last_remote_push_entry: Option<PushEntry>,
+    pub nonce_bag: NonceBag,
+    pub nonce: Nonce,
 }
 
-impl RSL {
+impl<'remote, 'repo> RSL<'remote, 'repo> {
+
+    pub fn read(repo: &'repo Repository, remote: &'remote mut Remote<'repo>)-> Result<RSL<'remote, 'repo>> {
+        let remote_head = git::oid_from_long_name(repo, "refs/remotes/origin/RSL")?;
+        let local_head = git::oid_from_long_name(repo, "refs/heads/RSL")?;
+        let last_local_push_entry = repo.find_last_push_entry(&local_head)?;
+        let last_remote_push_entry = repo.find_last_push_entry(&remote_head)?;
+        let nonce_bag = repo.read_nonce_bag().chain_err(|| "nonce bag read error")?;
+        let nonce = repo.read_nonce().chain_err(|| "nonce read error")?;
+        let rsl: RSL<'remote, 'repo> = RSL {
+            repo,
+            remote,
+            local_head,
+            remote_head,
+            last_local_push_entry,
+            last_remote_push_entry,
+            nonce_bag,
+            nonce,
+        };
+        Ok(rsl)
+    }
 
 
+    pub fn validate(&self) -> Result<()> {
+
+        // Ensure remote RSL head is a descendant of local RSL head.
+        let descendant = self.repo
+            .graph_descendant_of(self.remote_head, self.local_head)
+            .unwrap_or(false);
+        let same = self.local_head == self.remote_head;
+        if !descendant && !same {
+            bail!("RSL invalid: No path to get from Local RSL to Remote RSL");
+        }
+
+        // Walk through the commits from local RSL head, which we know is valid,
+        // validating each additional pushentry since that point one by one.
+        let last_hash = match self.last_local_push_entry {
+            Some(ref push_entry) => Some(push_entry.hash()),
+            None => None, // the first push entry will have None as last_push_entry
+        };
+        let mut revwalk: Revwalk = self.repo.revwalk()?;
+        revwalk.push(self.remote_head)?;
+        revwalk.set_sorting(Sort::REVERSE);
+        revwalk.hide(self.local_head)?;
+
+        let remaining = revwalk.map(|oid| oid.unwrap());
+        println!("gets to validate");
+        let result = remaining
+            .inspect(|x| println!("about to fold: {}", x))
+            .fold(last_hash, |prev_hash, oid| {
+            //println!("last hash: {:?}", last_hash);
+            println!("prev_hash: {:?}", prev_hash);
+            println!("oid {:?}", oid);
+            let current_push_entry = PushEntry::from_oid(self.repo, &oid).unwrap_or(None);
+            match current_push_entry {
+                Some(entry) => {
+                    println!("is push entry!!");
+                    let current_prev_hash = entry.prev_hash();
+
+                    // if current prev_hash == local_rsl.head (that is, we have arrived at the first push entry after the last recorded one), then check if repo_nonce in PushEntry::from_oid(oid.parent_commit) or noncebag contains repo_nonce; return false if neither holds
+                    //if current_prev_hash == last_local_push_entry.hash() {
+
+                        // validate nonce bag (lines 1-2):
+                        // TODO does this take care of when there haven't been any new entries or only one new entry?
+                        //if !nonce_bag.bag.contains(&repo_nonce) && !current_push_entry.nonce_bag.bag.contains(&repo_nonce) { // repo nonce not in remote nonce bag && repo_nonce not in remote_rsl.push_after(local_rsl){
+                        //    None;
+                        //}
+                    //}
+                    println!("current_prev_hash: {:?}", current_prev_hash);
+
+                    let current_hash = entry.hash();
+                    if prev_hash == Some(current_prev_hash) {
+                        Some(current_hash)
+                    } else {
+                        None
+                    }
+                },
+                None => {
+                    println!("this was not a pushentry. continue with previous entry in hand");
+                    prev_hash
+                },
+            }
+        });
+
+        if result == None { bail!("invalid RSL entry"); }
+
+        // TODO really verify
+        // let (sig, data) = extract signature(commit_oid)
+        // gpg::verify_detached_signature(sig, data)
+        gpg::verify_commit_signature(self.remote_head).chain_err(|| "GPG signature of remote RSL head invalid")
+
+    }
+
+    pub fn push(&mut self) -> Result<()> {
+        println!("Pushing updated RSL to remote : )");
+        git::push(self.repo, &mut self.remote, &[RSL_BRANCH]).chain_err(|| "could not push rsl")?;
+        Ok(())
+    }
 }
 
-pub trait HasRSL {
-    fn read_rsl(&self) -> Result<(RSL, RSL, NonceBag, Nonce)>;
-    fn read_local_rsl(&self) -> Result<RSL>;
-    fn read_remote_rsl(&self) -> Result<RSL>;
+pub trait HasRSL<'repo> {
+    //fn read_rsl(&'repo self, remote: &'repo mut Remote) -> Result<RSL<'repo>>;
+    // fn read_local_rsl(&self) -> Result<RSL>;
+    // fn read_remote_rsl(&self) -> Result<RSL>;
     fn init_rsl_if_needed(&self, remote: &mut Remote) -> Result<()>;
     fn rsl_init_global(&self, remote: &mut Remote) -> Result<()>;
     fn rsl_init_local(&self, remote: &mut Remote) -> Result<()>;
     fn fetch_rsl(&self, remote: &mut Remote) -> Result<()>;
     fn commit_push_entry(&self, push_entry: &PushEntry) -> Result<Oid>;
-    fn push_rsl(&self, remote: &mut Remote) -> Result<()>;
-    fn find_last_push_entry(&self, tree_tip: &Oid) -> Result<Option<PushEntry>>;
-    fn find_last_push_entry_for_branch(&self, remote_rsl: &RSL, reference: &str) -> Result<Option<PushEntry>>;
-    fn validate_rsl(&self) -> Result<()>;
+//    fn push_rsl(&self, remote: &mut Remote) -> Result<()>;
+    fn find_last_push_entry(&self, oid: &Oid) -> Result<Option<PushEntry>>;
+    fn find_last_remote_push_entry_for_branch(&self, rsl: &RSL, reference: &str) -> Result<Option<PushEntry>>;
+    //fn validate_rsl(&self) -> Result<()>;
 }
 
-impl HasRSL for Repository {
+impl<'repo> HasRSL<'repo> for Repository {
 
-    fn find_last_push_entry_for_branch(&self, remote_rsl: &RSL, reference: &str) -> Result<Option<PushEntry>> {
+    fn find_last_remote_push_entry_for_branch(&self, rsl: &RSL, reference: &str) -> Result<Option<PushEntry>> {
         let mut revwalk: Revwalk = self.revwalk()?;
-        revwalk.push(remote_rsl.head)?;
-        let mut current = Some(remote_rsl.head);
+        revwalk.push(rsl.remote_head)?;
+        let mut current = Some(rsl.remote_head);
         while current != None {
             if let Some(pe) = PushEntry::from_oid(self, &current.unwrap())? {
                 if pe.branch == reference {
@@ -64,7 +164,8 @@ impl HasRSL for Repository {
     }
 
     // find the last commit on the branch pointed to by the given Oid that represents a push entry
-    fn find_last_push_entry(&self, tree_tip: &Oid) -> Result<Option<PushEntry>> {
+    fn find_last_push_entry(&self, oid: &Oid) -> Result<Option<PushEntry>> {
+        let tree_tip = oid;
         let mut revwalk: Revwalk = self.revwalk().expect("Failed to make revwalk");
         revwalk.push(tree_tip.clone())?;
         let mut current = Some(tree_tip.clone());
@@ -76,8 +177,6 @@ impl HasRSL for Repository {
         }
         Ok(None)
     }
-
-
 
     fn rsl_init_global(&self, remote: &mut Remote) -> Result<()> {
         println!("Initializing Reference State Log for this repository.");
@@ -161,10 +260,7 @@ impl HasRSL for Repository {
         self.commit_push_entry(&initial_pe)?;
 
         // push new rsl branch
-        self.push_rsl(remote)?;
-
-
-
+        git::push(self, remote, &["refs/heads/RSL"]).chain_err(|| "rsl init error")?;
 
         Ok(())
 
@@ -175,8 +271,8 @@ impl HasRSL for Repository {
         println!("Initializing local Reference State Log based on existing remote RSL.");
         self.fetch_rsl(remote)?;
 
-        let remote_rsl = self.read_remote_rsl()?;
-        let latest_rsl_commit = self.find_commit(remote_rsl.head)?;
+        let remote_rsl_tip = git::oid_from_long_name(self, "refs/remotes/origin/RSL")?;
+        let latest_rsl_commit = self.find_commit(remote_rsl_tip)?;
         // create local rsl branch
         self.branch("RSL", &latest_rsl_commit, false)?;
 
@@ -188,36 +284,29 @@ impl HasRSL for Repository {
         nonce_bag.insert(new_nonce)?;
         self.write_nonce_bag(&nonce_bag).chain_err(|| "couldn't write to nonce baf file")?;
         self.commit_nonce_bag().chain_err(|| "couldn't commit nonce bag")?;
-        self.push_rsl(remote).chain_err(|| "rsl init error")?;
+        git::push(self, remote, &["refs/heads/RSL"]).chain_err(|| "rsl init error")?;
 
         Ok(())
     }
 
-    fn read_rsl(&self) -> Result<(RSL, RSL, NonceBag, Nonce)> {
-        let remote_rsl = self.read_remote_rsl().chain_err(|| "remote rsl read error")?;
-        let local_rsl = self.read_local_rsl().chain_err(|| "local rsl read error")?;
-        let nonce_bag = self.read_nonce_bag().chain_err(|| "nonce bag read error")?;
-        let nonce = self.read_nonce().chain_err(|| "nonce read error")?;
-        Ok((remote_rsl, local_rsl, nonce_bag, nonce))
-    }
 
-    fn read_local_rsl(&self) -> Result<RSL> {
-        let kind = RSLType::Local;
-        let branch = self.find_branch(RSL_BRANCH, BranchType::Local).chain_err(|| "couldnt find RSL branch")?;
-        let reference = branch.into_reference();
-        let head = reference.target().ok_or("could not find RSL branch tip OID")?;
-        let last_push_entry = self.find_last_push_entry(&head)?;
-        Ok(RSL {kind, head, last_push_entry})
-    }
+    // fn read_local_rsl(&self) -> Result<RSL> {
+    //     let kind = RSLType::Local;
+    //     let branch = self.find_branch(RSL_BRANCH, BranchType::Local).chain_err(|| "couldnt find RSL branch")?;
+    //     let reference = branch.into_reference();
+    //     let head = reference.target().ok_or("could not find RSL branch tip OID")?;
+    //     let last_push_entry = self.find_last_push_entry(&head)?;
+    //     Ok(RSL {kind, head, last_push_entry})
+    // }
 
-    fn read_remote_rsl(&self) -> Result<RSL> {
-        let kind = RSLType::Remote;
-        let branch = self.find_branch("origin/RSL", BranchType::Remote).chain_err(|| "could not find RSL branch")?;
-        let reference = branch.into_reference();
-        let head = reference.target().ok_or("could not find head reference")?;
-        let last_push_entry = self.find_last_push_entry(&head)?;
-        Ok(RSL {kind, head, last_push_entry})
-    }
+    // fn read_remote_rsl(&self) -> Result<RSL> {
+    //     let kind = RSLType::Remote;
+    //     let branch = self.find_branch("origin/RSL", BranchType::Remote).chain_err(|| "could not find RSL branch")?;
+    //     let reference = branch.into_reference();
+    //     let head = reference.target().ok_or("could not find head reference")?;
+    //     let last_push_entry = self.find_last_push_entry(&head)?;
+    //     Ok(RSL {kind, head, last_push_entry})
+    // }
 
     fn commit_push_entry(&self, push_entry: &PushEntry) -> Result<Oid> {
         let mut index = self.index().chain_err(|| "could not find index")?;
@@ -263,83 +352,9 @@ impl HasRSL for Repository {
         }
     }
 
-    fn push_rsl(&self, remote: &mut Remote) -> Result<()> {
-        println!("gets here : )");
-        git::push(self, remote, &[RSL_BRANCH]).chain_err(|| "could not push rsl")?;
-        Ok(())
-    }
 
-    fn validate_rsl(&self) -> Result<()> {
 
-        let (remote_rsl, local_rsl, _nonce_bag, _nonce) = self.read_rsl()?;
 
-        // Ensure remote RSL head is a descendant of local RSL head.
-        let descendant = self
-            .graph_descendant_of(remote_rsl.head, local_rsl.head)
-            .unwrap_or(false);
-        let same = remote_rsl.head == local_rsl.head;
-        if !descendant && !same {
-            bail!("RSL invalid: No path to get from Local RSL to Remote RSL");
-        }
-
-        // Walk through the commits from local RSL head, which we know is valid,
-        // validating each additional pushentry since that point one by one.
-        let last_hash = match local_rsl.last_push_entry {
-            Some(ref push_entry) => Some(push_entry.hash()),
-            None => None, // the first push entry will have None as last_push_entry
-        };
-        let mut revwalk: Revwalk = self.revwalk()?;
-        revwalk.push(remote_rsl.head)?;
-        revwalk.set_sorting(Sort::REVERSE);
-        revwalk.hide(local_rsl.head)?;
-
-        let remaining = revwalk.map(|oid| oid.unwrap());
-        println!("gets to validate");
-        let result = remaining
-            .inspect(|x| println!("about to fold: {}", x))
-            .fold(last_hash, |prev_hash, oid| {
-            //println!("last hash: {:?}", last_hash);
-            println!("prev_hash: {:?}", prev_hash);
-            println!("oid {:?}", oid);
-            let current_push_entry = PushEntry::from_oid(self, &oid).unwrap_or(None);
-            match current_push_entry {
-                Some(entry) => {
-                    println!("is push entry!!");
-                    let current_prev_hash = entry.prev_hash();
-
-                    // if current prev_hash == local_rsl.head (that is, we have arrived at the first push entry after the last recorded one), then check if repo_nonce in PushEntry::from_oid(oid.parent_commit) or noncebag contains repo_nonce; return false if neither holds
-                    //if current_prev_hash == last_local_push_entry.hash() {
-
-                        // validate nonce bag (lines 1-2):
-                        // TODO does this take care of when there haven't been any new entries or only one new entry?
-                        //if !nonce_bag.bag.contains(&repo_nonce) && !current_push_entry.nonce_bag.bag.contains(&repo_nonce) { // repo nonce not in remote nonce bag && repo_nonce not in remote_rsl.push_after(local_rsl){
-                        //    None;
-                        //}
-                    //}
-                    println!("current_prev_hash: {:?}", current_prev_hash);
-
-                    let current_hash = entry.hash();
-                    if prev_hash == Some(current_prev_hash) {
-                        Some(current_hash)
-                    } else {
-                        None
-                    }
-                },
-                None => {
-                    println!("this was not a pushentry. continue with previous entry in hand");
-                    prev_hash
-                },
-            }
-        });
-
-        if result == None { bail!("invalid RSL entry"); }
-
-        // TODO really verify
-        // let (sig, data) = extract signature(commit_oid)
-        // gpg::verify_detached_signature(sig, data)
-        gpg::verify_commit_signature(remote_rsl.head).chain_err(|| "GPG signature of remote RSL head invalid")
-
-    }
 }
 
 #[cfg(test)]

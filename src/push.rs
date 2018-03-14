@@ -1,12 +1,11 @@
 use git2::{Repository, Remote};
 
 use push_entry::PushEntry;
-use rsl::HasRSL;
+use rsl::{RSL, HasRSL};
 use errors::*;
 
 use utils::git;
-
-pub fn secure_push(repo: &Repository, mut remote: &mut Remote, ref_names: &[&str]) -> Result<()> {
+pub fn secure_push<'remote, 'repo: 'remote>(repo: &'repo Repository, mut remote: &'remote mut Remote<'repo>, ref_names: &[&str]) -> Result<()> {
 
     //let mut refs = ref_names.iter().filter_map(|name| &repo.find_reference(name).ok());
 
@@ -22,9 +21,9 @@ pub fn secure_push(repo: &Repository, mut remote: &mut Remote, ref_names: &[&str
 
         repo.fetch_rsl(&mut remote).chain_err(|| "Problem fetching Remote RSL. Check your connection or your SSH config")?;
 
-        let (remote_rsl, _local_rsl, nonce_bag, _nonce) = repo.read_rsl().chain_err(|| "couldn't read RSL")?;
+        let mut rsl = RSL::read(repo, &mut remote).chain_err(|| "couldn't read RSL")?;
 
-        repo.validate_rsl().chain_err(|| "Invalid remote RSL")?;
+        rsl.validate().chain_err(|| "Invalid remote RSL")?;
 
         // TODO deal with no change necessary
         if !git::up_to_date(repo, "RSL", "origin/RSL")? {
@@ -38,18 +37,21 @@ pub fn secure_push(repo: &Repository, mut remote: &mut Remote, ref_names: &[&str
 
         // TODO commit to detached HEAD instead of local RSL branch, in case someone else has updated and a fastforward is not possible
         // make new push entry
-        let prev_hash = match remote_rsl.last_push_entry {
+
+        // find last push entry on remote rsl branch
+        // TODO this ought to always be Some as long as we have initialized
+        let prev_hash = match rsl.last_remote_push_entry {
             Some(pe) => pe.hash(),
             None => String::from(""),
         };
         //TODO change this to be all ref_names
-        let new_push_entry = PushEntry::new(repo, ref_names.first().unwrap(), prev_hash, nonce_bag.clone());
+        let new_push_entry = PushEntry::new(repo, ref_names.first().unwrap(), prev_hash, rsl.nonce_bag.clone());
         // TODO commit new pushentry
         repo.commit_push_entry(&new_push_entry).expect("Couldn't commit new push entry");
 
         // TODO push RSL branch??
 
-        repo.push_rsl(&mut remote)?;
+        rsl.push()?;
 
         match git::push(repo, &mut remote, ref_names) {
             Ok(_) => break 'push,
