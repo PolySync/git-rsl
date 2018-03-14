@@ -24,8 +24,8 @@ pub struct RSL<'remote, 'repo: 'remote> {
     //remote: &'repo Remote,
     pub local_head: Oid,
     pub remote_head: Oid,
-    pub last_local_push_entry: Option<PushEntry>,
-    pub last_remote_push_entry: Option<PushEntry>,
+    pub last_local_push_entry: PushEntry,
+    pub last_remote_push_entry: PushEntry,
     pub nonce_bag: NonceBag,
     pub nonce: Nonce,
 }
@@ -66,10 +66,8 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
 
         // Walk through the commits from local RSL head, which we know is valid,
         // validating each additional pushentry since that point one by one.
-        let last_hash = match self.last_local_push_entry {
-            Some(ref push_entry) => Some(push_entry.hash()),
-            None => None, // the first push entry will have None as last_push_entry
-        };
+        let last_hash = Some(self.last_local_push_entry.hash());
+
         let mut revwalk: Revwalk = self.repo.revwalk()?;
         revwalk.push(self.remote_head)?;
         revwalk.set_sorting(Sort::REVERSE);
@@ -140,7 +138,7 @@ pub trait HasRSL<'repo> {
     fn fetch_rsl(&self, remote: &mut Remote) -> Result<()>;
     fn commit_push_entry(&self, push_entry: &PushEntry) -> Result<Oid>;
 //    fn push_rsl(&self, remote: &mut Remote) -> Result<()>;
-    fn find_last_push_entry(&self, oid: &Oid) -> Result<Option<PushEntry>>;
+    fn find_last_push_entry(&self, oid: &Oid) -> Result<PushEntry>;
     fn find_last_remote_push_entry_for_branch(&self, rsl: &RSL, reference: &str) -> Result<Option<PushEntry>>;
     //fn validate_rsl(&self) -> Result<()>;
 }
@@ -164,18 +162,18 @@ impl<'repo> HasRSL<'repo> for Repository {
     }
 
     // find the last commit on the branch pointed to by the given Oid that represents a push entry
-    fn find_last_push_entry(&self, oid: &Oid) -> Result<Option<PushEntry>> {
+    fn find_last_push_entry(&self, oid: &Oid) -> Result<PushEntry> {
         let tree_tip = oid;
         let mut revwalk: Revwalk = self.revwalk().expect("Failed to make revwalk");
         revwalk.push(tree_tip.clone())?;
         let mut current = Some(tree_tip.clone());
         while current != None {
             if let Some(pe) = PushEntry::from_oid(self, &current.unwrap())? {
-                return Ok(Some(pe))
+                return Ok(pe)
             }
             current = revwalk.next().and_then(|res| res.ok()); // .next returns Opt<Res<Oid>>
         }
-        Ok(None)
+        bail!("no push entries on this branch")
     }
 
     fn rsl_init_global(&self, remote: &mut Remote) -> Result<()> {

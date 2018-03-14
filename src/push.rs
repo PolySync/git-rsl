@@ -39,11 +39,8 @@ pub fn secure_push<'remote, 'repo: 'remote>(repo: &'repo Repository, mut remote:
         // make new push entry
 
         // find last push entry on remote rsl branch
-        // TODO this ought to always be Some as long as we have initialized
-        let prev_hash = match rsl.last_remote_push_entry {
-            Some(pe) => pe.hash(),
-            None => String::from(""),
-        };
+        let prev_hash = rsl.last_remote_push_entry.hash();
+
         //TODO change this to be all ref_names
         let new_push_entry = PushEntry::new(repo, ref_names.first().unwrap(), prev_hash, rsl.nonce_bag.clone());
         // TODO commit new pushentry
