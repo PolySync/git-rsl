@@ -129,25 +129,33 @@ pub fn add_and_commit_signed(repo: &Repository, path: Option<&Path>, message: &s
     let tree = repo.find_tree(oid)?;
 
     // stupid duplication because &[&T] is a terrible type to mess with
-    if let Some(parent_commit) = parent {
-        let oid = commit_signed(repo,
+    let oid = if let Some(parent_commit) = parent {
+        let c = commit_signed(repo,
                     Some(&ref_name), //  point HEAD to our new commit
                     &signature, // author
                     &signature, // committer
                     message, // commit message
                     &tree, // tree
                     &[&parent_commit])?; // parents
-        Ok(oid)
+        c
     } else {
-        let oid = commit_signed(repo,
+        let c = commit_signed(repo,
                     Some(&ref_name), //  point HEAD to our new commit
                     &signature, // author
                     &signature, // committer
                     message, // commit message
                     &tree, // tree
                     &[])?; // parents
-        Ok(oid)
+        c
+    };
+
+    let commit = repo.find_commit(oid)?;
+
+    // remove file from the index
+    if let Some(p) = path {
+        repo.reset_default(Some(commit.as_object()), [p].iter())?;
     }
+    Ok(oid)
 }
 
 // TODO use the libgit2 function commit_create_buffer (will need to write git2rs bindings for this) to make the commit object without writing it to the git object database, so we don't actually create two commits. However, even if we do this, we might still need to manually update the target reference afterwards, since `git2::Repo::commit_signed` doesn't seem to do this.

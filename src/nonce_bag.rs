@@ -98,29 +98,16 @@ impl HasNonceBag for Repository {
     }
 
     fn commit_nonce_bag(&self) -> Result<Oid> {
-        println!("current head: {:?}", self.head()?.name().unwrap());
-
-        let mut index = self.index()
-            .chain_err(|| "couldn't find index")?;
+        println!("Updating nonce bag");
         let path = Path::new(NONCE_BAG_PATH);
-        index.add_path(path)
-            .chain_err(|| "couldn't add path")?;
-        let oid = index.write_tree()
-            .chain_err(|| "couldn't write tree")?;
-        let signature = self.signature()
-            .chain_err(|| "couldn't generate sig")?;
         let message = "Update nonce bag";
-        let parent_commit = self.head()?.peel_to_commit()?;
-        let tree = self.find_tree(oid).chain_err(|| "couldn't find tree")?;
-        let commit_oid = git::commit_signed(
+
+        let commit_oid = git::add_and_commit_signed(
             self,
-            Some(&"refs/heads/RSL"), //  point HEAD to our new commit
-            &signature, // author
-            &signature, // committer
-            message, // commit message
-            &tree, // tree
-            &[&parent_commit])
-            .chain_err(|| "failed to commit nonce bag")?;
+            Some(&path),
+            &message,
+            &"RSL").chain_err(|| "failed to commit nonce bag")?;
+
         debug_assert!(self.state() == git2::RepositoryState::Clean);
 
         //let head_tree = self.head()?.peel_to_tree()?;
@@ -136,6 +123,7 @@ impl HasNonceBag for Repository {
 
         let commit = self.find_commit(commit_oid)?;
 
+        // remove nonce bag from the index
         self.reset_default(Some(commit.as_object()), ["NONCE_BAG"].iter())?;
 
         Ok(commit_oid)
