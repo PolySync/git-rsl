@@ -137,18 +137,13 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
 }
 
 pub trait HasRSL<'repo> {
-    //fn read_rsl(&'repo self, remote: &'repo mut Remote) -> Result<RSL<'repo>>;
-    // fn read_local_rsl(&self) -> Result<RSL>;
-    // fn read_remote_rsl(&self) -> Result<RSL>;
     fn init_rsl_if_needed(&self, remote: &mut Remote) -> Result<()>;
     fn rsl_init_global(&self, remote: &mut Remote) -> Result<()>;
     fn rsl_init_local(&self, remote: &mut Remote) -> Result<()>;
     fn fetch_rsl(&self, remote: &mut Remote) -> Result<()>;
     fn commit_push_entry(&self, push_entry: &PushEntry) -> Result<Oid>;
-//    fn push_rsl(&self, remote: &mut Remote) -> Result<()>;
     fn find_last_push_entry(&self, oid: &Oid) -> Result<PushEntry>;
     fn find_last_remote_push_entry_for_branch(&self, rsl: &RSL, reference: &str) -> Result<Option<PushEntry>>;
-    //fn validate_rsl(&self) -> Result<()>;
 }
 
 impl<'repo> HasRSL<'repo> for Repository {
@@ -204,7 +199,7 @@ impl<'repo> HasRSL<'repo> for Repository {
         let rsl_head = format!("refs/heads/{}", RSL_BRANCH);
         let _oid = git::commit_signed(
             self,
-            &rsl_head, //  point HEAD to our new commit
+            Some(&rsl_head), //  point HEAD to our new commit
             &signature, // author
             &signature, // committer
             message, // commit message
@@ -294,29 +289,9 @@ impl<'repo> HasRSL<'repo> for Repository {
     }
 
     fn commit_push_entry(&self, push_entry: &PushEntry) -> Result<Oid> {
-        let mut index = self.index().chain_err(|| "could not find index")?;
-        //index.add_path(self.path().join("NONCE_BAG"))?;
-        let oid = index.write_tree().chain_err(|| "could not write tree")?;
-        let signature = self.signature().unwrap();
         let message = push_entry.to_string();
-        let parent_commit_ref = self.find_branch(RSL_BRANCH, BranchType::Local).chain_err(|| "RSL Branch not found: {:?}")?;
-        let parent_commit = parent_commit_ref.get().peel_to_commit().chain_err(|| "could not find parent commit")?;
-        let tree = self.find_tree(oid).chain_err(|| "could not find tree")?;
-        let rsl_head = format!("refs/heads/{}", RSL_BRANCH);
-
-        git::commit_signed(self,
-            &rsl_head, //  point HEAD to our new commit
-            &signature, // author
-            &signature, // committer
-            &message, // commit message
-            &tree, // tree
-            &[&parent_commit]
-        ).chain_err(|| "could not commit push entry")
-
-        // TODO sign commit after making it
-        // git::sign_commit(self, oid)? // will return Result<Oid>
+        git::add_and_commit_signed(self, None, &message, RSL_BRANCH).chain_err(|| "could not commit push entry")
     }
-
 
     fn fetch_rsl(&self, remote: &mut Remote) -> Result<()> {
         // not sure the behavior here if the branch doesn't exist
@@ -336,10 +311,6 @@ impl<'repo> HasRSL<'repo> for Repository {
             (Ok(_), Ok(_)) => Ok(()), // RSL already set up
         }
     }
-
-
-
-
 }
 
 #[cfg(test)]

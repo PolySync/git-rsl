@@ -114,7 +114,7 @@ impl HasNonceBag for Repository {
         let tree = self.find_tree(oid).chain_err(|| "couldn't find tree")?;
         let commit_oid = git::commit_signed(
             self,
-            "refs/heads/RSL", //  point HEAD to our new commit
+            Some(&"refs/heads/RSL"), //  point HEAD to our new commit
             &signature, // author
             &signature, // committer
             message, // commit message

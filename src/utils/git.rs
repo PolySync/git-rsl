@@ -115,10 +115,45 @@ pub fn add_and_commit(repo: &Repository, path: Option<&Path>, message: &str, bra
     }
 }
 
+pub fn add_and_commit_signed(repo: &Repository, path: Option<&Path>, message: &str, branch: &str) -> Result<Oid> {
+    let mut index = repo.index()?;
+    if path.is_some() {
+        index.add_path(path.unwrap())?;
+    }
+    let oid = index.write_tree()?;
+    let signature = repo.signature()?;
+    let ref_name = format!("refs/heads/{}", branch);
+
+    // If this is the first commit, it will have no parents
+    let parent = repo.find_reference(&ref_name).and_then(|x| x.peel_to_commit()).ok();
+    let tree = repo.find_tree(oid)?;
+
+    // stupid duplication because &[&T] is a terrible type to mess with
+    if let Some(parent_commit) = parent {
+        let oid = commit_signed(repo,
+                    Some(&ref_name), //  point HEAD to our new commit
+                    &signature, // author
+                    &signature, // committer
+                    message, // commit message
+                    &tree, // tree
+                    &[&parent_commit])?; // parents
+        Ok(oid)
+    } else {
+        let oid = commit_signed(repo,
+                    Some(&ref_name), //  point HEAD to our new commit
+                    &signature, // author
+                    &signature, // committer
+                    message, // commit message
+                    &tree, // tree
+                    &[])?; // parents
+        Ok(oid)
+    }
+}
+
 // TODO use the libgit2 function commit_create_buffer (will need to write git2rs bindings for this) to make the commit object without writing it to the git object database, so we don't actually create two commits. However, even if we do this, we might still need to manually update the target reference afterwards, since `git2::Repo::commit_signed` doesn't seem to do this.
 pub fn commit_signed(
     repo: &Repository,
-    update_ref: &str,
+    update_ref: Option<&str>,
     author: &Signature,
     committer: &Signature,
     message: &str,
@@ -127,20 +162,22 @@ pub fn commit_signed(
 ) -> Result<Oid> {
 
     let oid1 = repo.commit(
-        Some(update_ref), //  point HEAD to our new commit
-        author, // author
-        committer, // committer
-        message, // commit message
-        tree, // tree
+        update_ref, //  branch we want to commit to (if at all)
+        author,
+        committer,
+        message,
+        tree,
         parents
     ).chain_err(|| "could not create unsigned commit")?;
 
     // sign commit--creates a new object in odb with new oid
     let oid2 = create_signed_commit(repo, oid1)?;
 
-    // point update ref to the *signed* commit and just pretend like the in-between commit does not exist
+    // point update ref to the *signed* commit and just pretend like the in-between commit does not exist (only if we were given a branch to commit to; otherwise, this will be an orphan commit)
     let reflog_msg = "Switching head to signed commit";
-    repo.find_reference(update_ref)?.set_target(oid2, reflog_msg)?;
+    if let Some(reference) = update_ref {
+        repo.find_reference(reference)?.set_target(oid2, reflog_msg)?;
+    }
 
     Ok(oid2)
 }
