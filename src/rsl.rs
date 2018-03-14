@@ -258,7 +258,7 @@ impl<'repo> HasRSL<'repo> for Repository {
         self.commit_push_entry(&initial_pe)?;
 
         // push new rsl branch
-        git::push(self, remote, &["refs/heads/RSL"]).chain_err(|| "rsl init error")?;
+        git::push(self, remote, &["RSL"]).chain_err(|| "rsl init error")?;
 
         Ok(())
 
