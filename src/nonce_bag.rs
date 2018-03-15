@@ -60,45 +60,24 @@ pub trait HasNonceBag {
 
 impl HasNonceBag for Repository {
 
-    // TODO change read to read Nonce bag JSON object rather than
-    // naked nonces
     fn read_nonce_bag(&self) -> Result<NonceBag> {
         let nonce_bag_path = &self.path().parent().unwrap().join(NONCE_BAG_PATH);
         let mut f = OpenOptions::new().read(true).write(true).create(true).open(&nonce_bag_path).chain_err(|| "couldn't open nonce bag for reading")?;
-        let mut nonce_bag = NonceBag::new();
-
-        let file_size = f.metadata()?.len();
-        let mut bytes_read = 0u64;
-
-        let mut bytes: [u8; 32] = [0; 32];
-        let mut nonce: Nonce;
-        while bytes_read < file_size {
-            bytes_read += f.read(&mut bytes)? as u64;
-            nonce = Nonce { bytes };
-            nonce_bag.insert(nonce)?;
-        }
+        let mut buffer = String::new();
+        f.read_to_string(&mut buffer)?;
+        let nonce_bag = NonceBag::from_str(&buffer)?;
         Ok(nonce_bag)
     }
 
     fn write_nonce_bag(&self, nonce_bag: &NonceBag) -> Result<()> {
-        //let text = nonce_bag.to_string()?;
+        let text = nonce_bag.to_string()?;
         let nonce_bag_path = self.path().parent().unwrap().join(NONCE_BAG_PATH);
-        let mut f = OpenOptions::new().write(true).create(true).open(&nonce_bag_path).chain_err(|| "couldn't open nonce bag file for writing")?;
-         for nonce in &nonce_bag.bag {
-             match f.write(&nonce.bytes) {
-                 Ok(32) => Ok(()),
-                 Ok(_e) => bail!("what the hell is wrong with ur nonce bag"),
-                 Err(e) => Err(e).chain_err(|| "failed to write nonce bytes to bag"),
-             };
-         }
-        // TODO change nonce file to store as JSON rather than naked nonces,
-        // then write as below
-        // f.write_all(&text.as_bytes()).chain_err(|| "couldnt write to nonce bag file")?;
+        let mut f = OpenOptions::new().write(true).create(true).truncate(true).open(&nonce_bag_path).chain_err(|| "couldn't open nonce bag file for writing")?;
+        f.write_all(&text.as_bytes()).chain_err(|| "couldnt write to nonce bag file")?;
          Ok(())
     }
 
     fn commit_nonce_bag(&self) -> Result<Oid> {
-        println!("Updating nonce bag");
         let path = Path::new(NONCE_BAG_PATH);
         let message = "Update nonce bag";
 
@@ -109,22 +88,6 @@ impl HasNonceBag for Repository {
             &"RSL").chain_err(|| "failed to commit nonce bag")?;
 
         debug_assert!(self.state() == git2::RepositoryState::Clean);
-
-        //let head_tree = self.head()?.peel_to_tree()?;
-        //index.read_tree(&tree);
-        //index.clear()?;
-        //index.write()?;
-        //let mut opts = CheckoutBuilder::new();
-        //opts.force();
-        //self.checkout_head(Some(&mut opts))?;
-
-        // TODO sign commit after making it
-        // git::sign_commit(self, oid)
-
-        let commit = self.find_commit(commit_oid)?;
-
-        // remove nonce bag from the index
-        self.reset_default(Some(commit.as_object()), ["NONCE_BAG"].iter())?;
 
         Ok(commit_oid)
     }

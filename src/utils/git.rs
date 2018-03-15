@@ -283,6 +283,10 @@ pub fn fast_forward_onto_head(repo: &Repository, theirs: &str) -> Result<()> {
     Ok(())
 }
 
+pub fn username(repo: &Repository) -> Result<String> {
+    let cfg = repo.config()?;
+    cfg.get_string("username").chain_err(|| "no git username configured")
+}
 
 fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
                              -> Result<T>

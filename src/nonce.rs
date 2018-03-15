@@ -23,16 +23,14 @@ impl Nonce {
     }
 
     pub fn from_str(string: &str) -> Result<Nonce> {
-        let mut bytes: [u8; 32] = [0; 32];
-        let mut cursor = io::Cursor::new(string);
-        cursor.read_exact(&mut bytes).chain_err(|| "nonce read error")?;
-        Ok(Nonce { bytes })
-    }
-
-    pub fn from_json(string: &str) -> Result<Nonce> {
         let result = serde_json::from_str(string)
             .chain_err(|| "couldn't parse nonce from string")?;
         Ok(result)
+    }
+
+    pub fn to_string(&self) -> Result<String> {
+        let string = serde_json::to_string(self).chain_err(|| "uh oh")?;
+        Ok(string)
     }
 }
 
@@ -66,19 +64,20 @@ pub trait HasNonce {
 impl HasNonce for Repository {
 
     fn read_nonce(&self) -> Result<Nonce> {
-        let mut bytes: [u8; 32] = [0; 32];
+        let mut buffer =  String::new();
         let nonce_path = &self.path().join("NONCE");
         let mut f = OpenOptions::new().read(true).write(true).create(true).open(&nonce_path).chain_err(|| "could not open nonce file for reading")?;
 
-        f.read_exact(&mut bytes).chain_err(|| "could not parse nonce file")?;
-        Ok(Nonce { bytes })
+        f.read_to_string(&mut buffer).chain_err(|| "could not parse nonce file")?;
+        let parsed = Nonce::from_str(&buffer)?;
+        Ok(parsed)
     }
 
     fn write_nonce(&self, nonce: &Nonce) -> Result<()> {
         let nonce_path = self.path().join("NONCE");
-        let mut f = OpenOptions::new().write(true).create(true).open(&nonce_path).chain_err(|| "could not open nonce for writing")?;
-
-        f.write_all(&nonce.bytes).chain_err(|| "could not write nonce")?;
+        let mut f = OpenOptions::new().write(true).create(true).truncate(true).open(&nonce_path).chain_err(|| "could not open nonce for writing")?;
+        let string = nonce.to_string()?;
+        f.write_all(&string.as_bytes()).chain_err(|| "could not write nonce")?;
         Ok(())
     }
 }
@@ -109,13 +108,14 @@ mod tests {
         {
             let repo = &context.local;
             repo.write_nonce(&FAKE_NONCE).unwrap();
+            let nonce = repo.read_nonce().unwrap();
             let nonce_file = &repo.path().join("NONCE");
             let mut f = File::open(&nonce_file)
                         .expect("file not found");
             let mut contents = vec![];
             f.read_to_end(&mut contents)
                         .expect("something went wrong reading the file");
-            assert_eq!(contents, FAKE_NONCE.bytes);
+            assert_eq!(nonce, FAKE_NONCE);
         }
         teardown_fresh(context);
     }
@@ -135,14 +135,13 @@ mod tests {
     #[test]
     fn to_string(){
         let serialized = "{\"bytes\":[224,251,50,63,34,58,207,35,15,74,137,143,176,178,92,226,103,114,220,224,180,21,241,2,213,252,126,245,137,245,119,45]}";
-        assert_eq!(&FAKE_NONCE.to_string(), &serialized)
-
+        assert_eq!(&FAKE_NONCE.to_string().unwrap(), &serialized)
     }
 
     #[test]
-    fn from_json(){
+    fn from_str(){
         let serialized = "{\"bytes\":[224,251,50,63,34,58,207,35,15,74,137,143,176,178,92,226,103,114,220,224,180,21,241,2,213,252,126,245,137,245,119,45]}";
-        let deserialized = Nonce::from_json(&serialized).unwrap();
+        let deserialized = Nonce::from_str(&serialized).unwrap();
         assert_eq!(&deserialized, &FAKE_NONCE)
     }
 }
