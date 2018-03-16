@@ -76,18 +76,7 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(repo: &'repo Repository, mut remote
             }
         }
 
-        // update nonce bag
-        if rsl.nonce_bag.bag.contains(&rsl.nonce) {
-            rsl.nonce_bag.remove(&rsl.nonce)?;
-        }
-
-        let new_nonce = Nonce::new()?;
-        rsl.nonce = new_nonce;
-        repo.write_nonce(&new_nonce).chain_err(|| "nonce write error")?;
-
-        rsl.nonce_bag.insert(new_nonce)?;
-        repo.write_nonce_bag(&rsl.nonce_bag).chain_err(|| "couldn't write to nonce baf file")?;
-        repo.commit_nonce_bag().chain_err(|| "couldn't commit nonce bag")?;
+        rsl.update_nonce_bag()?;
 
         match rsl.push() {
             Ok(()) => break 'store,

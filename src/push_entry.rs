@@ -126,13 +126,23 @@ mod tests {
                 signature: String::from("gpg signature"),
         };
         let serialized = &entry.to_string();
+        println!("{}", &serialized);
         let deserialized = PushEntry::from_str(&serialized).unwrap();
         assert_eq!(entry, deserialized)
     }
 
     #[test]
     fn from_string() {
-        let string = "{\n  \"branch\": \"branch_name\",\n  \"head\": {\n    \"raw\": \"decbf2be529ab6557d5429922251e5ee36519817\"\n  },\n  \"prev_hash\": \"fwjjk42ofw093j\",\n  \"nonce_bag\": {\n    \"bag\": []\n  },\n  \"signature\": \"gpg signature\"\n}";
+        let string = r#"{"branch": "branch_name",
+            "head": {
+                "raw": "decbf2be529ab6557d5429922251e5ee36519817"
+            },
+            "prev_hash": "fwjjk42ofw093j",
+            "nonce_bag": {
+                "bag": {}
+            },
+            "signature": "gpg_signature"
+        }"#;
         let entry = PushEntry {
                 //related_commits: vec![oid.to_owned(), oid.to_owned()],
                 branch: String::from("branch_name"),

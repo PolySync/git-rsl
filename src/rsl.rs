@@ -134,6 +134,29 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
         // commit new pushentry (TODO commit to detached HEAD instead of local RSL branch, in case someone else has updated and a fastforward is not possible)
         self.repo.commit_push_entry(&new_push_entry).chain_err(|| "Couldn't commit new push entry")
     }
+
+    pub fn update_nonce_bag(&mut self) -> Result<()> {
+        let username = git::username(self.repo)?;
+
+        // if nonce bag contains a nonce for current developer, remove it
+        if let Some(nonce) = self.nonce_bag.remove(&username) {
+            // if nonce in bag does not match local nonce, stop and warn user of possible tampering
+            if nonce != self.nonce {
+                bail!("Your local '.git/NONCE' does not match the one fetched from the remote reference state log. Someone may have tampered with the remote repo.");
+            }
+        }
+
+        // save new random nonce locally
+        let new_nonce = Nonce::new()?;
+        self.nonce = new_nonce;
+        self.repo.write_nonce(&new_nonce).chain_err(|| "nonce write error")?;
+
+        // add new nonce to nonce bag
+        self.nonce_bag.insert(&username, new_nonce);
+        self.repo.write_nonce_bag(&self.nonce_bag).chain_err(|| "couldn't write to nonce bag file")?;
+        self.repo.commit_nonce_bag().chain_err(|| "couldn't commit nonce bag")?;
+        Ok(())
+    }
 }
 
 pub trait HasRSL<'repo> {
@@ -252,9 +275,10 @@ impl<'repo> HasRSL<'repo> for Repository {
 
         // create new nonce bag with initial nonce
         let mut nonce_bag = NonceBag::new();
+        let username = git::username(self)?;
+        nonce_bag.insert(&username, nonce).chain_err(|| "couldn't add new nonce to bag");
         self.write_nonce_bag(&nonce_bag)?;
         self.commit_nonce_bag()?;
-        nonce_bag.insert(nonce).chain_err(|| "couldn't add new nonce to bag")?;
 
         // create initial bootstrapping push entry
         let initial_pe = PushEntry::new(self, "RSL", String::from("First Push Entry"), nonce_bag);
@@ -278,11 +302,17 @@ impl<'repo> HasRSL<'repo> for Repository {
         git::checkout_branch(self, "refs/heads/RSL")?;
 
         let mut nonce_bag = self.read_nonce_bag()?;
+
+        // save random nonce locally
         let new_nonce = Nonce::new().unwrap();
         self.write_nonce(&new_nonce).chain_err(|| "nonce write error")?;
-        nonce_bag.insert(new_nonce)?;
+
+        // add that nonce to the bag
+        let username = git::username(self)?;
+        nonce_bag.insert(&username, new_nonce);
         self.write_nonce_bag(&nonce_bag).chain_err(|| "couldn't write to nonce baf file")?;
         self.commit_nonce_bag().chain_err(|| "couldn't commit nonce bag")?;
+
         git::push(self, remote, &["refs/heads/RSL"]).chain_err(|| "rsl init error")?;
 
         Ok(())
@@ -299,6 +329,8 @@ impl<'repo> HasRSL<'repo> for Repository {
         git::fetch(self, remote, &[RSL_BRANCH], Some(REFLOG_MSG)).chain_err(|| "could not fetch RSL")?;
         Ok(())
     }
+
+
 
     fn init_rsl_if_needed(&self, remote: &mut Remote) -> Result<()> {
         // validate that RSL does not exist locally or remotely

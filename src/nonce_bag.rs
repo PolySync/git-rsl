@@ -1,6 +1,6 @@
 use std::io::Write;
 use std::fs::OpenOptions;
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 use std::path::Path;
 
@@ -18,28 +18,20 @@ const NONCE_BAG_PATH: & str = "NONCE_BAG";
 
 #[derive(Eq, PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct NonceBag {
-    pub bag: HashSet<Nonce>,
+    pub bag: HashMap<String, Nonce>,
 }
 
 impl NonceBag {
     pub fn new() -> NonceBag {
-            NonceBag {bag: HashSet::new()}
+        NonceBag {bag: HashMap::new()}
     }
 
-    pub fn insert(&mut self, nonce: Nonce) -> Result<()> {
-        if self.bag.insert(nonce) {
-            Ok(())
-        } else {
-            bail!("problem inserting nonce into bag")
-        }
+    pub fn insert(&mut self, name: &str, nonce: Nonce) -> Option<Nonce> {
+        self.bag.insert(name.clone().to_owned(), nonce)
     }
 
-    pub fn remove(&mut self, nonce: &Nonce) -> Result<()> {
-        if self.bag.remove(nonce) {
-            Ok(())
-        } else {
-            bail!("problem removing nonce from bag")
-        }
+    pub fn remove(&mut self, name: &str) -> Option<Nonce> {
+        self.bag.remove(name)
     }
 
     pub fn from_str(string: &str) -> Result<NonceBag> {
@@ -104,9 +96,9 @@ mod tests {
 
     fn bag_a() -> NonceBag {
         let mut bag = NonceBag::new();
-        bag.bag.insert(NONCE1);
-        bag.bag.insert(NONCE2);
-        bag.bag.insert(NONCE3);
+        bag.insert("dev1", NONCE1);
+        bag.insert("dev2", NONCE2);
+        bag.insert("dev3", NONCE3);
         bag
     }
 
@@ -118,7 +110,7 @@ mod tests {
     #[test]
     fn neq() {
         let mut bag = bag_a();
-        bag.bag.remove(&NONCE1);
+        bag.bag.remove("dev1");
         assert_ne!(bag, bag_a());
     }
 
@@ -145,11 +137,24 @@ mod tests {
 
     #[test]
     fn from_str() {
-        let serialized = "{\"bag\":[{\"bytes\":[145,161,65,251,112,184,238,36,105,54,150,202,74,26,148,121,106,40,239,155,31,232,49,251,215,71,200,240,105,73,0,84]},{\"bytes\":[100,223,169,31,154,84,127,151,178,254,47,129,230,74,10,10,170,13,31,199,167,68,28,149,131,10,110,201,71,146,214,78]},{\"bytes\":[165,36,170,43,1,62,34,53,25,160,177,19,87,62,189,151,168,134,196,85,33,237,9,52,198,39,79,32,180,145,165,132]}]}";
+        let serialized = r#"{
+            "bag": {
+                "dev1": {
+                    "bytes": [145,161,65,251,112,184,238,36,105,54,150,202,74,26,148,121,106,40,239,155,31,232,49,251,215,71,200,240,105,73,0,84]
+                },
+                "dev2": {
+                    "bytes": [100,223,169,31,154,84,127,151,178,254,47,129,230,74,10,10,170,13,31,199,167,68,28,149,131,10,110,201,71,146,214,78]
+                },
+                "dev3": {
+                    "bytes": [165,36,170,43,1,62,34,53,25,160,177,19,87,62,189,151,168,134,196,85,33,237,9,52,198,39,79,32,180,145,165,132]
+                }
+            }
+        }"#;
+        // "{\"bag\":[{\"bytes\":[145,161,65,251,112,184,238,36,105,54,150,202,74,26,148,121,106,40,239,155,31,232,49,251,215,71,200,240,105,73,0,84]},{\"bytes\":[100,223,169,31,154,84,127,151,178,254,47,129,230,74,10,10,170,13,31,199,167,68,28,149,131,10,110,201,71,146,214,78]},{\"bytes\":[165,36,170,43,1,62,34,53,25,160,177,19,87,62,189,151,168,134,196,85,33,237,9,52,198,39,79,32,180,145,165,132]}]}";
         let nonce_bag = NonceBag::from_str(&serialized).unwrap();
-        assert!(nonce_bag.bag.contains(&NONCE1));
-        assert!(nonce_bag.bag.contains(&NONCE2));
-        assert!(nonce_bag.bag.contains(&NONCE3));
+        assert_eq!(nonce_bag.bag.get("dev1").unwrap(), &NONCE1);
+        assert_eq!(nonce_bag.bag.get("dev2").unwrap(), &NONCE2);
+        assert_eq!(nonce_bag.bag.get("dev3").unwrap(), &NONCE3);
     }
 
     #[test]

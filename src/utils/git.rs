@@ -285,7 +285,7 @@ pub fn fast_forward_onto_head(repo: &Repository, theirs: &str) -> Result<()> {
 
 pub fn username(repo: &Repository) -> Result<String> {
     let cfg = repo.config()?;
-    cfg.get_string("username").chain_err(|| "no git username configured")
+    cfg.get_string("user.username").chain_err(|| "no git username configured")
 }
 
 fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
@@ -644,5 +644,12 @@ mod test {
             assert_eq!(message, &message_string)
         }
         teardown_fresh(context)
+    }
+
+    #[test]
+    fn get_username() {
+        let context = setup_fresh();
+        assert_eq!(super::username(&context.local).unwrap(), String::from("idontexistanythingaboutthat"));
+        teardown_fresh(context);
     }
 }
