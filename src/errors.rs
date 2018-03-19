@@ -5,4 +5,11 @@ error_chain!{
         GPGME(::gpgme::Error);
         IO(::std::io::Error);
     }
+
+    errors {
+        InvalidRSL {
+            description("invalid remote RSL"),
+            display("invalid remote RSL"),
+        }
+    }
 }

@@ -38,6 +38,8 @@ pub fn discover_repo() -> Result<Repository> {
     Repository::discover(current_dir).chain_err(|| "cwd is not a git repo")
 }
 
+
+// Stash any changes in the local working directory, including untracked files. Returns  Oid of stash commit if there was anything to stash, and None if the working directory already matches HEAD. Files ignored by git are left alone.
 pub fn stash_local_changes(repo: &mut Repository) -> Result<(Option<Oid>)> {
     // check that there are indeed changes in index or untracked to stash
     {
@@ -54,12 +56,13 @@ pub fn stash_local_changes(repo: &mut Repository) -> Result<(Option<Oid>)> {
             return Ok(None)
         }
     }
+    println!("Stashing local changes for RSL operations");
+
     let signature = repo.signature()?;
     let message = "Stashing local changes and untracked files for RSL business";
-
-    println!("Stashing local changes for RSL operations");
     let mut stash_options = StashFlags::INCLUDE_UNTRACKED;
     stash_options.remove(StashFlags::DEFAULT);
+
     let oid = repo.stash_save(
         &signature,
         message,
