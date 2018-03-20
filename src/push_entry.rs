@@ -159,7 +159,7 @@ mod tests {
             head: Oid::from_str("decbf2be529ab6557d5429922251e5ee36519817").unwrap(),
             prev_hash: String::from("fwjjk42ofw093j"),
             nonce_bag: NonceBag::new(),
-            signature: String::from("gpg signature"),
+            signature: String::from("gpg_signature"),
         };
         let deserialized = PushEntry::from_str(&string).unwrap();
 
