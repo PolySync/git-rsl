@@ -1,21 +1,24 @@
-#![cfg_attr(feature="clippy", feature(plugin))]
-#![cfg_attr(feature="clippy", plugin(clippy))]
-#[macro_use] extern crate clap;
-#[macro_use] extern crate serde_derive;
-#[macro_use] extern crate error_chain;
+#![cfg_attr(feature = "clippy", feature(plugin))]
+#![cfg_attr(feature = "clippy", plugin(clippy))]
+#[macro_use]
+extern crate clap;
+#[macro_use]
+extern crate error_chain;
+#[macro_use]
+extern crate serde_derive;
 
 extern crate crypto;
 extern crate git2;
 //extern crate libgit2_sys;
+extern crate fs_extra;
+extern crate gpgme;
+extern crate hex;
 extern crate rand;
+extern crate regex;
 extern crate serde;
 extern crate serde_json;
-extern crate fs_extra;
 extern crate tempdir;
 extern crate tempfile;
-extern crate hex;
-extern crate gpgme;
-extern crate regex;
 
 mod push;
 mod fetch;
@@ -33,7 +36,7 @@ use std::path::PathBuf;
 pub use errors::*;
 pub use utils::git;
 
-use git2::{Repository, Oid};
+use git2::{Oid, Repository};
 
 fn main() {
     if let Err(ref e) = run() {
@@ -60,15 +63,17 @@ fn run() -> Result<()> {
 
     // TODO exit unless gpgtools are present
 
-    let mut messy_repo = git::discover_repo()
-        .chain_err(|| "You don't appear to be in a git project. Please check yourself and try again")?;
+    let mut messy_repo = git::discover_repo().chain_err(|| {
+        "You don't appear to be in a git project. Please check yourself and try again"
+    })?;
 
     let (original_branch_name, stash_id, original_dir) = prep_workspace(&mut messy_repo)?;
 
     let mut clean_repo = git::discover_repo().unwrap();
 
     let remote_name = matches.value_of("remote").unwrap().clone();
-    let mut remote = (&clean_repo).find_remote(remote_name)
+    let mut remote = (&clean_repo)
+        .find_remote(remote_name)
         .chain_err(|| format!("unable to find remote named {}", remote_name))?;
 
     let branches: Vec<&str> = matches.values_of("branch").unwrap().collect();
@@ -84,9 +89,20 @@ fn run() -> Result<()> {
     // process results of operation
     let mut cleaner_repo = git::discover_repo()?;
     if let Err(e) = result {
-        handle_error(&e, &mut cleaner_repo, &original_branch_name, stash_id, original_dir)?;
+        handle_error(
+            &e,
+            &mut cleaner_repo,
+            &original_branch_name,
+            stash_id,
+            original_dir,
+        )?;
     } else {
-        restore_workspace(&mut cleaner_repo, &original_branch_name, stash_id, original_dir)?;
+        restore_workspace(
+            &mut cleaner_repo,
+            &original_branch_name,
+            stash_id,
+            original_dir,
+        )?;
         println!("Success!")
     }
 
@@ -103,22 +119,36 @@ fn report_error(e: &Error) {
     }
 }
 
-fn handle_error(e: &Error,  mut clean_repo: &mut Repository, current_branch_name: &String, stash_id: Option<Oid>, original_dir: Option<PathBuf>) -> Result<()> {
+fn handle_error(
+    e: &Error,
+    mut clean_repo: &mut Repository,
+    current_branch_name: &String,
+    stash_id: Option<Oid>,
+    original_dir: Option<PathBuf>,
+) -> Result<()> {
     match *e {
-        Error(ErrorKind::InvalidRSL, _) =>
-            {
-                report_error(&e);
-                // unbork: reset remote RSL to local at last good state
-                restore_workspace(&mut clean_repo, &current_branch_name, stash_id, original_dir);
-                process::exit(-1)
-            },
-        Error(_,_) =>
-            {
-                report_error(&e);
-                // unbork: reset remote RSL to local at last good state
-                restore_workspace(&mut clean_repo, &current_branch_name, stash_id, original_dir);
-                process::exit(-2)
-            }
+        Error(ErrorKind::InvalidRSL, _) => {
+            report_error(&e);
+            // unbork: reset remote RSL to local at last good state
+            restore_workspace(
+                &mut clean_repo,
+                &current_branch_name,
+                stash_id,
+                original_dir,
+            );
+            process::exit(-1)
+        }
+        Error(_, _) => {
+            report_error(&e);
+            // unbork: reset remote RSL to local at last good state
+            restore_workspace(
+                &mut clean_repo,
+                &current_branch_name,
+                stash_id,
+                original_dir,
+            );
+            process::exit(-2)
+        }
     }
 }
 
@@ -129,8 +159,8 @@ fn prep_workspace(mut repo: &mut Repository) -> Result<(String, Option<Oid>, Opt
         .ok_or("Not on a named branch. Please switch to one so we can put you back where you started when this is all through.")? // TODO allow this??
         .to_owned();
 
-    let stash_id = git::stash_local_changes(&mut repo)
-        .chain_err(|| "Couldn't stash local changes.")?;
+    let stash_id =
+        git::stash_local_changes(&mut repo).chain_err(|| "Couldn't stash local changes.")?;
 
     // save current working directory and cd to project root
     let cwd = env::current_dir()?;
@@ -145,20 +175,25 @@ fn prep_workspace(mut repo: &mut Repository) -> Result<(String, Option<Oid>, Opt
     Ok((current_branch_name, stash_id, original_dir))
 }
 
-fn restore_workspace(mut repo: &mut Repository, original_branch_name: &String, stash_id: Option<Oid>, original_working_directory: Option<PathBuf>) -> Result<()> {
-    git::checkout_branch(repo, original_branch_name)
-        .chain_err(|| "Couldn't checkout starting branch. Sorry if we messed with your repo state. Ensure you are on the desired branch. It may be necessary to apply changes from the stash")?;
+fn restore_workspace(
+    mut repo: &mut Repository,
+    original_branch_name: &String,
+    stash_id: Option<Oid>,
+    original_working_directory: Option<PathBuf>,
+) -> Result<()> {
+    git::checkout_branch(repo, original_branch_name).chain_err(|| {
+        "Couldn't checkout starting branch. Sorry if we messed with your repo state. Ensure you are on the desired branch. It may be necessary to apply changes from the stash"
+    })?;
 
     if let Some(dir) = original_working_directory {
         env::set_current_dir(dir)?;
-
     }
 
-    git::unstash_local_changes(&mut repo, stash_id)
-        .chain_err(|| "Couldn't unstash local changes. Sorry if we messed with your repository state. It may be necessary to apply changes from the stash. {:?}")?;
+    git::unstash_local_changes(&mut repo, stash_id).chain_err(|| {
+        "Couldn't unstash local changes. Sorry if we messed with your repository state. It may be necessary to apply changes from the stash. {:?}"
+    })?;
     Ok(())
 }
-
 
 #[cfg(test)]
 mod tests {

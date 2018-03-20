@@ -2,7 +2,8 @@ use std::path::Path;
 use std::env;
 
 use git2;
-use git2::{FetchOptions, PushOptions, Oid, Signature, Commit, RemoteCallbacks, Remote, Repository, DiffOptions, RepositoryState, Tree};
+use git2::{Commit, DiffOptions, FetchOptions, Oid, PushOptions, Remote, RemoteCallbacks,
+           Repository, RepositoryState, Signature, Tree};
 use git2::build::CheckoutBuilder;
 use git2::BranchType;
 
@@ -15,7 +16,9 @@ use utils::gpg;
 use errors::*;
 
 pub fn oid_from_long_name(repo: &Repository, ref_name: &str) -> Result<Oid> {
-    let oid = repo.find_reference(ref_name)?.target().ok_or("Not a named reference")?;
+    let oid = repo.find_reference(ref_name)?
+        .target()
+        .ok_or("Not a named reference")?;
     Ok(oid)
 }
 
@@ -28,8 +31,10 @@ pub fn checkout_branch(repo: &Repository, ref_name: &str) -> Result<()> {
 
     let mut opts = CheckoutBuilder::new();
     opts.force();
-    repo.checkout_tree(&tree, Some(&mut opts)).chain_err(|| "couldn't checkout tree")?;
-    repo.set_head(ref_name).chain_err(|| "couldn't switch head to RSL")?;
+    repo.checkout_tree(&tree, Some(&mut opts))
+        .chain_err(|| "couldn't checkout tree")?;
+    repo.set_head(ref_name)
+        .chain_err(|| "couldn't switch head to RSL")?;
     Ok(())
 }
 
@@ -38,7 +43,6 @@ pub fn discover_repo() -> Result<Repository> {
     Repository::discover(current_dir).chain_err(|| "cwd is not a git repo")
 }
 
-
 // Stash any changes in the local working directory, including untracked files. Returns  Oid of stash commit if there was anything to stash, and None if the working directory already matches HEAD. Files ignored by git are left alone.
 pub fn stash_local_changes(repo: &mut Repository) -> Result<(Option<Oid>)> {
     // check that there are indeed changes in index or untracked to stash
@@ -46,14 +50,14 @@ pub fn stash_local_changes(repo: &mut Repository) -> Result<(Option<Oid>)> {
         let is_clean = repo.state() == RepositoryState::Clean;
         let mut diff_options = DiffOptions::new();
         diff_options.include_untracked(true);
-        let  diff = repo.diff_index_to_workdir(
+        let diff = repo.diff_index_to_workdir(
             None, // defaults to head index,
             Some(&mut diff_options),
         )?;
 
         let num_deltas = diff.deltas().count();
         if is_clean && (num_deltas == 0) {
-            return Ok(None)
+            return Ok(None);
         }
     }
     println!("Stashing local changes for RSL operations");
@@ -63,11 +67,7 @@ pub fn stash_local_changes(repo: &mut Repository) -> Result<(Option<Oid>)> {
     let mut stash_options = StashFlags::INCLUDE_UNTRACKED;
     stash_options.remove(StashFlags::DEFAULT);
 
-    let oid = repo.stash_save(
-        &signature,
-        message,
-        Some(stash_options),
-    )?;
+    let oid = repo.stash_save(&signature, message, Some(stash_options))?;
     Ok(Some(oid))
 }
 
@@ -85,7 +85,12 @@ pub fn unstash_local_changes(repo: &mut Repository, stash_id: Option<Oid>) -> Re
     Ok(())
 }
 
-pub fn add_and_commit(repo: &Repository, path: Option<&Path>, message: &str, branch: &str) -> Result<Oid> {
+pub fn add_and_commit(
+    repo: &Repository,
+    path: Option<&Path>,
+    message: &str,
+    branch: &str,
+) -> Result<Oid> {
     let mut index = repo.index()?;
     if path.is_some() {
         index.add_path(path.unwrap())?;
@@ -95,30 +100,41 @@ pub fn add_and_commit(repo: &Repository, path: Option<&Path>, message: &str, bra
     let ref_name = format!("refs/heads/{}", branch);
 
     // If this is the first commit, it will have no parents
-    let parent = repo.find_reference(&ref_name).and_then(|x| x.peel_to_commit()).ok();
+    let parent = repo.find_reference(&ref_name)
+        .and_then(|x| x.peel_to_commit())
+        .ok();
     let tree = repo.find_tree(oid)?;
 
     // stupid duplication because &[&T] is a terrible type to mess with
     if let Some(parent_commit) = parent {
-        let oid = repo.commit(Some(&ref_name), //  point HEAD to our new commit
-                    &signature, // author
-                    &signature, // committer
-                    message, // commit message
-                    &tree, // tree
-                    &[&parent_commit])?; // parents
+        let oid = repo.commit(
+            Some(&ref_name), //  point HEAD to our new commit
+            &signature,      // author
+            &signature,      // committer
+            message,         // commit message
+            &tree,           // tree
+            &[&parent_commit],
+        )?; // parents
         Ok(oid)
     } else {
-        let oid = repo.commit(Some(&ref_name), //  point HEAD to our new commit
-                    &signature, // author
-                    &signature, // committer
-                    message, // commit message
-                    &tree, // tree
-                    &[])?; // parents
+        let oid = repo.commit(
+            Some(&ref_name), //  point HEAD to our new commit
+            &signature,      // author
+            &signature,      // committer
+            message,         // commit message
+            &tree,           // tree
+            &[],
+        )?; // parents
         Ok(oid)
     }
 }
 
-pub fn add_and_commit_signed(repo: &Repository, path: Option<&Path>, message: &str, branch: &str) -> Result<Oid> {
+pub fn add_and_commit_signed(
+    repo: &Repository,
+    path: Option<&Path>,
+    message: &str,
+    branch: &str,
+) -> Result<Oid> {
     let mut index = repo.index()?;
     if path.is_some() {
         index.add_path(path.unwrap())?;
@@ -128,27 +144,33 @@ pub fn add_and_commit_signed(repo: &Repository, path: Option<&Path>, message: &s
     let ref_name = format!("refs/heads/{}", branch);
 
     // If this is the first commit, it will have no parents
-    let parent = repo.find_reference(&ref_name).and_then(|x| x.peel_to_commit()).ok();
+    let parent = repo.find_reference(&ref_name)
+        .and_then(|x| x.peel_to_commit())
+        .ok();
     let tree = repo.find_tree(oid)?;
 
     // stupid duplication because &[&T] is a terrible type to mess with
     let oid = if let Some(parent_commit) = parent {
-        let c = commit_signed(repo,
-                    Some(&ref_name), //  point HEAD to our new commit
-                    &signature, // author
-                    &signature, // committer
-                    message, // commit message
-                    &tree, // tree
-                    &[&parent_commit])?; // parents
+        let c = commit_signed(
+            repo,
+            Some(&ref_name), //  point HEAD to our new commit
+            &signature,      // author
+            &signature,      // committer
+            message,         // commit message
+            &tree,           // tree
+            &[&parent_commit],
+        )?; // parents
         c
     } else {
-        let c = commit_signed(repo,
-                    Some(&ref_name), //  point HEAD to our new commit
-                    &signature, // author
-                    &signature, // committer
-                    message, // commit message
-                    &tree, // tree
-                    &[])?; // parents
+        let c = commit_signed(
+            repo,
+            Some(&ref_name), //  point HEAD to our new commit
+            &signature,      // author
+            &signature,      // committer
+            message,         // commit message
+            &tree,           // tree
+            &[],
+        )?; // parents
         c
     };
 
@@ -169,16 +191,15 @@ pub fn commit_signed(
     committer: &Signature,
     message: &str,
     tree: &Tree,
-    parents: &[&Commit]
+    parents: &[&Commit],
 ) -> Result<Oid> {
-
     let oid1 = repo.commit(
         update_ref, //  branch we want to commit to (if at all)
         author,
         committer,
         message,
         tree,
-        parents
+        parents,
     ).chain_err(|| "could not create unsigned commit")?;
 
     // sign commit--creates a new object in odb with new oid
@@ -187,7 +208,8 @@ pub fn commit_signed(
     // point update ref to the *signed* commit and just pretend like the in-between commit does not exist (only if we were given a branch to commit to; otherwise, this will be an orphan commit)
     let reflog_msg = "Switching head to signed commit";
     if let Some(reference) = update_ref {
-        repo.find_reference(reference)?.set_target(oid2, reflog_msg)?;
+        repo.find_reference(reference)?
+            .set_target(oid2, reflog_msg)?;
     }
 
     Ok(oid2)
@@ -212,13 +234,17 @@ pub fn commit_as_str(commit: &Commit) -> Result<String> {
     Ok(format!("{}\n{}", headers, message))
 }
 
-pub fn fetch(repo: &Repository, remote: &mut Remote, ref_names: &[&str], _reflog_msg: Option<&str>) -> Result<()> {
+pub fn fetch(
+    repo: &Repository,
+    remote: &mut Remote,
+    ref_names: &[&str],
+    _reflog_msg: Option<&str>,
+) -> Result<()> {
     let cfg = repo.config().unwrap();
     let remote_copy = remote.clone();
     let url = remote_copy.url().unwrap();
 
     with_authentication(url, &cfg, |f| {
-
         let mut cb = RemoteCallbacks::new();
         cb.credentials(f);
         let mut opts = FetchOptions::new();
@@ -226,7 +252,9 @@ pub fn fetch(repo: &Repository, remote: &mut Remote, ref_names: &[&str], _reflog
 
         let reflog_msg = "Retrieve RSL branch from remote";
 
-        remote.fetch(ref_names, Some(&mut opts), Some(reflog_msg)).chain_err(|| "could not fetch ref")
+        remote
+            .fetch(ref_names, Some(&mut opts), Some(reflog_msg))
+            .chain_err(|| "could not fetch ref")
     })
 }
 
@@ -237,14 +265,20 @@ pub fn push(repo: &Repository, remote: &mut Remote, ref_names: &[&str]) -> Resul
 
     with_authentication(url, &cfg, |f| {
         let mut cb = RemoteCallbacks::new();
-        cb.credentials(|a,b,c| f(a,b,c));
+        cb.credentials(|a, b, c| f(a, b, c));
         let mut opts = PushOptions::new();
         opts.remote_callbacks(cb);
 
         let refs: Vec<String> = ref_names
             .to_vec()
             .iter()
-            .map(|name: &&str| format!("refs/heads/{}:refs/heads/{}", name.to_string(), name.to_string()))
+            .map(|name: &&str| {
+                format!(
+                    "refs/heads/{}:refs/heads/{}",
+                    name.to_string(),
+                    name.to_string()
+                )
+            })
             .collect();
 
         let mut refs_ref: Vec<&str> = vec![];
@@ -270,15 +304,23 @@ pub fn fast_forward_possible(repo: &Repository, theirs: &str) -> Result<bool> {
 }
 
 pub fn up_to_date(repo: &Repository, local_branch: &str, remote_branch: &str) -> Result<bool> {
-    let remote_oid = repo.find_branch(remote_branch, BranchType::Remote)?.get().target().ok_or("not a direct reference")?;
-    let local_oid = repo.find_branch(local_branch, BranchType::Local)?.get().target().ok_or("not a direct reference")?;
+    let remote_oid = repo.find_branch(remote_branch, BranchType::Remote)?
+        .get()
+        .target()
+        .ok_or("not a direct reference")?;
+    let local_oid = repo.find_branch(local_branch, BranchType::Local)?
+        .get()
+        .target()
+        .ok_or("not a direct reference")?;
     Ok(remote_oid == local_oid)
 }
 
 pub fn fast_forward_onto_head(repo: &Repository, theirs: &str) -> Result<()> {
     let their_object = repo.find_reference(theirs)?.peel_to_commit()?.into_object();
 
-    let their_oid = repo.find_reference(theirs)?.target().ok_or("not a direct reference")?;
+    let their_oid = repo.find_reference(theirs)?
+        .target()
+        .ok_or("not a direct reference")?;
     repo.checkout_tree(&their_object, None)?;
     let mut head = repo.head()?;
     let reflog_str = format!("Fastforward {} onto HEAD", theirs);
@@ -288,12 +330,13 @@ pub fn fast_forward_onto_head(repo: &Repository, theirs: &str) -> Result<()> {
 
 pub fn username(repo: &Repository) -> Result<String> {
     let cfg = repo.config()?;
-    cfg.get_string("user.username").chain_err(|| "no git username configured")
+    cfg.get_string("user.username")
+        .chain_err(|| "no git username configured")
 }
 
-fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
-                             -> Result<T>
-    where F: FnMut(&mut git2::Credentials) -> Result<T>
+fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F) -> Result<T>
+where
+    F: FnMut(&mut git2::Credentials) -> Result<T>,
 {
     let mut cred_helper = git2::CredentialHelper::new(url);
     cred_helper.config(cfg);
@@ -347,7 +390,7 @@ fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
             let username = username.unwrap();
             debug_assert!(!ssh_username_requested);
             ssh_agent_attempts.push(username.to_string());
-            return git2::Cred::ssh_key_from_agent(username)
+            return git2::Cred::ssh_key_from_agent(username);
         }
 
         // Sometimes libgit2 will ask for a username/password in plaintext. This
@@ -358,19 +401,18 @@ fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
         if allowed.contains(CredentialType::USER_PASS_PLAINTEXT) {
             let r = git2::Cred::credential_helper(cfg, url, username);
             cred_helper_bad = Some(r.is_err());
-            return r
+            return r;
         }
 
         // I'm... not sure what the DEFAULT kind of authentication is, but seems
         // easy to support?
         if allowed.contains(CredentialType::DEFAULT) {
-            return git2::Cred::default()
+            return git2::Cred::default();
         }
 
         // Whelp, we tried our best
         bail!(git2::Error::from_str("no authentication available"))
     });
-
 
     // Ok, so if it looks like we're going to be doing ssh authentication, we
     // want to try a few different usernames as one wasn't specified in the URL
@@ -411,12 +453,11 @@ fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
                     attempts += 1;
                     if attempts == 1 {
                         ssh_agent_attempts.push(s.to_string());
-                        return git2::Cred::ssh_key_from_agent(&s)
+                        return git2::Cred::ssh_key_from_agent(&s);
                     }
                 }
                 bail!(git2::Error::from_str("no authentication available"));
             });
-
 
             // If we made two attempts then that means:
             //
@@ -431,13 +472,13 @@ fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F)
             // errors happened). Otherwise something else is funny so we bail
             // out.
             if attempts != 2 {
-                break
+                break;
             }
         }
     }
 
     if res.is_ok() || !any_attempts {
-        return res.map_err(From::from)
+        return res.map_err(From::from);
     }
 
     // In the case of an authentication failure (where we tried something) then
@@ -468,7 +509,6 @@ mod test {
     use std::io::prelude::*;
     use std::path::PathBuf;
     use regex::Regex;
-
 
     #[test]
     fn checkout_branch() {
@@ -526,8 +566,16 @@ mod test {
             super::checkout_branch(&repo, &"refs/heads/master").unwrap();
 
             super::fast_forward_onto_head(&repo, &"refs/heads/branch").unwrap();
-            let master_tip = repo.find_branch("master", BranchType::Local).unwrap().get().target().unwrap();
-            let branch_tip = repo.find_branch("branch", BranchType::Local).unwrap().get().target().unwrap();
+            let master_tip = repo.find_branch("master", BranchType::Local)
+                .unwrap()
+                .get()
+                .target()
+                .unwrap();
+            let branch_tip = repo.find_branch("branch", BranchType::Local)
+                .unwrap()
+                .get()
+                .target()
+                .unwrap();
             assert_eq!(master_tip, branch_tip)
         }
         teardown_fresh(context)
@@ -540,7 +588,8 @@ mod test {
             // make untracked files
             let path = &context.local.path().parent().unwrap().join("foo.txt");
             let mut f = File::create(&path).unwrap();
-            f.write_all(b"some stuff I don't want to track with git").unwrap();
+            f.write_all(b"some stuff I don't want to track with git")
+                .unwrap();
             // stash untracked files
             let stash_id = super::stash_local_changes(&mut context.local).unwrap();
             // worktree should no longer contain untracked file
@@ -561,20 +610,29 @@ mod test {
         {
             {
                 let repo = &context.local;
-                let head = repo.find_commit(repo.head().unwrap().target().unwrap()).unwrap();
+                let head = repo.find_commit(repo.head().unwrap().target().unwrap())
+                    .unwrap();
                 repo.branch("RSL", &head, false).unwrap();
                 // add gitignore and commit gitignore
                 let ignore_path = repo.path().parent().unwrap().join(".gitignore");
                 let mut f = File::create(&ignore_path).unwrap();
                 f.write_all(b"foo.txt").unwrap();
-                super::add_and_commit(repo, Some(Path::new(".gitignore")), &"add gitignore", "master").unwrap();
+                super::add_and_commit(
+                    repo,
+                    Some(Path::new(".gitignore")),
+                    &"add gitignore",
+                    "master",
+                ).unwrap();
                 // add file to be ignored
                 path = repo.path().parent().unwrap().join("foo.txt");
                 let mut f = File::create(&path).unwrap();
-                f.write_all(b"some stuff I don't want to track with git").unwrap();
+                f.write_all(b"some stuff I don't want to track with git")
+                    .unwrap();
             }
             // stash for RSL operations
-            let stash_id = super::stash_local_changes(&mut context.local).unwrap().to_owned();
+            let stash_id = super::stash_local_changes(&mut context.local)
+                .unwrap()
+                .to_owned();
             // should NOT have stashed something because we are no longer stashing ignored files
             assert!(stash_id.is_none());
             // worktree should still contain untracked file
@@ -652,7 +710,10 @@ mod test {
     #[test]
     fn get_username() {
         let context = setup_fresh();
-        assert_eq!(super::username(&context.local).unwrap(), String::from("idontexistanythingaboutthat"));
+        assert_eq!(
+            super::username(&context.local).unwrap(),
+            String::from("idontexistanythingaboutthat")
+        );
         teardown_fresh(context);
     }
 }

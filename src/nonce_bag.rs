@@ -6,15 +6,14 @@ use std::path::Path;
 
 use std::io::prelude::*;
 
-
-use git2::{self, Repository, Oid};
+use git2::{self, Oid, Repository};
 use serde_json;
 
 use nonce::Nonce;
 use errors::*;
 use utils::git;
 
-const NONCE_BAG_PATH: & str = "NONCE_BAG";
+const NONCE_BAG_PATH: &str = "NONCE_BAG";
 
 #[derive(Eq, PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct NonceBag {
@@ -23,7 +22,9 @@ pub struct NonceBag {
 
 impl NonceBag {
     pub fn new() -> NonceBag {
-        NonceBag {bag: HashMap::new()}
+        NonceBag {
+            bag: HashMap::new(),
+        }
     }
 
     pub fn insert(&mut self, name: &str, nonce: Nonce) -> Option<Nonce> {
@@ -39,7 +40,8 @@ impl NonceBag {
         Ok(result)
     }
     pub fn to_string(&self) -> Result<String> {
-        let result = serde_json::to_string(self).chain_err(|| "couldn't serialize nonce bag struct")?;
+        let result =
+            serde_json::to_string(self).chain_err(|| "couldn't serialize nonce bag struct")?;
         Ok(result)
     }
 }
@@ -51,10 +53,14 @@ pub trait HasNonceBag {
 }
 
 impl HasNonceBag for Repository {
-
     fn read_nonce_bag(&self) -> Result<NonceBag> {
         let nonce_bag_path = &self.path().parent().unwrap().join(NONCE_BAG_PATH);
-        let mut f = OpenOptions::new().read(true).write(true).create(true).open(&nonce_bag_path).chain_err(|| "couldn't open nonce bag for reading")?;
+        let mut f = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(&nonce_bag_path)
+            .chain_err(|| "couldn't open nonce bag for reading")?;
         let mut buffer = String::new();
         f.read_to_string(&mut buffer)?;
         let nonce_bag = NonceBag::from_str(&buffer)?;
@@ -64,20 +70,23 @@ impl HasNonceBag for Repository {
     fn write_nonce_bag(&self, nonce_bag: &NonceBag) -> Result<()> {
         let text = nonce_bag.to_string()?;
         let nonce_bag_path = self.path().parent().unwrap().join(NONCE_BAG_PATH);
-        let mut f = OpenOptions::new().write(true).create(true).truncate(true).open(&nonce_bag_path).chain_err(|| "couldn't open nonce bag file for writing")?;
-        f.write_all(&text.as_bytes()).chain_err(|| "couldnt write to nonce bag file")?;
-         Ok(())
+        let mut f = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&nonce_bag_path)
+            .chain_err(|| "couldn't open nonce bag file for writing")?;
+        f.write_all(&text.as_bytes())
+            .chain_err(|| "couldnt write to nonce bag file")?;
+        Ok(())
     }
 
     fn commit_nonce_bag(&self) -> Result<Oid> {
         let path = Path::new(NONCE_BAG_PATH);
         let message = "Update nonce bag";
 
-        let commit_oid = git::add_and_commit_signed(
-            self,
-            Some(&path),
-            &message,
-            &"RSL").chain_err(|| "failed to commit nonce bag")?;
+        let commit_oid = git::add_and_commit_signed(self, Some(&path), &message, &"RSL")
+            .chain_err(|| "failed to commit nonce bag")?;
 
         debug_assert!(self.state() == git2::RepositoryState::Clean);
 
@@ -90,9 +99,24 @@ mod tests {
     use super::*;
     use utils::test_helper::*;
 
-    const NONCE1: Nonce = Nonce {bytes: [145,161,65,251,112,184,238,36,105,54,150,202,74,26,148,121,106,40,239,155,31,232,49,251,215,71,200,240,105,73,0,84]};
-    const NONCE2: Nonce = Nonce { bytes: [100,223,169,31,154,84,127,151,178,254,47,129,230,74,10,10,170,13,31,199,167,68,28,149,131,10,110,201,71,146,214,78]};
-    const NONCE3: Nonce = Nonce { bytes: [165,36,170,43,1,62,34,53,25,160,177,19,87,62,189,151,168,134,196,85,33,237,9,52,198,39,79,32,180,145,165,132]};
+    const NONCE1: Nonce = Nonce {
+        bytes: [
+            145, 161, 65, 251, 112, 184, 238, 36, 105, 54, 150, 202, 74, 26, 148, 121, 106, 40,
+            239, 155, 31, 232, 49, 251, 215, 71, 200, 240, 105, 73, 0, 84,
+        ],
+    };
+    const NONCE2: Nonce = Nonce {
+        bytes: [
+            100, 223, 169, 31, 154, 84, 127, 151, 178, 254, 47, 129, 230, 74, 10, 10, 170, 13, 31,
+            199, 167, 68, 28, 149, 131, 10, 110, 201, 71, 146, 214, 78,
+        ],
+    };
+    const NONCE3: Nonce = Nonce {
+        bytes: [
+            165, 36, 170, 43, 1, 62, 34, 53, 25, 160, 177, 19, 87, 62, 189, 151, 168, 134, 196, 85,
+            33, 237, 9, 52, 198, 39, 79, 32, 180, 145, 165, 132,
+        ],
+    };
 
     fn bag_a() -> NonceBag {
         let mut bag = NonceBag::new();
@@ -166,4 +190,4 @@ mod tests {
         assert!(context.local.state() == git2::RepositoryState::Clean);
         teardown_fresh(context)
     }
- }
+}

@@ -5,13 +5,12 @@ use std::str;
 use std::io::prelude::*;
 use std::path::PathBuf;
 
-
 use super::git;
 
 use fs_extra::dir::*;
 use tempdir::TempDir;
 
-use git2::{Repository};
+use git2::Repository;
 
 pub struct Context {
     pub local: Repository,
@@ -31,14 +30,21 @@ pub fn setup_fresh() -> Context {
     fs::copy("fixtures/fixture.gitconfig", config_path).unwrap();
 
     // set gpghome for this process
-    let gnupghome = env::current_dir().unwrap().join("fixtures/fixture.gnupghome");
+    let gnupghome = env::current_dir()
+        .unwrap()
+        .join("fixtures/fixture.gnupghome");
     env::set_var("GNUPGHOME", gnupghome.to_str().unwrap());
 
     // add and commit some work
     let relative_path = Path::new("work.txt");
     let absolute_path = &local.path().parent().unwrap().join(&relative_path);
     create_file_with_text(&absolute_path, &"some work");
-    let _commit_id = git::add_and_commit(&local, Some(&relative_path), "Add example text file", "master").unwrap();
+    let _commit_id = git::add_and_commit(
+        &local,
+        Some(&relative_path),
+        "Add example text file",
+        "master",
+    ).unwrap();
 
     // init bare remote repo with same state
     let remote_dir = format!("{}.git", &local_dir.to_str().unwrap());
@@ -49,7 +55,11 @@ pub fn setup_fresh() -> Context {
 
     // set remote origin to remote repo
     &local.remote("origin", &remote_dir);
-    Context{local, remote, repo_dir}
+    Context {
+        local,
+        remote,
+        repo_dir,
+    }
 }
 
 pub fn create_file_with_text<P: AsRef<Path>>(path: P, text: &str) -> () {
@@ -72,7 +82,6 @@ fn rm_rf(path: &Path) -> () {
     fs::remove_dir_all(&path).unwrap();
     ()
 }
-
 
 #[cfg(test)]
 mod tests {

@@ -28,7 +28,8 @@ pub fn detached_sign(input: &str, _key_id: Option<&str>, gpghome: Option<&str>) 
     ctx.set_armor(true);
 
     let mut output = Vec::new();
-    ctx.sign_detached(input, &mut output).chain_err(|| "gpg signing failed")?;
+    ctx.sign_detached(input, &mut output)
+        .chain_err(|| "gpg signing failed")?;
     // TODO this should always be valid utf8  if the ascii-armored signature succeeded and we get this far but still...get rid of this unwrap please
     let string_version = String::from_utf8(output).unwrap();
 
@@ -48,7 +49,8 @@ pub fn verify_detached_signature(sig: &str, buf: &str, gpghome: Option<&str>) ->
         bail!("couldn't generate signature; gpg home not set");
     }
     ctx.set_armor(true);
-    ctx.verify_detached(sig, buf).chain_err(|| "gpg verification failed")?;
+    ctx.verify_detached(sig, buf)
+        .chain_err(|| "gpg verification failed")?;
 
     // return true if we verified successfully
     Ok(true)
@@ -56,7 +58,6 @@ pub fn verify_detached_signature(sig: &str, buf: &str, gpghome: Option<&str>) ->
 
 /// gpg2 --detach-sig <buf>
 pub fn cli_detached_sign(buf: &str, gpghome: Option<&str>) -> Result<Vec<u8>> {
-
     // write content to be signed to temporary file
     let cwd = std::env::current_dir()?;
     let mut file = NamedTempFile::new_in(cwd)?;
@@ -106,8 +107,7 @@ pub fn cli_verify_detached_signature(sig: &[u8], buf: &str, gpghome: Option<&str
         cmd.env("GNUPGHOME", path);
     }
 
-    let status = cmd.status()
-        .expect("failed to execute process");
+    let status = cmd.status().expect("failed to execute process");
 
     Ok(status.success()) // 0 exit code means verified
 }
@@ -130,7 +130,6 @@ mod tests {
     use std::fs::File;
     use std::io::prelude::*;
 
-
     #[test]
     fn detached_sign() {
         // sign as test user Testy McTesterson
@@ -143,7 +142,8 @@ mod tests {
 
         let signature = super::detached_sign(&doc_data, None, Some(&gpghome)).unwrap();
 
-        let result = super::verify_detached_signature(&signature, &doc_data, Some(&gpghome)).unwrap();
+        let result =
+            super::verify_detached_signature(&signature, &doc_data, Some(&gpghome)).unwrap();
         assert!(result);
     }
 
@@ -160,7 +160,8 @@ mod tests {
         let mut sig = File::open("./fixtures/test.txt.asc").unwrap();
         sig.read_to_string(&mut sig_data).unwrap();
 
-        let result = super::verify_detached_signature(&sig_data, &doc_data, Some(&gpghome)).unwrap();
+        let result =
+            super::verify_detached_signature(&sig_data, &doc_data, Some(&gpghome)).unwrap();
         assert!(result)
     }
 
@@ -197,7 +198,8 @@ mod tests {
         let mut sig = File::open("./fixtures/test.txt.asc").unwrap();
         sig.read_to_end(&mut sig_data).unwrap();
 
-        let result = super::cli_verify_detached_signature(&sig_data, &doc_data, Some(&gpghome)).unwrap();
+        let result =
+            super::cli_verify_detached_signature(&sig_data, &doc_data, Some(&gpghome)).unwrap();
         assert!(result)
     }
 
@@ -213,7 +215,8 @@ mod tests {
 
         let signature = super::cli_detached_sign(&doc_data, Some(&gpghome)).unwrap();
 
-        let result = super::cli_verify_detached_signature(&signature, &doc_data, Some(&gpghome)).unwrap();
+        let result =
+            super::cli_verify_detached_signature(&signature, &doc_data, Some(&gpghome)).unwrap();
         assert!(result);
     }
 
@@ -224,7 +227,8 @@ mod tests {
 
         let data = "some data to sign";
         let signature = super::cli_detached_sign(&data, Some(&gpghome)).unwrap();
-        let valid = super::cli_verify_detached_signature(&signature, &data, Some(&gpghome)).unwrap();
+        let valid =
+            super::cli_verify_detached_signature(&signature, &data, Some(&gpghome)).unwrap();
         assert!(valid)
     }
 }

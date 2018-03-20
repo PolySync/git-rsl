@@ -1,25 +1,29 @@
-use git2::{Repository, Remote};
+use git2::{Remote, Repository};
 
 use push_entry::PushEntry;
-use rsl::{RSL, HasRSL};
+use rsl::{HasRSL, RSL};
 use errors::*;
 
 use utils::git;
-pub fn secure_push<'remote, 'repo: 'remote>(repo: &'repo Repository, mut remote: &'remote mut Remote<'repo>, ref_names: &[&str]) -> Result<()> {
-
+pub fn secure_push<'remote, 'repo: 'remote>(
+    repo: &'repo Repository,
+    mut remote: &'remote mut Remote<'repo>,
+    ref_names: &[&str],
+) -> Result<()> {
     //let mut refs = ref_names.iter().filter_map(|name| &repo.find_reference(name).ok());
 
-    repo.fetch_rsl(&mut remote).chain_err(|| "Problem fetching Remote RSL. Check your connection or your SSH config")?;
+    repo.fetch_rsl(&mut remote)
+        .chain_err(|| "Problem fetching Remote RSL. Check your connection or your SSH config")?;
 
-    repo.init_rsl_if_needed(&mut remote).chain_err(|| "Problem initializing RSL")?;
+    repo.init_rsl_if_needed(&mut remote)
+        .chain_err(|| "Problem initializing RSL")?;
 
     // checkout RSL branch
     git::checkout_branch(repo, "refs/heads/RSL")?;
 
-
     'push: loop {
-
-        repo.fetch_rsl(&mut remote).chain_err(|| "Problem fetching Remote RSL. Check your connection or your SSH config")?;
+        repo.fetch_rsl(&mut remote)
+            .chain_err(|| "Problem fetching Remote RSL. Check your connection or your SSH config")?;
 
         let mut rsl = RSL::read(repo, &mut remote).chain_err(|| "couldn't read RSL")?;
 
@@ -42,14 +46,17 @@ pub fn secure_push<'remote, 'repo: 'remote>(repo: &'repo Repository, mut remote:
         match git::push(repo, rsl.remote, ref_names) {
             Ok(_) => break 'push,
             Err(e) => {
-                println!("Error: unable to push reference(s) {:?} to remote {:?}", ref_names.clone().join(", "), &rsl.remote.name().unwrap());
+                println!(
+                    "Error: unable to push reference(s) {:?} to remote {:?}",
+                    ref_names.clone().join(", "),
+                    &rsl.remote.name().unwrap()
+                );
                 println!("  {}", e);
-            },
+            }
         };
     }
     Ok(())
 }
-
 
 #[cfg(test)]
 mod tests {

@@ -3,17 +3,19 @@ use std::vec::Vec;
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
-
-use git2::{Repository, Remote, Oid, BranchType};
+use git2::{BranchType, Oid, Remote, Repository};
 
 use nonce_bag::HasNonceBag;
-use rsl::{RSL, HasRSL};
-use nonce::{Nonce, HasNonce};
+use rsl::{HasRSL, RSL};
+use nonce::{HasNonce, Nonce};
 use errors::*;
 use utils::git;
 
-pub fn secure_fetch<'remote, 'repo: 'remote>(repo: &'repo Repository, mut remote: &'remote mut Remote<'repo>, ref_names: &[&str]) -> Result<()> {
-
+pub fn secure_fetch<'remote, 'repo: 'remote>(
+    repo: &'repo Repository,
+    mut remote: &'remote mut Remote<'repo>,
+    ref_names: &[&str],
+) -> Result<()> {
     repo.fetch_rsl(&mut remote)?;
     repo.init_rsl_if_needed(&mut remote)?;
     //let (remote_rsl, local_rsl, nonce_bag, nonce) = repo.read_rsl()?.chain_err(|| "couldn't read RSL");
@@ -25,8 +27,10 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(repo: &'repo Repository, mut remote
     let mut store_counter = 5;
     let mut err: Result<()> = Err("".into());
     'store: loop {
-        if store_counter == 0  {
-            err.chain_err(|| "Couldn't store new fetch entry in RSL; check your connection and try again")?;
+        if store_counter == 0 {
+            err.chain_err(|| {
+                "Couldn't store new fetch entry in RSL; check your connection and try again"
+            })?;
         }
         let mut counter = 5;
         'fetch: loop {
@@ -45,14 +49,17 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(repo: &'repo Repository, mut remote
 
             let mut rsl = RSL::read(repo, &mut remote).chain_err(|| "couldn't read RSL")?;
 
-
             match git::fetch(repo, &mut rsl.remote, ref_names, None) {
                 Ok(_) => (),
                 Err(e) => {
-                    println!("Error: unable to fetch reference {} from remote {}", ref_names.clone().join(", "), &rsl.remote.name().unwrap());
+                    println!(
+                        "Error: unable to fetch reference {} from remote {}",
+                        ref_names.clone().join(", "),
+                        &rsl.remote.name().unwrap()
+                    );
                     println!("  {}", e);
                     process::exit(51);
-                },
+                }
             };
 
             if all_push_entries_in_fetch_head(repo, &rsl, ref_names) {
@@ -71,8 +78,17 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(repo: &'repo Repository, mut remote
         if !git::up_to_date(repo, "RSL", "origin/RSL")? {
             match git::fast_forward_possible(repo, "refs/remotes/origin/RSL") {
                 Ok(true) => git::fast_forward_onto_head(repo, "refs/remotes/origin/RSL")?,
-                Ok(false) => bail!("Local RSL cannot be fastforwarded to match remote. This may indicate that someone has tampered with the RSL history. Use caution before proceeding."),
-                Err(e) => Err(e).chain_err(|| "Local RSL cannot be fastforwarded to match remote. This may indicate that someone has tampered with the RSL history. Use caution before proceeding.")?,
+                Ok(false) => bail!(
+                    "Local RSL cannot be fastforwarded to match /
+                remote. This may indicate that someone has tampered with the /
+                RSL history. Use caution before proceeding."
+                ),
+                Err(e) => Err(e).chain_err(|| {
+                    "Local RSL cannot be /
+                fastforwarded to match remote. This may indicate that someone /
+                has tampered with the RSL history. Use caution before /
+                proceeding."
+                })?,
             }
         }
 
@@ -83,33 +99,41 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(repo: &'repo Repository, mut remote
             Err(e) => {
                 err = Err(e);
                 ()
-            },
+            }
         }
         store_counter -= 1;
     }
 
-
     Ok(())
 }
 
-
 fn all_push_entries_in_fetch_head(repo: &Repository, rsl: &RSL, ref_names: &[&str]) -> bool {
     // find the last push entry for each branch
-    let latest_push_entries: Vec<Oid> = ref_names.clone().into_iter().filter_map(|ref_name| {
-        match repo.find_last_remote_push_entry_for_branch(rsl, ref_name).ok() {
-            Some(Some(pe)) => Some(pe.head),
-            Some(None)| None => None,
-        }
-    }).collect();
+    let latest_push_entries: Vec<Oid> = ref_names
+        .clone()
+        .into_iter()
+        .filter_map(|ref_name| {
+            match repo.find_last_remote_push_entry_for_branch(rsl, ref_name)
+                .ok()
+            {
+                Some(Some(pe)) => Some(pe.head),
+                Some(None) | None => None,
+            }
+        })
+        .collect();
 
     // find the Oid of the tip of each remote fetched branch
-    let fetch_heads : Vec<Oid> = ref_names.clone().into_iter().filter_map(|ref_name| {
-        println!("ref_name: {:?}", ref_name);
-        match repo.find_branch(&format!("origin/{}", ref_name), BranchType::Remote) {
-            Ok(branch) => branch.get().target(),
-            Err(_) => None
-        }
-    }).collect();
+    let fetch_heads: Vec<Oid> = ref_names
+        .clone()
+        .into_iter()
+        .filter_map(|ref_name| {
+            println!("ref_name: {:?}", ref_name);
+            match repo.find_branch(&format!("origin/{}", ref_name), BranchType::Remote) {
+                Ok(branch) => branch.get().target(),
+                Err(_) => None,
+            }
+        })
+        .collect();
     let push_entries: HashSet<&Oid> = HashSet::from_iter(&latest_push_entries);
     let fetch_head: HashSet<&Oid> = HashSet::from_iter(&fetch_heads);
 
@@ -117,7 +141,6 @@ fn all_push_entries_in_fetch_head(repo: &Repository, rsl: &RSL, ref_names: &[&st
     println!("fetch_heads {:?}", fetch_head);
     push_entries.is_subset(&fetch_head)
 }
-
 
 // fn last_push_entry_for(repo: &Repository, reference: &str) -> Option<PushEntry> {
 //     //TODO Actually walk the commits and look for the most recent for the branch we're interested
