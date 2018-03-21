@@ -13,13 +13,19 @@ use errors::*;
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct Nonce {
-    pub bytes: [u8; 32],
+    bytes: [u8; 32],
 }
 
 impl Nonce {
     pub fn new() -> Result<Nonce> {
         let mut rng = OsRng::new().chain_err(|| "no randum number generator")?;
         Ok(rng.gen())
+    }
+
+    pub fn from_bytes(bytes: [u8; 32]) -> Nonce {
+        Nonce {
+            bytes
+        }
     }
 
     pub fn from_str(string: &str) -> Result<Nonce> {
@@ -99,16 +105,15 @@ mod tests {
     use std::fs::File;
     use super::*;
 
-    const FAKE_NONCE: Nonce = Nonce {
-        bytes: [
-            224, 251, 50, 63, 34, 58, 207, 35, 15, 74, 137, 143, 176, 178, 92, 226, 103, 114, 220,
-            224, 180, 21, 241, 2, 213, 252, 126, 245, 137, 245, 119, 45,
-        ],
-    };
+    fn fake_nonce() -> Nonce {
+        Nonce::from_bytes(
+            [224, 251, 50, 63, 34, 58, 207, 35, 15, 74, 137, 143, 176, 178, 92, 226, 103, 114, 220, 224, 180, 21, 241, 2, 213, 252, 126, 245, 137, 245, 119, 45,
+        ])
+    }
 
     #[test]
     fn equality() {
-        assert_eq!(FAKE_NONCE, FAKE_NONCE)
+        assert_eq!(fake_nonce(), fake_nonce())
     }
 
     #[test]
@@ -120,7 +125,7 @@ mod tests {
             ],
         };
 
-        assert_ne!(nonce1, FAKE_NONCE)
+        assert_ne!(nonce1, fake_nonce())
     }
 
     #[test]
@@ -128,14 +133,14 @@ mod tests {
         let context = setup_fresh();
         {
             let repo = &context.local;
-            repo.write_nonce(&FAKE_NONCE).unwrap();
+            repo.write_nonce(&fake_nonce()).unwrap();
             let nonce = repo.read_nonce().unwrap();
             let nonce_file = &repo.path().join("NONCE");
             let mut f = File::open(&nonce_file).expect("file not found");
             let mut contents = vec![];
             f.read_to_end(&mut contents)
                 .expect("something went wrong reading the file");
-            assert_eq!(nonce, FAKE_NONCE);
+            assert_eq!(nonce, fake_nonce());
         }
         teardown_fresh(context);
     }
@@ -145,9 +150,9 @@ mod tests {
         let context = setup_fresh();
         {
             let repo = &context.local;
-            repo.write_nonce(&FAKE_NONCE).unwrap();
+            repo.write_nonce(&fake_nonce()).unwrap();
             let nonce = repo.read_nonce().unwrap();
-            assert_eq!(nonce, FAKE_NONCE);
+            assert_eq!(nonce, fake_nonce());
         }
         teardown_fresh(context);
     }
@@ -155,13 +160,13 @@ mod tests {
     #[test]
     fn to_string() {
         let serialized = "{\"bytes\":[224,251,50,63,34,58,207,35,15,74,137,143,176,178,92,226,103,114,220,224,180,21,241,2,213,252,126,245,137,245,119,45]}";
-        assert_eq!(&FAKE_NONCE.to_string().unwrap(), &serialized)
+        assert_eq!(&fake_nonce().to_string().unwrap(), &serialized)
     }
 
     #[test]
     fn from_str() {
         let serialized = "{\"bytes\":[224,251,50,63,34,58,207,35,15,74,137,143,176,178,92,226,103,114,220,224,180,21,241,2,213,252,126,245,137,245,119,45]}";
         let deserialized = Nonce::from_str(&serialized).unwrap();
-        assert_eq!(&deserialized, &FAKE_NONCE)
+        assert_eq!(&deserialized, &fake_nonce())
     }
 }

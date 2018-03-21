@@ -99,30 +99,30 @@ mod tests {
     use super::*;
     use utils::test_helper::*;
 
-    const NONCE1: Nonce = Nonce {
-        bytes: [
+    fn nonce_1() -> Nonce {
+        Nonce::from_bytes([
             145, 161, 65, 251, 112, 184, 238, 36, 105, 54, 150, 202, 74, 26, 148, 121, 106, 40,
             239, 155, 31, 232, 49, 251, 215, 71, 200, 240, 105, 73, 0, 84,
-        ],
-    };
-    const NONCE2: Nonce = Nonce {
-        bytes: [
+        ])
+    }
+    fn nonce_2() -> Nonce {
+        Nonce::from_bytes([
             100, 223, 169, 31, 154, 84, 127, 151, 178, 254, 47, 129, 230, 74, 10, 10, 170, 13, 31,
             199, 167, 68, 28, 149, 131, 10, 110, 201, 71, 146, 214, 78,
-        ],
-    };
-    const NONCE3: Nonce = Nonce {
-        bytes: [
+        ])
+    }
+    fn nonce_3() -> Nonce {
+        Nonce::from_bytes([
             165, 36, 170, 43, 1, 62, 34, 53, 25, 160, 177, 19, 87, 62, 189, 151, 168, 134, 196, 85,
             33, 237, 9, 52, 198, 39, 79, 32, 180, 145, 165, 132,
-        ],
-    };
+        ])
+    }
 
     fn bag_a() -> NonceBag {
         let mut bag = NonceBag::new();
-        bag.insert("dev1", NONCE1);
-        bag.insert("dev2", NONCE2);
-        bag.insert("dev3", NONCE3);
+        bag.insert("dev1", nonce_1());
+        bag.insert("dev2", nonce_2());
+        bag.insert("dev3", nonce_3());
         bag
     }
 
@@ -174,11 +174,10 @@ mod tests {
                 }
             }
         }"#;
-        // "{\"bag\":[{\"bytes\":[145,161,65,251,112,184,238,36,105,54,150,202,74,26,148,121,106,40,239,155,31,232,49,251,215,71,200,240,105,73,0,84]},{\"bytes\":[100,223,169,31,154,84,127,151,178,254,47,129,230,74,10,10,170,13,31,199,167,68,28,149,131,10,110,201,71,146,214,78]},{\"bytes\":[165,36,170,43,1,62,34,53,25,160,177,19,87,62,189,151,168,134,196,85,33,237,9,52,198,39,79,32,180,145,165,132]}]}";
         let nonce_bag = NonceBag::from_str(&serialized).unwrap();
-        assert_eq!(nonce_bag.bag.get("dev1").unwrap(), &NONCE1);
-        assert_eq!(nonce_bag.bag.get("dev2").unwrap(), &NONCE2);
-        assert_eq!(nonce_bag.bag.get("dev3").unwrap(), &NONCE3);
+        assert_eq!(nonce_bag.bag.get("dev1").unwrap(), &nonce_1());
+        assert_eq!(nonce_bag.bag.get("dev2").unwrap(), &nonce_2());
+        assert_eq!(nonce_bag.bag.get("dev3").unwrap(), &nonce_3());
     }
 
     #[test]
