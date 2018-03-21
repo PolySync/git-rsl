@@ -41,7 +41,7 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
 
             // reject if one of the branches has no rsl push entry
             for branch in ref_names {
-                match repo.find_last_remote_push_entry_for_branch(&rsl, &branch) {
+                match rsl.find_last_remote_push_entry_for_branch(&branch) {
                     Ok(None) => bail!("no push records for the ref you are attempting to fetch"),
                     Err(e) => return Err(e.chain_err(|| "couldn't check that provided refs are valid")),
                     Ok(_) => (),
@@ -99,7 +99,7 @@ fn all_push_entries_in_fetch_head(repo: &Repository, rsl: &RSL, ref_names: &[&st
         .clone()
         .into_iter()
         .filter_map(|ref_name| {
-            match repo.find_last_remote_push_entry_for_branch(rsl, ref_name)
+            match rsl.find_last_remote_push_entry_for_branch(ref_name)
                 .ok()
             {
                 Some(Some(pe)) => Some(pe.head()),

@@ -35,8 +35,8 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
     ) -> Result<RSL<'remote, 'repo>> {
         let remote_head = git::oid_from_long_name(repo, "refs/remotes/origin/RSL")?;
         let local_head = git::oid_from_long_name(repo, "refs/heads/RSL")?;
-        let last_local_push_entry = repo.find_last_push_entry(&local_head)?;
-        let last_remote_push_entry = repo.find_last_push_entry(&remote_head)?;
+        let last_local_push_entry = find_last_push_entry(repo, &local_head)?;
+        let last_remote_push_entry = find_last_push_entry(repo, &remote_head)?;
         let nonce_bag = repo.read_nonce_bag().chain_err(|| "nonce bag read error")?;
         let nonce = repo.read_nonce().chain_err(|| "nonce read error")?;
         let rsl: RSL<'remote, 'repo> = RSL {
@@ -185,7 +185,7 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
             }
         }
         self.local_head = self.remote_head;
-        self.last_local_push_entry = self.repo.find_last_push_entry(&self.local_head)?;
+        self.last_local_push_entry = find_last_push_entry(self.repo, &self.local_head)?;
         Ok(())
     }
 
@@ -202,39 +202,16 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
         self.remote_head = self.local_head;
         Ok(())
     }
-}
 
-fn verify_commit_signature(repo: &Repository, oid: Oid) -> Result<bool> {
-    let (sig, content) = repo.extract_signature(&oid, None)?;
-    gpg::verify_detached_signature(sig.as_str().ok_or("")?, content.as_str().ok_or("")?, None)
-}
-
-
-pub trait HasRSL<'repo> {
-    fn init_rsl_if_needed(&self, remote: &mut Remote) -> Result<()>;
-    fn rsl_init_global(&self, remote: &mut Remote) -> Result<()>;
-    fn rsl_init_local(&self, remote: &mut Remote) -> Result<()>;
-    fn fetch_rsl(&self, remote: &mut Remote) -> Result<()>;
-    fn commit_push_entry(&self, push_entry: &PushEntry, branch: &str) -> Result<Oid>;
-    fn find_last_push_entry(&self, oid: &Oid) -> Result<PushEntry>;
-    fn find_last_remote_push_entry_for_branch(
+    pub fn find_last_remote_push_entry_for_branch(
         &self,
-        rsl: &RSL,
-        reference: &str,
-    ) -> Result<Option<PushEntry>>;
-}
-
-impl<'repo> HasRSL<'repo> for Repository {
-    fn find_last_remote_push_entry_for_branch(
-        &self,
-        rsl: &RSL,
         reference: &str,
     ) -> Result<Option<PushEntry>> {
-        let mut revwalk: Revwalk = self.revwalk()?;
-        revwalk.push(rsl.remote_head)?;
-        let mut current = Some(rsl.remote_head);
+        let mut revwalk: Revwalk = self.repo.revwalk()?;
+        revwalk.push(self.remote_head)?;
+        let mut current = Some(self.remote_head);
         while current != None {
-            if let Some(pe) = PushEntry::from_oid(self, &current.unwrap())? {
+            if let Some(pe) = PushEntry::from_oid(self.repo, &current.unwrap())? {
                 if pe.branch() == reference {
                     return Ok(Some(pe));
                 }
@@ -244,21 +221,37 @@ impl<'repo> HasRSL<'repo> for Repository {
         }
         Ok(None)
     }
+}
 
-    // find the last commit on the branch pointed to by the given Oid that represents a push entry
-    fn find_last_push_entry(&self, oid: &Oid) -> Result<PushEntry> {
-        let tree_tip = oid;
-        let mut revwalk: Revwalk = self.revwalk().expect("Failed to make revwalk");
-        revwalk.push(tree_tip.clone())?;
-        let mut current = Some(tree_tip.clone());
-        while current != None {
-            if let Some(pe) = PushEntry::from_oid(self, &current.unwrap())? {
-                return Ok(pe);
-            }
-            current = revwalk.next().and_then(|res| res.ok()); // .next returns Opt<Res<Oid>>
+fn verify_commit_signature(repo: &Repository, oid: Oid) -> Result<bool> {
+    let (sig, content) = repo.extract_signature(&oid, None)?;
+    gpg::verify_detached_signature(sig.as_str().ok_or("")?, content.as_str().ok_or("")?, None)
+}
+
+// find the last commit on the branch pointed to by the given Oid that represents a push entry
+fn find_last_push_entry(repo: &Repository, oid: &Oid) -> Result<PushEntry> {
+    let tree_tip = oid;
+    let mut revwalk: Revwalk = repo.revwalk().expect("Failed to make revwalk");
+    revwalk.push(tree_tip.clone())?;
+    let mut current = Some(tree_tip.clone());
+    while current != None {
+        if let Some(pe) = PushEntry::from_oid(repo, &current.unwrap())? {
+            return Ok(pe);
         }
-        bail!("no push entries on this branch")
+        current = revwalk.next().and_then(|res| res.ok()); // .next returns Opt<Res<Oid>>
     }
+    bail!("no push entries on this branch")
+}
+
+pub trait HasRSL<'repo> {
+    fn init_rsl_if_needed(&self, remote: &mut Remote) -> Result<()>;
+    fn rsl_init_global(&self, remote: &mut Remote) -> Result<()>;
+    fn rsl_init_local(&self, remote: &mut Remote) -> Result<()>;
+    fn fetch_rsl(&self, remote: &mut Remote) -> Result<()>;
+    fn commit_push_entry(&self, push_entry: &PushEntry, branch: &str) -> Result<Oid>;
+}
+
+impl<'repo> HasRSL<'repo> for Repository {
 
     fn rsl_init_global(&self, remote: &mut Remote) -> Result<()> {
         println!("Initializing Reference State Log for this repository.");
