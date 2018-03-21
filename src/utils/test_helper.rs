@@ -2,39 +2,20 @@ use std::path::Path;
 use std::env;
 use std::fs::{self, File};
 use std::str;
-use std::ffi::OsStr;
 use std::io::prelude::*;
 use std::path::PathBuf;
-
-
-
-use std::process::{Command, Output};
 
 use super::git;
 
 use fs_extra::dir::*;
 use tempdir::TempDir;
 
-use git2::{Repository, REPOSITORY_OPEN_BARE, Config};
-use rand::{Rng, thread_rng};
+use git2::Repository;
 
 pub struct Context {
     pub local: Repository,
     pub remote: Repository,
     pub repo_dir: PathBuf,
-}
-
-impl Context {
-    pub fn checkout(&mut self, branch: &str) -> &mut Context {
-        let cmd = Command::new("git")
-        .current_dir(self.local.path().parent().unwrap())
-        .args(&["checkout", branch])
-        .output().unwrap();
-        if cmd.status.success() != true {
-            panic!("{}", str::from_utf8(cmd.stderr.as_ref()).unwrap())
-        }
-        self
-    }
 }
 
 pub fn setup_fresh() -> Context {
@@ -48,11 +29,22 @@ pub fn setup_fresh() -> Context {
     let config_path = &local.path().join("config");
     fs::copy("fixtures/fixture.gitconfig", config_path).unwrap();
 
+    // set gpghome for this process
+    let gnupghome = env::current_dir()
+        .unwrap()
+        .join("fixtures/fixture.gnupghome");
+    env::set_var("GNUPGHOME", gnupghome.to_str().unwrap());
+
     // add and commit some work
     let relative_path = Path::new("work.txt");
     let absolute_path = &local.path().parent().unwrap().join(&relative_path);
     create_file_with_text(&absolute_path, &"some work");
-    let _commit_id = git::add_and_commit(&local, Some(&relative_path), "Add example text file", "master").unwrap();
+    let _commit_id = git::add_and_commit(
+        &local,
+        Some(&relative_path),
+        "Add example text file",
+        "refs/heads/master",
+    ).unwrap();
 
     // init bare remote repo with same state
     let remote_dir = format!("{}.git", &local_dir.to_str().unwrap());
@@ -63,7 +55,11 @@ pub fn setup_fresh() -> Context {
 
     // set remote origin to remote repo
     &local.remote("origin", &remote_dir);
-    Context{local, remote, repo_dir}
+    Context {
+        local,
+        remote,
+        repo_dir,
+    }
 }
 
 pub fn create_file_with_text<P: AsRef<Path>>(path: P, text: &str) -> () {
@@ -78,13 +74,8 @@ pub fn teardown_fresh(context: Context) {
 }
 
 pub fn do_work_on_branch(repo: &Repository, branch_name: &str) -> () {
-    git::checkout_branch(&repo, format!("refs/heads/{}", branch_name).as_str()).unwrap();
+    git::checkout_branch(&repo, branch_name).unwrap();
     git::add_and_commit(&repo, None, "a commit with some work", branch_name).unwrap();
-}
-
-fn open_bare_repository<P>(path: P) -> Repository
-    where P: AsRef<Path>, P: AsRef<OsStr> {
-    Repository::open_ext(&path, REPOSITORY_OPEN_BARE,  &[] as &[&OsStr]).unwrap()
 }
 
 fn rm_rf(path: &Path) -> () {
@@ -92,10 +83,10 @@ fn rm_rf(path: &Path) -> () {
     ()
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use git2::Config;
 
     #[test]
     fn setup_config() {
