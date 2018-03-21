@@ -17,7 +17,7 @@ const NONCE_BAG_PATH: &str = "NONCE_BAG";
 
 #[derive(Eq, PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct NonceBag {
-    pub bag: HashMap<String, Nonce>,
+    bag: HashMap<String, Nonce>,
 }
 
 impl NonceBag {
