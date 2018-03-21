@@ -24,23 +24,23 @@ pub fn secure_push<'remote, 'repo: 'remote>(
     'push: loop {
         repo.fetch_rsl(&mut remote)
             .chain_err(|| "Problem fetching Remote RSL. Check your connection or your SSH config")?;
+        {
+            let mut rsl = RSL::read(repo, &mut remote).chain_err(|| "couldn't read RSL")?;
 
-        let mut rsl = RSL::read(repo, &mut remote).chain_err(|| "couldn't read RSL")?;
+            rsl.validate().chain_err(|| ErrorKind::InvalidRSL)?;
 
-        rsl.validate().chain_err(|| ErrorKind::InvalidRSL)?;
+            rsl.update_local()?;
 
-        rsl.update_local()?;
-
-        rsl.add_push_entry(ref_names)?;
-        rsl.push()?;
-
-        match git::push(repo, rsl.remote, ref_names) {
+            rsl.add_push_entry(ref_names)?;
+            rsl.push()?;
+        }
+        match git::push(repo, &mut remote, ref_names) {
             Ok(_) => break 'push,
             Err(e) => {
                 println!(
                     "Error: unable to push reference(s) {:?} to remote {:?}",
                     ref_names.clone().join(", "),
-                    &rsl.remote.name().unwrap()
+                    &remote.name().unwrap()
                 );
                 println!("  {}", e);
             }

@@ -18,15 +18,15 @@ pub enum RSLType {
 
 //#[derive(Debug)]
 pub struct RSL<'remote, 'repo: 'remote> {
-    pub remote: &'remote mut Remote<'repo>,
-    pub repo: &'remote Repository,
+    remote: &'remote mut Remote<'repo>,
+    repo: &'remote Repository,
     //remote: &'repo Remote,
-    pub local_head: Oid,
-    pub remote_head: Oid,
-    pub last_local_push_entry: PushEntry,
-    pub last_remote_push_entry: PushEntry,
-    pub nonce_bag: NonceBag,
-    pub nonce: Nonce,
+    local_head: Oid,
+    remote_head: Oid,
+    last_local_push_entry: PushEntry,
+    last_remote_push_entry: PushEntry,
+    nonce_bag: NonceBag,
+    nonce: Nonce,
 }
 
 impl<'remote, 'repo> RSL<'remote, 'repo> {
