@@ -35,6 +35,13 @@ impl NonceBag {
         self.bag.remove(name)
     }
 
+    pub fn contains(&self, name: &str, nonce: &Nonce) -> bool {
+        match self.bag.get(name) {
+            Some(nonce) => true,
+            Some(_) | None => false
+        }
+    }
+
     pub fn from_str(string: &str) -> Result<NonceBag> {
         let result = serde_json::from_str(string).chain_err(|| "couldn't parse nonce bag as JSON")?;
         Ok(result)

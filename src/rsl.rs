@@ -26,6 +26,7 @@ pub struct RSL<'remote, 'repo: 'remote> {
     last_remote_push_entry: PushEntry,
     nonce_bag: NonceBag,
     nonce: Nonce,
+    username: String,
 }
 
 impl<'remote, 'repo> RSL<'remote, 'repo> {
@@ -39,6 +40,8 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
         let last_remote_push_entry = find_last_push_entry(repo, &remote_head)?;
         let nonce_bag = repo.read_nonce_bag().chain_err(|| "nonce bag read error")?;
         let nonce = repo.read_nonce().chain_err(|| "nonce read error")?;
+        let username = git::username(repo)?;
+
         let rsl: RSL<'remote, 'repo> = RSL {
             repo,
             remote,
@@ -48,6 +51,7 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
             last_remote_push_entry,
             nonce_bag,
             nonce,
+            username,
         };
         Ok(rsl)
     }
@@ -85,20 +89,16 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
                         println!("is push entry!!");
                         let current_prev_hash = entry.prev_hash();
 
-                        // if current prev_hash == local_rsl.head (that is, we
-                        // have arrived at the first push entry after the last
-                        // recorded one), then check if repo_nonce in
-                        // PushEntry::from_oid(oid.parent_commit) or noncebag
-                        // contains repo_nonce; return false if neither holds
-                        //if current_prev_hash == last_local_push_entry.hash() {
-
                         // validate nonce bag (lines 1-2):
-                        // TODO does this take care of when there haven't been
-                        // any new entries or only one new entry?
-                        //if !nonce_bag.bag.contains(&repo_nonce) && !current_push_entry.nonce_bag.bag.contains(&repo_nonce) { // repo nonce not in remote nonce bag && repo_nonce not in remote_rsl.push_after(local_rsl){
-                        //    None;
-                        //}
-                        //}
+                        // if we have arrived at the first *new* push entry after the last local one recorded one), then check if local nonce is either a) in the nonce bag, or b) in the first new push entry. If not, then someone may have tampered with the RSL
+                        // TODO does this take care of when there haven't been any new entries or only one new entry?
+                        if current_prev_hash == self.last_local_push_entry.hash() {
+
+                            if !self.nonce_bag.contains(&self.username, &self.nonce) && !entry.get_nonce_bag().contains(&self.username, &self.nonce) {
+                                //bail!(ErrorKind::MismatchedNonce)
+                                return None
+                            }
+                        }
                         println!("current_prev_hash: {:?}", current_prev_hash);
 
                         let current_hash = entry.hash();
@@ -116,6 +116,7 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
             });
 
         if result == None {
+            // TODO would be nice to bubble up what kind of invalidity we are dealing with
             bail!("invalid RSL entry");
         }
 

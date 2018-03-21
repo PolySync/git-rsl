@@ -78,6 +78,10 @@ impl PushEntry {
         &self.branch
     }
 
+    pub fn get_nonce_bag(&self) -> &NonceBag {
+        &self.nonce_bag
+    }
+
     pub fn hash(&self) -> String {
         let mut hasher = Sha3::sha3_512();
 
