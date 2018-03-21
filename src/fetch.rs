@@ -35,15 +35,18 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
             }
             repo.fetch_rsl(&mut remote)?;
 
-            // TODO reject if one of the branches has no rsl push entry
-            //for branch in ref_names {
-            //    match last_push_entry_for(&branch) {
-            //        branch.head.oid => ok
-            //        _ => error
-            //    }
-            //}
+
             let mut remote_2 = remote.clone();
             let rsl = RSL::read(repo, &mut remote_2).chain_err(|| "couldn't read RSL")?;
+
+            // reject if one of the branches has no rsl push entry
+            for branch in ref_names {
+                match repo.find_last_remote_push_entry_for_branch(&rsl, &branch) {
+                    Ok(None) => bail!("no push records for the ref you are attempting to fetch"),
+                    Err(e) => return Err(e.chain_err(|| "couldn't check that provided refs are valid")),
+                    Ok(_) => (),
+                }
+            }
 
             match git::fetch(repo, &mut remote, ref_names, None) {
                 Ok(_) => (),
@@ -57,6 +60,10 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
                 }
             };
 
+            // paper aldorithm:
+            // 9    C <- RemoteRSL.latestPush(X).refPointer
+            // 10   id (C == FETCH_HEAD) and_then
+            // 11   fetch_success <- true
             if all_push_entries_in_fetch_head(repo, &rsl, ref_names) {
                 break 'fetch;
             }
