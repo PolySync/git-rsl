@@ -37,7 +37,7 @@ impl NonceBag {
 
     pub fn contains(&self, name: &str, nonce: &Nonce) -> bool {
         match self.bag.get(name) {
-            Some(nonce) => true,
+            Some(n) if n == nonce => true,
             Some(_) | None => false
         }
     }
