@@ -8,9 +8,7 @@ use std::fs::File;
 use std::process::Command;
 use tempfile::NamedTempFile;
 
-pub fn verify_commit_signature(_oid: Oid) -> Result<()> {
-    Ok(())
-}
+
 
 /// Signs with the provided key,
 /// or else uses the default signing key

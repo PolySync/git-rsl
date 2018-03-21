@@ -120,12 +120,12 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
             bail!("invalid RSL entry");
         }
 
-        // TODO really verify
-        // let (sig, data) = extract signature(commit_oid)
-        // gpg::verify_detached_signature(sig, data)
-        gpg::verify_commit_signature(self.remote_head)
-            .chain_err(|| "GPG signature of remote RSL head invalid")
+        match verify_commit_signature(self.repo, self.remote_head)? {
+            true => Ok(()),
+            false => bail!("GPG signature of remote RSL head invalid")
+        }
     }
+
 
     pub fn push(&mut self) -> Result<()> {
         println!("Pushing updated RSL to remote : )");
@@ -177,6 +177,12 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
         Ok(())
     }
 }
+
+fn verify_commit_signature(repo: &Repository, oid: Oid) -> Result<bool> {
+    let (sig, content) = repo.extract_signature(&oid, None)?;
+    gpg::verify_detached_signature(sig.as_str().ok_or("")?, content.as_str().ok_or("")?, None)
+}
+
 
 pub trait HasRSL<'repo> {
     fn init_rsl_if_needed(&self, remote: &mut Remote) -> Result<()>;
@@ -378,10 +384,10 @@ impl<'repo> HasRSL<'repo> for Repository {
             } // first use of git-rsl for repo
             (Ok(_), Err(_)) => {
                 self.rsl_init_local(remote)
-                    .chain_err(|| "could not initialize loxal rsl")?;
+                    .chain_err(|| "could not initialize local rsl")?;
                 Ok(())
             } // first use of git-rsl for this developer in this repo
-            (Err(_), Ok(_)) => bail!("RSL exists locally but not globally"), // local exists but global not found
+            (Err(_), Ok(_)) => bail!("RSL exists locally but not globally. Somebody has deleted the remote RSL for this project, or else you are interacting with a remote that does not have an RSL."), // local exists but global not found
             (Ok(_), Ok(_)) => Ok(()),                                        // RSL already set up
         }
     }
