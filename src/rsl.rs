@@ -570,4 +570,46 @@ mod tests {
         }
         teardown_fresh(context);
     }
+
+    #[test]
+    fn reset_remote_to_local() {
+        let context = setup_fresh();
+        {
+            let repo = &context.local;
+            let mut remote = repo.find_remote("origin").unwrap();
+            repo.rsl_init_global(&mut remote).unwrap();
+            {
+                let mut rsl = RSL::read(&repo, &mut remote).unwrap();
+
+                // checkout remote RSL and add some commits
+                git::checkout_branch(rsl.repo, "refs/remotes/origin/RSL");
+
+                // create push entry manuallly and commit it to the remote rsl branch
+                let prev_hash = rsl.last_remote_push_entry.hash();
+                let push_entry = PushEntry::new(&repo, &"master", prev_hash, rsl.nonce_bag);
+                let oid = repo.commit_push_entry(&push_entry, "refs/remotes/origin/RSL").unwrap();
+
+                // remote rsl head is this latest commit
+                let remote_head = rsl.repo.find_reference("refs/remotes/origin/RSL").unwrap().target().unwrap();
+                assert_eq!(oid, remote_head);
+
+                // remote and local rsl branches differ
+                let local_head = rsl.repo.find_reference("refs/heads/RSL").unwrap().target().unwrap();
+                assert_ne!(local_head, remote_head);
+            }
+            {
+                let mut rsl = RSL::read(&repo, &mut remote).unwrap();
+
+                // do reset
+                rsl.reset_remote_to_local().unwrap();
+
+                let remote_head = rsl.repo.find_reference("refs/remotes/origin/RSL").unwrap().target().unwrap();
+                let local_head = rsl.repo.find_reference("refs/heads/RSL").unwrap().target().unwrap();
+                assert_eq!(remote_head, local_head);
+                assert_eq!(rsl.remote_head, rsl.local_head);
+            }
+
+        }
+        teardown_fresh(context)
+    }
 }
