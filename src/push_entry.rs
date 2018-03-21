@@ -39,15 +39,13 @@ impl From<OidDef> for Oid {
 pub struct PushEntry {
     //#[serde(with = "Vec::<OidDef>")]
     //pub related_commits: Vec<Oid>,
-    pub branch: String,
-    #[serde(with = "OidDef")] pub head: Oid,
-    pub prev_hash: String,
-    pub nonce_bag: NonceBag,
-    pub signature: String,
+    branch: String,
+    #[serde(with = "OidDef")] head: Oid,
+    prev_hash: String,
+    nonce_bag: NonceBag,
 }
 
 impl PushEntry {
-    //TODO Implement
     pub fn new(
         repo: &Repository,
         branch_str: &str,
@@ -61,18 +59,23 @@ impl PushEntry {
             .unwrap();
 
         PushEntry {
-            //            related_commits: Vec::new(),
             branch: String::from(branch_str), //TODO change this to be all ref_names
-
             head: branch_head,
             prev_hash: prev,
             nonce_bag,
-            signature: String::from(""),
         }
     }
 
     pub fn prev_hash(&self) -> String {
         self.prev_hash.clone()
+    }
+
+    pub fn head(&self) -> Oid {
+        self.head.clone()
+    }
+
+    pub fn branch(&self) -> &str {
+        &self.branch
     }
 
     pub fn hash(&self) -> String {
@@ -133,7 +136,6 @@ mod tests {
             head: oid,
             prev_hash: String::from("fwjjk42ofw093j"),
             nonce_bag: NonceBag::new(),
-            signature: String::from("gpg signature"),
         };
         let serialized = &entry.to_string();
         println!("{}", &serialized);
@@ -150,8 +152,7 @@ mod tests {
             "prev_hash": "fwjjk42ofw093j",
             "nonce_bag": {
                 "bag": {}
-            },
-            "signature": "gpg_signature"
+            }
         }"#;
         let entry = PushEntry {
             //related_commits: vec![oid.to_owned(), oid.to_owned()],
@@ -159,7 +160,6 @@ mod tests {
             head: Oid::from_str("decbf2be529ab6557d5429922251e5ee36519817").unwrap(),
             prev_hash: String::from("fwjjk42ofw093j"),
             nonce_bag: NonceBag::new(),
-            signature: String::from("gpg_signature"),
         };
         let deserialized = PushEntry::from_str(&string).unwrap();
 
@@ -175,14 +175,12 @@ mod tests {
             let mut rem = repo.find_remote("origin").unwrap().to_owned();
             repo.rsl_init_global(&mut rem).unwrap();
             git::checkout_branch(repo, "refs/heads/RSL").unwrap();
-            let entry = PushEntry {
-                //related_commits: vec![oid.to_owned(), oid.to_owned()],
-                branch: String::from("branch_name"),
-                head: Oid::from_str("decbf2be529ab6557d5429922251e5ee36519817").unwrap(),
-                prev_hash: String::from("fwjjk42ofw093j"),
-                nonce_bag: NonceBag::new(),
-                signature: String::from("gpg signature"),
-            };
+            let entry = PushEntry::new(
+                repo,
+                &"master",
+                String::from("fwjjk42ofw093j"),
+                NonceBag::new()
+            );
             let oid = repo.commit_push_entry(&entry, "refs/heads/RSL").unwrap();
 
             assert_eq!(PushEntry::from_oid(&repo, &oid).unwrap().unwrap(), entry);

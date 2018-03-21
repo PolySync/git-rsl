@@ -54,7 +54,6 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
                         &rsl.remote.name().unwrap()
                     );
                     println!("  {}", e);
-                    process::exit(51);
                 }
             };
 
@@ -112,7 +111,7 @@ fn all_push_entries_in_fetch_head(repo: &Repository, rsl: &RSL, ref_names: &[&st
             match repo.find_last_remote_push_entry_for_branch(rsl, ref_name)
                 .ok()
             {
-                Some(Some(pe)) => Some(pe.head),
+                Some(Some(pe)) => Some(pe.head()),
                 Some(None) | None => None,
             }
         })

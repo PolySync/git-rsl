@@ -238,7 +238,7 @@ impl<'repo> HasRSL<'repo> for Repository {
         let mut current = Some(rsl.remote_head);
         while current != None {
             if let Some(pe) = PushEntry::from_oid(self, &current.unwrap())? {
-                if pe.branch == reference {
+                if pe.branch() == reference {
                     return Ok(Some(pe));
                 }
             }
@@ -537,14 +537,12 @@ mod tests {
             git::checkout_branch(repo, "refs/heads/RSL").unwrap();
 
             // try commit
-            let entry = PushEntry {
-                //related_commits: vec![oid.to_owned(), oid.to_owned()],
-                branch: String::from("branch_name"),
-                head: repo.head().unwrap().target().unwrap(),
-                prev_hash: String::from("hash_of_last_pushentry"),
-                nonce_bag: NonceBag::new(),
-                signature: String::from("gpg signature"),
-            };
+            let entry = PushEntry::new(
+                repo,
+                &"master", // branch
+                String::from("hash_of_last_pushentry"), // prev
+                NonceBag::new()
+            );
             let oid = repo.commit_push_entry(&entry, "refs/heads/RSL").unwrap();
 
             // we are on the correct branch with new commit at the tip
