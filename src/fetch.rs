@@ -18,8 +18,6 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
 ) -> Result<()> {
     repo.fetch_rsl(&mut remote)?;
     repo.init_rsl_if_needed(&mut remote)?;
-    //let (remote_rsl, local_rsl, nonce_bag, nonce) = repo.read_rsl()?.chain_err(|| "couldn't read RSL");
-
     git::checkout_branch(repo, "refs/heads/RSL")?;
 
     //TODO paper algo uses spin lock here, probably a better alternative
@@ -28,9 +26,7 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
     let mut err: Result<()> = Err("".into());
     'store: loop {
         if store_counter == 0 {
-            err.chain_err(|| {
-                "Couldn't store new fetch entry in RSL; check your connection and try again"
-            })?;
+            err.chain_err(|| "Couldn't store new fetch entry in RSL; check your connection and try again")?;
         }
         let mut counter = 5;
         'fetch: loop {

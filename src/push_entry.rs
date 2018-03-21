@@ -183,7 +183,7 @@ mod tests {
                 nonce_bag: NonceBag::new(),
                 signature: String::from("gpg signature"),
             };
-            let oid = repo.commit_push_entry(&entry).unwrap();
+            let oid = repo.commit_push_entry(&entry, "refs/heads/RSL").unwrap();
 
             assert_eq!(PushEntry::from_oid(&repo, &oid).unwrap().unwrap(), entry);
         }

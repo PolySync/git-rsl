@@ -97,10 +97,9 @@ pub fn add_and_commit(
     }
     let oid = index.write_tree()?;
     let signature = repo.signature()?;
-    let ref_name = format!("refs/heads/{}", branch);
 
     // If this is the first commit, it will have no parents
-    let parent = repo.find_reference(&ref_name)
+    let parent = repo.find_reference(branch)
         .and_then(|x| x.peel_to_commit())
         .ok();
     let tree = repo.find_tree(oid)?;
@@ -108,7 +107,7 @@ pub fn add_and_commit(
     // stupid duplication because &[&T] is a terrible type to mess with
     if let Some(parent_commit) = parent {
         let oid = repo.commit(
-            Some(&ref_name), //  point HEAD to our new commit
+            Some(branch), //  point HEAD to our new commit
             &signature,      // author
             &signature,      // committer
             message,         // commit message
@@ -118,7 +117,7 @@ pub fn add_and_commit(
         Ok(oid)
     } else {
         let oid = repo.commit(
-            Some(&ref_name), //  point HEAD to our new commit
+            Some(branch), //  point HEAD to our new commit
             &signature,      // author
             &signature,      // committer
             message,         // commit message
@@ -141,10 +140,9 @@ pub fn add_and_commit_signed(
     }
     let oid = index.write_tree()?;
     let signature = repo.signature()?;
-    let ref_name = format!("refs/heads/{}", branch);
 
     // If this is the first commit, it will have no parents
-    let parent = repo.find_reference(&ref_name)
+    let parent = repo.find_reference(branch)
         .and_then(|x| x.peel_to_commit())
         .ok();
     let tree = repo.find_tree(oid)?;
@@ -153,7 +151,7 @@ pub fn add_and_commit_signed(
     let oid = if let Some(parent_commit) = parent {
         let c = commit_signed(
             repo,
-            Some(&ref_name), //  point HEAD to our new commit
+            Some(branch), //  point HEAD to our new commit
             &signature,      // author
             &signature,      // committer
             message,         // commit message
@@ -164,7 +162,7 @@ pub fn add_and_commit_signed(
     } else {
         let c = commit_signed(
             repo,
-            Some(&ref_name), //  point HEAD to our new commit
+            Some(branch), //  point HEAD to our new commit
             &signature,      // author
             &signature,      // committer
             message,         // commit message
@@ -541,8 +539,8 @@ mod test {
             super::checkout_branch(&repo, &"refs/heads/branch").unwrap();
             assert!(repo.head().unwrap().name().unwrap() == "refs/heads/branch");
 
-            do_work_on_branch(&repo, &"branch");
-            do_work_on_branch(&repo, &"branch");
+            do_work_on_branch(&repo, &"refs/heads/branch");
+            do_work_on_branch(&repo, &"refs/heads/branch");
             super::checkout_branch(&repo, &"refs/heads/master").unwrap();
 
             let res = super::fast_forward_possible(&repo, &"refs/heads/branch").unwrap();
@@ -561,8 +559,8 @@ mod test {
             super::checkout_branch(&repo, &"refs/heads/branch").unwrap();
             assert!(repo.head().unwrap().name().unwrap() == "refs/heads/branch");
 
-            do_work_on_branch(&repo, &"branch");
-            do_work_on_branch(&repo, &"branch");
+            do_work_on_branch(&repo, &"refs/heads/branch");
+            do_work_on_branch(&repo, &"refs/heads/branch");
             super::checkout_branch(&repo, &"refs/heads/master").unwrap();
 
             super::fast_forward_onto_head(&repo, &"refs/heads/branch").unwrap();
@@ -621,7 +619,7 @@ mod test {
                     repo,
                     Some(Path::new(".gitignore")),
                     &"add gitignore",
-                    "master",
+                    "refs/heads/master",
                 ).unwrap();
                 // add file to be ignored
                 path = repo.path().parent().unwrap().join("foo.txt");

@@ -74,7 +74,7 @@ mod tests {
             let mut rem = repo.find_remote("origin").unwrap().to_owned();
             let refs = &["master"];
             super::secure_push(&repo, &mut rem, refs).unwrap();
-            do_work_on_branch(&repo, "master");
+            do_work_on_branch(&repo, "refs/heads/master");
             super::secure_push(&repo, &mut rem, refs).unwrap();
             // TODO add conditions
         }

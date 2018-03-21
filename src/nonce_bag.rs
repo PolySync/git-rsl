@@ -85,7 +85,7 @@ impl HasNonceBag for Repository {
         let path = Path::new(NONCE_BAG_PATH);
         let message = "Update nonce bag";
 
-        let commit_oid = git::add_and_commit_signed(self, Some(&path), &message, &"RSL")
+        let commit_oid = git::add_and_commit_signed(self, Some(&path), &message, &"refs/heads/RSL")
             .chain_err(|| "failed to commit nonce bag")?;
 
         debug_assert!(self.state() == git2::RepositoryState::Clean);

@@ -146,7 +146,7 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
 
         // commit new pushentry (TODO commit to detached HEAD instead of local RSL branch, in case someone else has updated and a fastforward is not possible)
         self.repo
-            .commit_push_entry(&new_push_entry)
+            .commit_push_entry(&new_push_entry, "refs/heads/RSL")
             .chain_err(|| "Couldn't commit new push entry")
     }
 
@@ -218,7 +218,7 @@ pub trait HasRSL<'repo> {
     fn rsl_init_global(&self, remote: &mut Remote) -> Result<()>;
     fn rsl_init_local(&self, remote: &mut Remote) -> Result<()>;
     fn fetch_rsl(&self, remote: &mut Remote) -> Result<()>;
-    fn commit_push_entry(&self, push_entry: &PushEntry) -> Result<Oid>;
+    fn commit_push_entry(&self, push_entry: &PushEntry, branch: &str) -> Result<Oid>;
     fn find_last_push_entry(&self, oid: &Oid) -> Result<PushEntry>;
     fn find_last_remote_push_entry_for_branch(
         &self,
@@ -242,7 +242,7 @@ impl<'repo> HasRSL<'repo> for Repository {
                     return Ok(Some(pe));
                 }
             }
-            // .next returns Opt<Res<Oid>>
+            // .next() returns Opt<Res<Oid>>
             current = revwalk.next().and_then(|res| res.ok());
         }
         Ok(None)
@@ -347,7 +347,7 @@ impl<'repo> HasRSL<'repo> for Repository {
 
         // create initial bootstrapping push entry
         let initial_pe = PushEntry::new(self, "RSL", String::from("First Push Entry"), nonce_bag);
-        self.commit_push_entry(&initial_pe)?;
+        self.commit_push_entry(&initial_pe, "refs/heads/RSL")?;
 
         // push new rsl branch
         git::push(self, remote, &["RSL"]).chain_err(|| "rsl init error")?;
@@ -386,9 +386,9 @@ impl<'repo> HasRSL<'repo> for Repository {
         Ok(())
     }
 
-    fn commit_push_entry(&self, push_entry: &PushEntry) -> Result<Oid> {
+    fn commit_push_entry(&self, push_entry: &PushEntry, branch: &str) -> Result<Oid> {
         let message = push_entry.to_string();
-        git::add_and_commit_signed(self, None, &message, RSL_BRANCH)
+        git::add_and_commit_signed(self, None, &message, branch)
             .chain_err(|| "could not commit push entry")
     }
 
@@ -474,7 +474,7 @@ mod tests {
                 &repo,
                 Some(&Path::new(".gitignore")),
                 "Add gitignore",
-                "master",
+                "refs/heads/master",
             ).unwrap();
 
             // add foo.txt
@@ -545,7 +545,7 @@ mod tests {
                 nonce_bag: NonceBag::new(),
                 signature: String::from("gpg signature"),
             };
-            let oid = repo.commit_push_entry(&entry).unwrap();
+            let oid = repo.commit_push_entry(&entry, "refs/heads/RSL").unwrap();
 
             // we are on the correct branch with new commit at the tip
             let head = repo.head().unwrap();

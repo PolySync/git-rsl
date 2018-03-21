@@ -43,7 +43,7 @@ pub fn setup_fresh() -> Context {
         &local,
         Some(&relative_path),
         "Add example text file",
-        "master",
+        "refs/heads/master",
     ).unwrap();
 
     // init bare remote repo with same state
@@ -74,7 +74,7 @@ pub fn teardown_fresh(context: Context) {
 }
 
 pub fn do_work_on_branch(repo: &Repository, branch_name: &str) -> () {
-    git::checkout_branch(&repo, format!("refs/heads/{}", branch_name).as_str()).unwrap();
+    git::checkout_branch(&repo, branch_name).unwrap();
     git::add_and_commit(&repo, None, "a commit with some work", branch_name).unwrap();
 }
 
