@@ -20,7 +20,6 @@ pub enum RSLType {
 pub struct RSL<'remote, 'repo: 'remote> {
     remote: &'remote mut Remote<'repo>,
     repo: &'remote Repository,
-    //remote: &'repo Remote,
     local_head: Oid,
     remote_head: Oid,
     last_local_push_entry: PushEntry,
@@ -52,8 +51,6 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
         };
         Ok(rsl)
     }
-
-
 
     pub fn validate(&self) -> Result<()> {
         // Ensure remote RSL head is a descendant of local RSL head.

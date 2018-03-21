@@ -69,23 +69,7 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
         rsl.validate().chain_err(|| ErrorKind::InvalidRSL)?;
 
         // Fastforward valid remote RSL onto local branch
-        // TODO deal with no change necessary
-        if !git::up_to_date(repo, "RSL", "origin/RSL")? {
-            match git::fast_forward_possible(repo, "refs/remotes/origin/RSL") {
-                Ok(true) => git::fast_forward_onto_head(repo, "refs/remotes/origin/RSL")?,
-                Ok(false) => bail!(
-                    "Local RSL cannot be fastforwarded to match /
-                remote. This may indicate that someone has tampered with the /
-                RSL history. Use caution before proceeding."
-                ),
-                Err(e) => Err(e).chain_err(|| {
-                    "Local RSL cannot be /
-                fastforwarded to match remote. This may indicate that someone /
-                has tampered with the RSL history. Use caution before /
-                proceeding."
-                })?,
-            }
-        }
+        rsl.update_local()?;
 
         rsl.update_nonce_bag()?;
 
