@@ -53,6 +53,8 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
         Ok(rsl)
     }
 
+
+
     pub fn validate(&self) -> Result<()> {
         // Ensure remote RSL head is a descendant of local RSL head.
         let descendant = self.repo
@@ -174,6 +176,33 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
         self.repo
             .commit_nonce_bag()
             .chain_err(|| "couldn't commit nonce bag")?;
+        Ok(())
+    }
+
+    pub fn update_local(&mut self) -> Result<()> {
+        if !git::up_to_date(self.repo, "RSL", "origin/RSL")? {
+            match git::fast_forward_possible(self.repo, "refs/remotes/origin/RSL") {
+                Ok(true) => git::fast_forward_onto_head(self.repo, "refs/remotes/origin/RSL")?,
+                Ok(false) => bail!("Local RSL cannot be fastforwarded to match remote. This may indicate that someone has tampered with the RSL history. Use caution before proceeding."),
+                Err(e) => Err(e).chain_err(|| "Local RSL cannot be fastforwarded to match remote. This may indicate that someone has tampered with the RSL history. Use caution before proceeding.")?,
+            }
+        }
+        self.local_head = self.remote_head;
+        self.last_local_push_entry = self.repo.find_last_push_entry(&self.local_head)?;
+        Ok(())
+    }
+
+    // If we have detected a problem with the RSL, we need to reset the fetched origin/RSL to the last trusted revision of our local RSL.
+    pub fn reset_remote_to_local(&mut self) -> Result<()> {
+        // ensure that the remote is ahead of the locall
+        self.repo.graph_descendant_of(self.local_head, self.remote_head)?;
+
+        // find reference of origin/RSL
+        let mut reference = self.repo.find_reference("refs/remotes/origin/RSL")?;
+        let msg = "Resetting RSL to last trusted state";
+        reference.set_target(self.local_head, &msg)?;
+
+        self.remote_head = self.local_head;
         Ok(())
     }
 }
