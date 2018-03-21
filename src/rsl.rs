@@ -8,7 +8,7 @@ use errors::*;
 use utils::*;
 
 const RSL_BRANCH: &str = "RSL";
-const REFLOG_MSG: &str = "Retrieve RSL branchs from remote";
+const REFLOG_MSG: &str = "Retrieve RSL branches from remote";
 
 #[derive(Debug)]
 pub enum RSLType {

@@ -127,15 +127,3 @@ fn all_push_entries_in_fetch_head(repo: &Repository, rsl: &RSL, ref_names: &[&st
     println!("fetch_heads {:?}", fetch_head);
     push_entries.is_subset(&fetch_head)
 }
-
-// fn last_push_entry_for(repo: &Repository, reference: &str) -> Option<PushEntry> {
-//     //TODO Actually walk the commits and look for the most recent for the branch we're interested
-//     //in
-//
-//     // this is where it might come in yuseful to keep track of the last push entry for a branch...
-//     // for each ref, try to parse into a pushentry
-//     // if you can, check if that pushentry is for the branch
-//     // if it is , return that pushentry. otherwise keep going
-//     // if you get to then end of the walk, return false
-//     Some(PushEntry::new(repo, reference, String::from(""), NonceBag::new()))
-// }
