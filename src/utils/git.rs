@@ -328,8 +328,8 @@ pub fn fast_forward_onto_head(repo: &Repository, theirs: &str) -> Result<()> {
 
 pub fn username(repo: &Repository) -> Result<String> {
     let cfg = repo.config()?;
-    cfg.get_string("user.username")
-        .chain_err(|| "no git username configured")
+    cfg.get_string("user.email")
+        .chain_err(|| "`user.email` not set in git config")
 }
 
 fn with_authentication<T, F>(url: &str, cfg: &git2::Config, mut f: F) -> Result<T>
@@ -710,7 +710,7 @@ mod test {
         let context = setup_fresh();
         assert_eq!(
             super::username(&context.local).unwrap(),
-            String::from("idontexistanythingaboutthat")
+            String::from("idontexistanythingaboutthat@email.com")
         );
         teardown_fresh(context);
     }
