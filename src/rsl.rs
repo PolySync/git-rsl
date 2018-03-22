@@ -39,7 +39,7 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
         let last_local_push_entry = find_last_push_entry(repo, &local_head)?;
         let last_remote_push_entry = find_last_push_entry(repo, &remote_head)?;
         let nonce_bag = repo.read_nonce_bag().chain_err(|| "nonce bag read error")?;
-        let nonce = repo.read_nonce().chain_err(|| "nonce read error")?;
+        let nonce = repo.read_nonce()?;
         let username = git::username(repo)?;
 
         let rsl: RSL<'remote, 'repo> = RSL {

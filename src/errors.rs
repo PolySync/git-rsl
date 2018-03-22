@@ -15,5 +15,10 @@ error_chain!{
             description("Nonce not found")
             display("Your nonce is not in the nonce bag, but it is not listed in the last push entry either. Someone may have messed with the RSL in a way that is sketchy.")
         }
+        ReadError(string: String) {
+            description("Could not open file for reading.")
+            display("Read Error: could not open '{}' file for reading.
+                    This may be a permissions issue.", string)
+        }
     }
 }

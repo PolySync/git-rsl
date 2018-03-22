@@ -180,6 +180,7 @@ fn restore_workspace(
     stash_id: Option<Oid>,
     original_working_directory: Option<PathBuf>,
 ) -> Result<()> {
+    println!("Returning to {} branch", original_branch_name);
     git::checkout_branch(repo, original_branch_name).chain_err(|| {
         "Couldn't checkout starting branch. Sorry if we messed with your repo state. Ensure you are on the desired branch. It may be necessary to apply changes from the stash"
     })?;
@@ -188,6 +189,9 @@ fn restore_workspace(
         env::set_current_dir(dir)?;
     }
 
+    if let Some(_) = stash_id {
+        println!("Unstashing local changes");
+    }
     git::unstash_local_changes(&mut repo, stash_id).chain_err(|| {
         "Couldn't unstash local changes. Sorry if we messed with your repository state. It may be necessary to apply changes from the stash. {:?}"
     })?;
