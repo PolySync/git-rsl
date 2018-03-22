@@ -39,13 +39,6 @@ pub use utils::git;
 use git2::{Oid, Repository};
 
 fn main() {
-    if let Err(ref e) = run() {
-        report_error(e);
-        process::exit(1);
-    }
-}
-
-fn run() -> Result<()> {
     let args: Vec<String> = env::args().collect();
     let program = args[0].clone();
 
@@ -61,7 +54,23 @@ fn run() -> Result<()> {
                             (@arg branch: ... +required "Branch(es) to securely fetch or push (example: master)")
                             ).get_matches();
 
-    // TODO exit unless gpgtools are present
+    let branches: Vec<&str> = matches.values_of("branch").unwrap().collect();
+    let remote_name = matches.value_of("remote").unwrap().clone();
+    let mode = if program == "git-securefetch" || matches.is_present("fetch") {
+        "fetch"
+    } else if program == "git-securepush" || matches.is_present("push") {
+        "push"
+    } else {
+        unreachable!();
+    };
+
+    if let Err(ref e) = run(&branches, &remote_name, &mode) {
+        report_error(e);
+        process::exit(1);
+    }
+}
+
+fn run(branches: &[&str], remote_name: &str, mode: &str) -> Result<()> {
 
     let mut repo = git::discover_repo().chain_err(|| {
         "You don't appear to be in a git project. Please check yourself and try again"
@@ -70,19 +79,17 @@ fn run() -> Result<()> {
     let (original_branch_name, stash_id, original_dir) = prep_workspace(&mut repo)?;
 
     let result = {
-        let remote_name = matches.value_of("remote").unwrap().clone();
         let mut remote = (&repo)
             .find_remote(remote_name)
             .chain_err(|| format!("unable to find remote named {}", remote_name))?;
 
-        let branches: Vec<&str> = matches.values_of("branch").unwrap().collect();
 
-        let result = if program == "git-securefetch" || matches.is_present("fetch") {
+        let result = if mode == "fetch" {
             fetch::secure_fetch(&repo, &mut remote, &branches)
-        } else if program == "git-securepush" || matches.is_present("push") {
+        } else if mode == "push" {
             push::secure_push(&repo, &mut remote, &branches)
         } else {
-            unreachable!();
+            panic!("this shouldn't happen");
         };
         result
     };
@@ -126,7 +133,7 @@ fn handle_error(
     original_dir: Option<PathBuf>,
 ) -> Result<()> {
     match *e {
-        Error(ErrorKind::InvalidRSL, _) => {
+        Error(ErrorKind::ReadError(_), _) => {
             report_error(&e);
             // unbork: reset remote RSL to local at last good state
             restore_workspace(
@@ -200,8 +207,10 @@ fn restore_workspace(
 
 #[cfg(test)]
 mod tests {
+    use std::process::Command;
     use push;
     use fetch;
+    use errors::*;
     use utils::test_helper::*;
 
     #[test]
@@ -226,4 +235,32 @@ mod tests {
         teardown_fresh(context)
     }
 
+    #[test]
+    fn error_handling() {
+        let context = setup_fresh();
+        {
+            // let repo = &context.local;
+            // let mut rem = repo.find_remote("origin").unwrap().to_owned();
+            // let refs = &["master"];
+            // let res = super::run(&[&"master"], &"origin", &"push").unwrap();
+            // assert_eq!(res, ());
+            //
+            // let nonce_file = context.repo_dir.join(".git/NONCE");
+            // Command::new("chmod")
+            // .arg("000")
+            // .arg(nonce_file.to_string_lossy().into_owned())
+            // .output()
+            // .expect("failed to change permissions");
+            //
+            // do_work_on_branch(&repo, "refs/heads/master");
+            // //let res2 = push::secure_push(&repo, &mut rem, refs).unwrap_err();
+            // let res2 = super::run(&[&"master"], &"origin", &"push").unwrap_err();
+            // // assert that we are on the right branch_head
+            // let head = repo.head().unwrap().name().unwrap().to_owned();
+            // assert_eq!(head, "refs/heads/master");
+            // assert_eq!(res2.description(), "");
+
+        }
+        teardown_fresh(context)
+    }
 }
