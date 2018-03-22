@@ -63,49 +63,48 @@ fn run() -> Result<()> {
 
     // TODO exit unless gpgtools are present
 
-    let mut messy_repo = git::discover_repo().chain_err(|| {
+    let mut repo = git::discover_repo().chain_err(|| {
         "You don't appear to be in a git project. Please check yourself and try again"
     })?;
 
-    let (original_branch_name, stash_id, original_dir) = prep_workspace(&mut messy_repo)?;
+    let (original_branch_name, stash_id, original_dir) = prep_workspace(&mut repo)?;
 
-    let mut clean_repo = git::discover_repo().unwrap();
+    let result = {
+        let remote_name = matches.value_of("remote").unwrap().clone();
+        let mut remote = (&repo)
+            .find_remote(remote_name)
+            .chain_err(|| format!("unable to find remote named {}", remote_name))?;
 
-    let remote_name = matches.value_of("remote").unwrap().clone();
-    let mut remote = (&clean_repo)
-        .find_remote(remote_name)
-        .chain_err(|| format!("unable to find remote named {}", remote_name))?;
+        let branches: Vec<&str> = matches.values_of("branch").unwrap().collect();
 
-    let branches: Vec<&str> = matches.values_of("branch").unwrap().collect();
-
-    let result = if program == "git-securefetch" || matches.is_present("fetch") {
-        fetch::secure_fetch(&clean_repo, &mut remote, &branches)
-    } else if program == "git-securepush" || matches.is_present("push") {
-        push::secure_push(&clean_repo, &mut remote, &branches)
-    } else {
-        unreachable!();
+        let result = if program == "git-securefetch" || matches.is_present("fetch") {
+            fetch::secure_fetch(&repo, &mut remote, &branches)
+        } else if program == "git-securepush" || matches.is_present("push") {
+            push::secure_push(&repo, &mut remote, &branches)
+        } else {
+            unreachable!();
+        };
+        result
     };
 
     // process results of operation
-    let mut cleaner_repo = git::discover_repo()?;
     if let Err(e) = result {
         handle_error(
             &e,
-            &mut cleaner_repo,
+            &mut repo,
             &original_branch_name,
             stash_id,
             original_dir,
         )?;
     } else {
         restore_workspace(
-            &mut cleaner_repo,
+            &mut repo,
             &original_branch_name,
             stash_id,
             original_dir,
         )?;
         println!("Success!")
     }
-
     Ok(())
 }
 
