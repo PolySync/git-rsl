@@ -332,7 +332,7 @@ impl<'repo> HasRSL<'repo> for Repository {
         let mut nonce_bag = NonceBag::new();
         let username = git::username(self)?;
         nonce_bag.insert(&username, nonce);
-        
+
         self.write_nonce_bag(&nonce_bag)?;
         self.commit_nonce_bag()?;
 
@@ -395,7 +395,7 @@ impl<'repo> HasRSL<'repo> for Repository {
         // validate that RSL does not exist locally or remotely
         match (
             self.find_branch("origin/RSL", BranchType::Remote),
-            self.find_branch(RSL_BRANCH, BranchType::Local),
+            self.find_branch("RSL", BranchType::Local),
         ) {
             (Err(_), Err(_)) => {
                 self.rsl_init_global(remote)
