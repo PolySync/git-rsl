@@ -73,9 +73,10 @@ pub fn stash_local_changes(repo: &mut Repository) -> Result<(Option<Oid>)> {
 
 pub fn unstash_local_changes(repo: &mut Repository, stash_id: Option<Oid>) -> Result<()> {
     if stash_id == None {
-        println!("nothing to unstash");
+        println!("Nothing to unstash.");
         return Ok(());
     }
+    println!("Retrieving changes from the stash.");
     let mut options = StashApplyOptions::new();
     options.reinstantiate_index();
     repo.stash_pop(
@@ -290,14 +291,13 @@ pub fn push(repo: &Repository, remote: &mut Remote, ref_names: &[&str]) -> Resul
 }
 
 // for a f `merge --ff-only origin/branch branch`, the target is `branch` and the source is `origin/branch`
+// returns true even if the two branches point to the same ref
 pub fn fast_forward_possible(repo: &Repository, theirs: &str) -> Result<bool> {
     let their_oid = repo.find_reference(theirs)?
         .target()
         .ok_or("not a direct reference")?;
     let their_commit = repo.find_annotated_commit(their_oid)?;
     let (analysis, preference) = repo.merge_analysis(&[&their_commit])?;
-    println!("merge analysis: {:?}", analysis);
-    println!("preference: {:?}", preference);
     Ok(analysis.contains(MergeAnalysis::ANALYSIS_FASTFORWARD))
 }
 
@@ -666,7 +666,6 @@ mod test {
     #[test]
     fn create_signed_commit() {
         let context = setup_fresh();
-        //env::set_var("GNUPGHOME", "./fixtures/fixture.gnupghome");
         {
             let repo = &context.local;
 
@@ -687,7 +686,6 @@ mod test {
     #[test]
     fn commit_signed() {
         let context = setup_fresh();
-        //env::set_var("GNUPGHOME", "./fixtures/fixture.gnupghome");
         {
             let repo = &context.local;
 

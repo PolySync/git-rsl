@@ -35,12 +35,11 @@ pub fn secure_push<'remote, 'repo: 'remote>(
 
             // reset to last trusted RSL if invalid
             if let Err(e) = rsl.validate() {
-                rsl.reset_remote_to_local();
+                rsl.reset_remote_to_local()?;
                 return Err(e).chain_err(|| ErrorKind::InvalidRSL)?;
             }
 
             rsl.update_local()?;
-
             rsl.add_push_entry(ref_names)?;
             rsl.push()?;
         }

@@ -35,7 +35,7 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
 
 
             let mut remote_2 = remote.clone();
-            let rsl = RSL::read(repo, &mut remote_2).chain_err(|| "couldn't read RSL")?;
+            let mut rsl = RSL::read(repo, &mut remote_2).chain_err(|| "couldn't read RSL")?;
 
             // reject if one of the branches has no rsl push entry
             for branch in ref_names {
@@ -64,6 +64,8 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
             // 11   fetch_success <- true
             if all_push_entries_in_fetch_head(repo, &rsl, ref_names) {
                 break 'fetch;
+            } else {
+                rsl.reset_remote_to_local()?;
             }
             counter -= 1;
         }
@@ -73,7 +75,7 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
 
         // reset to last trusted RSL if invalid
         if let Err(e) = rsl.validate() {
-            rsl.reset_remote_to_local();
+            rsl.reset_remote_to_local()?;
             // TODO reset remote fetchspec(s) to local as well
             return Err(e).chain_err(|| ErrorKind::InvalidRSL)?;
         }
