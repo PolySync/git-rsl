@@ -29,7 +29,7 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
         let mut counter = 5;
         'fetch: loop {
             if counter == 0 {
-                bail!("Couldn't fetch; check your connection and try again");
+                bail!("Couldn't fetch; No push entry for latest commit on target branch. It is likely that someone pushed without using kevlar-laces. Please have that developer secure-push the branch and try again.");
             }
             repo.fetch_rsl(&mut remote)?;
 
@@ -120,6 +120,7 @@ fn all_push_entries_in_fetch_head(repo: &Repository, rsl: &RSL, ref_names: &[&st
         .collect();
     let push_entries: HashSet<&Oid> = HashSet::from_iter(&latest_push_entries);
     let fetch_head: HashSet<&Oid> = HashSet::from_iter(&fetch_heads);
-
+    println!("push_entries: {:?}", &push_entries);
+    println!("fetch_head: {:?}", &fetch_head);
     push_entries.is_subset(&fetch_head)
 }
