@@ -76,7 +76,7 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
         revwalk.hide(self.local_head)?;
 
         let remaining = revwalk.map(|oid| oid.unwrap());
-        println!("gets to validate");
+        println!("Validating new entries in Reference State Log");
         let result = remaining
             .inspect(|x| println!("about to fold: {}", x))
             .fold(last_hash, |prev_hash, oid| {
@@ -149,11 +149,12 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
     }
 
     pub fn update_nonce_bag(&mut self) -> Result<()> {
-        // if nonce bag contains a nonce for current developer, remove it
-        if !self.nonce_bag.remove(&self.nonce) {
-            // if nonce in bag does not match local nonce, stop and warn user of possible tampering
-            bail!("Your local '.git/NONCE' does not match the one fetched from the remote reference state log. Someone may have tampered with the remote repo.");
-        }
+
+        // if !self.nonce_bag.remove(&self.nonce) {
+        //     // if nonce in bag does not match local nonce, stop and warn user of possible tampering
+        //     bail!("Your local '.git/NONCE' does not match the one fetched from the remote reference state log. Someone may have tampered with the remote repo.");
+        // }
+        self.nonce_bag.remove(&self.nonce);
 
         // save new random nonce locally
         let new_nonce = Nonce::new()?;
@@ -363,11 +364,11 @@ impl<'repo> HasRSL<'repo> for Repository {
         let username = git::username(self)?;
         nonce_bag.insert(new_nonce);
         self.write_nonce_bag(&nonce_bag)
-            .chain_err(|| "couldn't write to nonce baf file")?;
+            .chain_err(|| "couldn't write to nonce bag file")?;
         self.commit_nonce_bag()
             .chain_err(|| "couldn't commit nonce bag")?;
 
-        git::push(self, remote, &["refs/heads/RSL"]).chain_err(|| "rsl init error")?;
+        git::push(self, remote, &["RSL"]).chain_err(|| "rsl init error")?;
 
         Ok(())
     }

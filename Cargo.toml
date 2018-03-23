@@ -30,5 +30,5 @@ name = "kevlar_laces"
 path = "src/lib.rs"
 
 [[bin]]
-name = "kevlar_laces_cli"
+name = "kevlar-laces-rs"
 path = "src/main.rs"
