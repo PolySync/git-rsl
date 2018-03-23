@@ -94,7 +94,7 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
                         // TODO does this take care of when there haven't been any new entries or only one new entry?
                         if current_prev_hash == self.last_local_push_entry.hash() {
 
-                            if !self.nonce_bag.contains(&self.username, &self.nonce) && !entry.get_nonce_bag().contains(&self.username, &self.nonce) {
+                            if !self.nonce_bag.contains(&self.nonce) && !entry.get_nonce_bag().contains(&self.nonce) {
                                 //bail!(ErrorKind::MismatchedNonce)
                                 return None
                             }
@@ -149,14 +149,10 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
     }
 
     pub fn update_nonce_bag(&mut self) -> Result<()> {
-        let username = git::username(self.repo)?;
-
         // if nonce bag contains a nonce for current developer, remove it
-        if let Some(nonce) = self.nonce_bag.remove(&username) {
+        if !self.nonce_bag.remove(&self.nonce) {
             // if nonce in bag does not match local nonce, stop and warn user of possible tampering
-            if nonce != self.nonce {
-                bail!("Your local '.git/NONCE' does not match the one fetched from the remote reference state log. Someone may have tampered with the remote repo.");
-            }
+            bail!("Your local '.git/NONCE' does not match the one fetched from the remote reference state log. Someone may have tampered with the remote repo.");
         }
 
         // save new random nonce locally
@@ -167,7 +163,7 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
             .chain_err(|| "nonce write error")?;
 
         // add new nonce to nonce bag
-        self.nonce_bag.insert(&username, new_nonce);
+        self.nonce_bag.insert(new_nonce);
         self.repo
             .write_nonce_bag(&self.nonce_bag)
             .chain_err(|| "couldn't write to nonce bag file")?;
@@ -330,8 +326,7 @@ impl<'repo> HasRSL<'repo> for Repository {
 
         // create new nonce bag with initial nonce
         let mut nonce_bag = NonceBag::new();
-        let username = git::username(self)?;
-        nonce_bag.insert(&username, nonce);
+        nonce_bag.insert(nonce);
 
         self.write_nonce_bag(&nonce_bag)?;
         self.commit_nonce_bag()?;
@@ -366,7 +361,7 @@ impl<'repo> HasRSL<'repo> for Repository {
 
         // add that nonce to the bag
         let username = git::username(self)?;
-        nonce_bag.insert(&username, new_nonce);
+        nonce_bag.insert(new_nonce);
         self.write_nonce_bag(&nonce_bag)
             .chain_err(|| "couldn't write to nonce baf file")?;
         self.commit_nonce_bag()
