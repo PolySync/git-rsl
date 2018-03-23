@@ -7,13 +7,11 @@ extern crate git2;
 
 use std::process;
 use std::env;
-use std::path::PathBuf;
 use clap::ArgMatches;
-#[macro_use]
 pub use kevlar_laces::errors::*;
 pub use kevlar_laces::utils::git;
 
-use git2::{Oid, Repository};
+use git2::Repository;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
