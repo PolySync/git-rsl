@@ -27,14 +27,19 @@ pub fn secure_push<'remote, 'repo: 'remote>(
             .chain_err(|| "Problem fetching Remote RSL. Check your connection or your SSH config")?;
 
         // TODO after fetching, make sure that the local branch is not out of date
-        git::fetch(repo, &mut remote, ref_names)?;
+        // print something like "fatal: Not possible to fast-forward, aborting."
+        git::fetch(repo, &mut remote, ref_names, None)?;
+
         {
             let mut rsl = RSL::read(repo, &mut remote).chain_err(|| "couldn't read RSL")?;
 
-            rsl.validate().chain_err(|| ErrorKind::InvalidRSL)?;
+            // reset to last trusted RSL if invalid
+            if let Err(e) = rsl.validate() {
+                rsl.reset_remote_to_local()?;
+                return Err(e).chain_err(|| ErrorKind::InvalidRSL)?;
+            }
 
             rsl.update_local()?;
-
             rsl.add_push_entry(ref_names)?;
             rsl.push()?;
         }
