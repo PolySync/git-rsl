@@ -70,8 +70,14 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
 
         let mut rsl = RSL::read(&repo, &mut remote).chain_err(|| "couldn't read RSL")?;
 
-        // validate remote RSL
-        rsl.validate().chain_err(|| ErrorKind::InvalidRSL)?;
+
+        // reset to last trusted RSL if invalid
+        if let Err(e) = rsl.validate() {
+            rsl.reset_remote_to_local();
+            // TODO reset remote fetchspec(s) to local as well
+            return Err(e).chain_err(|| ErrorKind::InvalidRSL)?;
+        }
+
 
         // Fastforward valid remote RSL onto local branch
         rsl.update_local()?;

@@ -189,12 +189,10 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
 
     // If we have detected a problem with the RSL, we need to reset the fetched origin/RSL to the last trusted revision of our local RSL.
     pub fn reset_remote_to_local(&mut self) -> Result<()> {
-        // ensure that the remote is ahead of the locall
-        self.repo.graph_descendant_of(self.local_head, self.remote_head)?;
-
         // find reference of origin/RSL
         let mut reference = self.repo.find_reference("refs/remotes/origin/RSL")?;
         let msg = "Resetting RSL to last trusted state";
+        println!("{}", &msg);
         reference.set_target(self.local_head, &msg)?;
 
         self.remote_head = self.local_head;
