@@ -92,8 +92,8 @@ mod tests {
     fn setup_config() {
         let context = setup_fresh();
         let cfg = Config::open(&context.local.path().join("config")).unwrap();
-        let username = cfg.get_entry("user.username").unwrap();
-        assert_eq!(username.value(), Some("idontexistanythingaboutthat"));
+        let username = cfg.get_entry("user.email").unwrap();
+        assert_eq!(username.value(), Some("idontexistanythingaboutthat@email.com"));
         teardown_fresh(context)
     }
 }

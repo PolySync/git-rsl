@@ -1,13 +1,10 @@
-use std::process;
 use std::vec::Vec;
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
 use git2::{BranchType, Oid, Remote, Repository};
 
-use nonce_bag::HasNonceBag;
 use rsl::{HasRSL, RSL};
-use nonce::{HasNonce, Nonce};
 use errors::*;
 use utils::git;
 
@@ -16,6 +13,7 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
     mut remote: &'remote mut Remote<'repo>,
     ref_names: &[&str],
 ) -> Result<()> {
+
     repo.fetch_rsl(&mut remote)?;
     repo.init_rsl_if_needed(&mut remote)?;
     git::checkout_branch(repo, "refs/heads/RSL")?;
@@ -31,7 +29,7 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
         let mut counter = 5;
         'fetch: loop {
             if counter == 0 {
-                bail!("Couldn't fetch; check your connection and try again");
+                bail!("Couldn't fetch; No push entry for latest commit on target branch. It is likely that someone pushed without using kevlar-laces. Please have that developer secure-push the branch and try again.");
             }
             repo.fetch_rsl(&mut remote)?;
 
@@ -60,7 +58,7 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
                 }
             };
 
-            // paper aldorithm:
+            // paper algorithm:
             // 9    C <- RemoteRSL.latestPush(X).refPointer
             // 10   id (C == FETCH_HEAD) and_then
             // 11   fetch_success <- true
@@ -122,8 +120,7 @@ fn all_push_entries_in_fetch_head(repo: &Repository, rsl: &RSL, ref_names: &[&st
         .collect();
     let push_entries: HashSet<&Oid> = HashSet::from_iter(&latest_push_entries);
     let fetch_head: HashSet<&Oid> = HashSet::from_iter(&fetch_heads);
-
-    println!("latest push entries: {:?}", push_entries);
-    println!("fetch_heads {:?}", fetch_head);
+    println!("push_entries: {:?}", &push_entries);
+    println!("fetch_head: {:?}", &fetch_head);
     push_entries.is_subset(&fetch_head)
 }

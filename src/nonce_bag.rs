@@ -1,6 +1,6 @@
 use std::io::Write;
 use std::fs::OpenOptions;
-use std::collections::HashMap;
+use std::collections::HashSet;
 
 use std::path::Path;
 
@@ -17,29 +17,26 @@ const NONCE_BAG_PATH: &str = "NONCE_BAG";
 
 #[derive(Eq, PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub struct NonceBag {
-    bag: HashMap<String, Nonce>,
+    bag: HashSet<Nonce>,
 }
 
 impl NonceBag {
     pub fn new() -> NonceBag {
         NonceBag {
-            bag: HashMap::new(),
+            bag: HashSet::new(),
         }
     }
 
-    pub fn insert(&mut self, name: &str, nonce: Nonce) -> Option<Nonce> {
-        self.bag.insert(name.clone().to_owned(), nonce)
+    pub fn insert(&mut self, nonce: Nonce) -> bool {
+        self.bag.insert(nonce)
     }
 
-    pub fn remove(&mut self, name: &str) -> Option<Nonce> {
-        self.bag.remove(name)
+    pub fn remove(&mut self, nonce: &Nonce) -> bool {
+        self.bag.remove(nonce)
     }
 
-    pub fn contains(&self, name: &str, nonce: &Nonce) -> bool {
-        match self.bag.get(name) {
-            Some(nonce) => true,
-            Some(_) | None => false
-        }
+    pub fn contains(&self, nonce: &Nonce) -> bool {
+        self.bag.contains(nonce)
     }
 
     pub fn from_str(string: &str) -> Result<NonceBag> {
@@ -127,9 +124,9 @@ mod tests {
 
     fn bag_a() -> NonceBag {
         let mut bag = NonceBag::new();
-        bag.insert("dev1", nonce_1());
-        bag.insert("dev2", nonce_2());
-        bag.insert("dev3", nonce_3());
+        bag.insert(nonce_1());
+        bag.insert(nonce_2());
+        bag.insert(nonce_3());
         bag
     }
 
@@ -141,7 +138,7 @@ mod tests {
     #[test]
     fn neq() {
         let mut bag = bag_a();
-        bag.bag.remove("dev1");
+        bag.bag.remove(&nonce_1());
         assert_ne!(bag, bag_a());
     }
 
@@ -169,22 +166,16 @@ mod tests {
     #[test]
     fn from_str() {
         let serialized = r#"{
-            "bag": {
-                "dev1": {
-                    "bytes": [145,161,65,251,112,184,238,36,105,54,150,202,74,26,148,121,106,40,239,155,31,232,49,251,215,71,200,240,105,73,0,84]
-                },
-                "dev2": {
-                    "bytes": [100,223,169,31,154,84,127,151,178,254,47,129,230,74,10,10,170,13,31,199,167,68,28,149,131,10,110,201,71,146,214,78]
-                },
-                "dev3": {
-                    "bytes": [165,36,170,43,1,62,34,53,25,160,177,19,87,62,189,151,168,134,196,85,33,237,9,52,198,39,79,32,180,145,165,132]
-                }
-            }
+            "bag": [
+                {"bytes": [145,161,65,251,112,184,238,36,105,54,150,202,74,26,148,121,106,40,239,155,31,232,49,251,215,71,200,240,105,73,0,84]},
+                {"bytes": [100,223,169,31,154,84,127,151,178,254,47,129,230,74,10,10,170,13,31,199,167,68,28,149,131,10,110,201,71,146,214,78]},
+                {"bytes": [165,36,170,43,1,62,34,53,25,160,177,19,87,62,189,151,168,134,196,85,33,237,9,52,198,39,79,32,180,145,165,132]}
+            ]
         }"#;
         let nonce_bag = NonceBag::from_str(&serialized).unwrap();
-        assert_eq!(nonce_bag.bag.get("dev1").unwrap(), &nonce_1());
-        assert_eq!(nonce_bag.bag.get("dev2").unwrap(), &nonce_2());
-        assert_eq!(nonce_bag.bag.get("dev3").unwrap(), &nonce_3());
+        assert_eq!(nonce_bag.bag.contains(&nonce_1()), true);
+        assert_eq!(nonce_bag.bag.contains(&nonce_2()), true);
+        assert_eq!(nonce_bag.bag.contains(&nonce_3()), true);
     }
 
     #[test]

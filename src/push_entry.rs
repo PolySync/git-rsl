@@ -155,7 +155,7 @@ mod tests {
             },
             "prev_hash": "fwjjk42ofw093j",
             "nonce_bag": {
-                "bag": {}
+                "bag": []
             }
         }"#;
         let entry = PushEntry {

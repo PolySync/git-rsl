@@ -1,7 +1,7 @@
 use std::fmt;
 use std::fs::OpenOptions;
 use std::hash::{Hash, Hasher};
-use std::io::{self, Read, Write};
+use std::io::{Read, Write};
 
 use git2::Repository;
 use rand::os::OsRng;
@@ -76,7 +76,7 @@ impl HasNonce for Repository {
             .write(true)
             .create(true)
             .open(&nonce_path)
-            .chain_err(|| "could not open nonce file for reading")?;
+            .chain_err(|| ErrorKind::ReadError(nonce_path.to_string_lossy().into_owned()))?;
 
         f.read_to_string(&mut buffer)
             .chain_err(|| "could not parse nonce file")?;

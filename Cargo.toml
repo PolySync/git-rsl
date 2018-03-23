@@ -24,3 +24,11 @@ tempdir = "0.3.6"
 tempfile = "2"
 hex = "0.3.1"
 clippy = { version = "*", optional = true }
+
+[lib]
+name = "kevlar_laces"
+path = "src/lib.rs"
+
+[[bin]]
+name = "kevlar-laces-rs"
+path = "src/main.rs"

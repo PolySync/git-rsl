@@ -1,10 +1,11 @@
 use git2::{Remote, Repository};
 
-use push_entry::PushEntry;
 use rsl::{HasRSL, RSL};
 use errors::*;
 
 use utils::git;
+use fetch;
+
 pub fn secure_push<'remote, 'repo: 'remote>(
     repo: &'repo Repository,
     mut remote: &'remote mut Remote<'repo>,
@@ -24,6 +25,9 @@ pub fn secure_push<'remote, 'repo: 'remote>(
     'push: loop {
         repo.fetch_rsl(&mut remote)
             .chain_err(|| "Problem fetching Remote RSL. Check your connection or your SSH config")?;
+
+        // TODO after fetching, make sure that the local branch is not out of date
+        git::fetch(repo, &mut remote, ref_names)?;
         {
             let mut rsl = RSL::read(repo, &mut remote).chain_err(|| "couldn't read RSL")?;
 
