@@ -115,10 +115,10 @@ fn handle_error(e: &Error) -> () {
     report_error(&e);
     match *e {
         Error(ErrorKind::ReadError(_), _) => {
-            process::exit(-1)
+            process::exit(1)
         }
         Error(_, _) => {
-            process::exit(-2)
+            process::exit(2)
         }
     }
 }
