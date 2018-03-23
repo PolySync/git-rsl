@@ -27,7 +27,7 @@ pub fn secure_push<'remote, 'repo: 'remote>(
             .chain_err(|| "Problem fetching Remote RSL. Check your connection or your SSH config")?;
 
         // TODO after fetching, make sure that the local branch is not out of date
-        git::fetch(repo, &mut remote, ref_names)?;
+        git::fetch(repo, &mut remote, ref_names, None)?;
         {
             let mut rsl = RSL::read(repo, &mut remote).chain_err(|| "couldn't read RSL")?;
 
