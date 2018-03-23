@@ -1,6 +1,5 @@
 use git2::{Remote, Repository};
 
-use push_entry::PushEntry;
 use rsl::{HasRSL, RSL};
 use errors::*;
 

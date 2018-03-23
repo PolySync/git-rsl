@@ -1,7 +1,7 @@
 use std::fmt;
 use std::fs::OpenOptions;
 use std::hash::{Hash, Hasher};
-use std::io::{self, Read, Write};
+use std::io::{Read, Write};
 
 use git2::Repository;
 use rand::os::OsRng;

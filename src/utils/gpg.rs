@@ -1,5 +1,4 @@
 use errors::*;
-use git2::Oid;
 use gpgme::{Context, Protocol};
 use std;
 use std::io::prelude::*;

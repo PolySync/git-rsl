@@ -256,11 +256,12 @@ impl<'repo> HasRSL<'repo> for Repository {
 
     fn rsl_init_global(&self, remote: &mut Remote) -> Result<()> {
         println!("Initializing Reference State Log for this repository.");
+        println!("You will be prompted for your gpg pin and/or touch sig in order to sign RSL entries.");
 
         // get current branch name
         let head_name = self.head()?
             .name()
-            .ok_or("not on a named branch")?
+            .ok_or("Not on a named branch")?
             .clone()
             .to_owned();
 
@@ -269,7 +270,7 @@ impl<'repo> HasRSL<'repo> for Repository {
         index.clear()?; // remove project files from index
         let oid = index
             .write_tree()
-            .chain_err(|| "could not write tree from index")?; // create empty tree
+            .chain_err(|| "Could not write tree from index.")?; // create empty tree
         let signature = self.signature().unwrap();
         let message = "Initialize RSL";
         let tree = self.find_tree(oid).chain_err(|| "could not find tree")?;
@@ -330,9 +331,8 @@ impl<'repo> HasRSL<'repo> for Repository {
         // create new nonce bag with initial nonce
         let mut nonce_bag = NonceBag::new();
         let username = git::username(self)?;
-        nonce_bag
-            .insert(&username, nonce)
-            .chain_err(|| "couldn't add new nonce to bag");
+        nonce_bag.insert(&username, nonce);
+        
         self.write_nonce_bag(&nonce_bag)?;
         self.commit_nonce_bag()?;
 
@@ -568,10 +568,10 @@ mod tests {
             let mut remote = repo.find_remote("origin").unwrap();
             repo.rsl_init_global(&mut remote).unwrap();
             {
-                let mut rsl = RSL::read(&repo, &mut remote).unwrap();
+                let rsl = RSL::read(&repo, &mut remote).unwrap();
 
                 // checkout remote RSL and add some commits
-                git::checkout_branch(rsl.repo, "refs/remotes/origin/RSL");
+                git::checkout_branch(rsl.repo, "refs/remotes/origin/RSL").unwrap();
 
                 // create push entry manuallly and commit it to the remote rsl branch
                 let prev_hash = rsl.last_remote_push_entry.hash();

@@ -2,7 +2,6 @@ extern crate kevlar_laces;
 //extern crate kevlar_laces;
 extern crate git2;
 use std::process::Command;
-use git2::Repository;
 use kevlar_laces::utils::test_helper::*;
 
 
@@ -10,8 +9,6 @@ use kevlar_laces::utils::test_helper::*;
     fn push_and_fetch() {
         let mut context = setup_fresh();
         {
-            let refs = &["master"];
-
             let res = kevlar_laces::run(&mut context.local, &[&"master"], &"origin", &"push").unwrap();
             assert_eq!(res, ());
             do_work_on_branch(&context.local, "refs/heads/master");

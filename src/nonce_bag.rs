@@ -28,7 +28,7 @@ impl NonceBag {
     }
 
     pub fn insert(&mut self, name: &str, nonce: Nonce) -> Option<Nonce> {
-        self.bag.insert(name.clone().to_owned(), nonce)
+        self.bag.insert(String::from(name), nonce)
     }
 
     pub fn remove(&mut self, name: &str) -> Option<Nonce> {
