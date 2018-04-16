@@ -1,3 +1,7 @@
 [user]
 	name = Testy McTesterson
 	email = idontexistanythingaboutthat@email.com
+	signingkey = 0A361BB1
+
+[gpg]
+	program = gpg2
