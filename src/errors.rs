@@ -22,3 +22,13 @@ error_chain!{
         }
     }
 }
+
+pub fn report_error(e: &Error) {
+    println!("error: {}", e);
+    for e in e.iter().skip(1) {
+        println!("caused by: {}", e);
+    }
+    if let Some(backtrace) = e.backtrace() {
+        println!("backtrace: {:?}", backtrace);
+    }
+}

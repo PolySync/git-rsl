@@ -1,8 +1,10 @@
 [package]
-name = "kevlar-laces-rs"
+name = "git-rsl"
 version = "0.1.0"
 authors = ["Gabriella Chronis <gchronis@polysync.io>",
-           "Jeff Weiss <jeffweiss@polysync.io>"]
+           "Jeff Weiss <jeffweiss@polysync.io>",
+           "Katie Cleary <kcleary@polysync.io>",
+           "Zachary Pierce <zacharypierce@gmail.com>"]
 
 [dependencies]
 clap = "2"
@@ -26,9 +28,18 @@ hex = "0.3.1"
 clippy = { version = "*", optional = true }
 
 [lib]
-name = "kevlar_laces"
+name = "git_rsl"
 path = "src/lib.rs"
 
 [[bin]]
 name = "kevlar-laces-rs"
-path = "src/main.rs"
+path = "src/bin/kevlar-laces-rs.rs"
+
+[[bin]]
+name = "git-secure-fetch"
+path = "src/bin/git-secure-fetch.rs"
+
+[[bin]]
+name = "git-secure-push"
+path = "src/bin/git-secure-push.rs"
+

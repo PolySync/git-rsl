@@ -2,14 +2,14 @@
 #![cfg_attr(feature = "clippy", plugin(clippy))]
 #[macro_use]
 extern crate clap;
-extern crate kevlar_laces;
+extern crate git_rsl;
 extern crate git2;
 
 use std::process;
 use std::env;
 use clap::ArgMatches;
-pub use kevlar_laces::errors::*;
-pub use kevlar_laces::utils::git;
+pub use git_rsl::errors::*;
+pub use git_rsl::utils::git;
 
 use git2::Repository;
 
@@ -28,19 +28,26 @@ fn main() {
                             (@arg branch: ... +required "Branch(es) to securely fetch or push (example: master)")
                         ).get_matches();
 
-    let (branches, remote_name, mode) = parse_args(&matches, &program);
-    let branch_refs: Vec<&str> = branches.iter().map(|x| x.as_str()).collect();
+    let (branch, remote_name, mode) = parse_args(&matches, &program);
     let mut repo = init_repo();
 
-    if let Err(ref e) = kevlar_laces::run(&mut repo, &branch_refs, &remote_name, &mode) {
+    let result = if mode == "fetch" {
+        git_rsl::secure_fetch_with_cleanup(&mut repo, &branch, &remote_name)
+    } else if mode == "push" {
+        git_rsl::secure_push_with_cleanup(&mut repo, &branch, &remote_name)
+    } else {
+        panic!("Unsupported execution mode -- should be either fetch or push");
+    };
+
+    if let Err(ref e) = result {
         handle_error(e);
         process::exit(1);
     }
     println!("Success!")
 }
 
-fn parse_args(matches: &ArgMatches, program: &str) -> (Vec<String>, String, String) {
-    let branches: Vec<String> = matches.values_of("branch").unwrap().map(|x| x.to_owned()).collect();
+fn parse_args(matches: &ArgMatches, program: &str) -> (String, String, String) {
+    let branch = matches.value_of("branch").unwrap().to_owned();
     let remote_name = matches.value_of("remote").unwrap().to_owned();
     let mode = if program == "git-securefetch" || matches.is_present("fetch") {
         "fetch".to_owned()
@@ -49,7 +56,7 @@ fn parse_args(matches: &ArgMatches, program: &str) -> (Vec<String>, String, Stri
     } else {
         unreachable!();
     };
-    (branches, remote_name, mode)
+    (branch, remote_name, mode)
 }
 
 fn init_repo() -> Repository {

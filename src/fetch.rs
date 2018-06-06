@@ -29,7 +29,7 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
         let mut counter = 5;
         'fetch: loop {
             if counter == 0 {
-                bail!("Couldn't fetch; No push entry for latest commit on target branch. It is likely that someone pushed without using kevlar-laces. Please have that developer secure-push the branch and try again.");
+                bail!("Couldn't fetch; No push entry for latest commit on target branch. It is likely that someone pushed without using git-rsl. Please have that developer secure-push the branch and try again.");
             }
             repo.fetch_rsl(&mut remote)?;
 
