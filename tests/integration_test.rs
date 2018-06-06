@@ -1,5 +1,4 @@
-extern crate kevlar_laces;
-//extern crate kevlar_laces;
+extern crate git_rsl as kevlar_laces;
 extern crate git2;
 use std::process::Command;
 use kevlar_laces::utils::test_helper::*;

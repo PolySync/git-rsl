@@ -32,7 +32,50 @@ use std::env;
 use git2::{Oid, Repository};
 use std::path::PathBuf;
 
+pub fn secure_fetch_with_cleanup(mut repo: &mut Repository, branch: &str, remote_name: &str) -> Result<()> {
+    let (original_branch_name, stash_id, original_dir) = prep_workspace(&mut repo)?;
 
+    let result = {
+        let mut remote = (&repo)
+            .find_remote(remote_name)
+            .chain_err(|| format!("unable to find remote named {}", remote_name))?;
+        fetch::secure_fetch(&repo, &mut remote, &[branch])
+    };
+
+    restore_workspace(
+        &mut repo,
+        &original_branch_name,
+        stash_id,
+        original_dir,
+    )?;
+
+    result
+}
+
+pub fn secure_push_with_cleanup(mut repo: &mut Repository, branch: &str, remote_name: &str) -> Result<()> {
+    // Precede all pushes with a fetch to validate state
+    secure_fetch_with_cleanup(repo, branch, remote_name)?;
+
+    let (original_branch_name, stash_id, original_dir) = prep_workspace(&mut repo)?;
+
+    let result = {
+        let mut remote = (&repo)
+            .find_remote(remote_name)
+            .chain_err(|| format!("unable to find remote named {}", remote_name))?;
+        push::secure_push(&repo, &mut remote, &[branch])
+    };
+
+    restore_workspace(
+        &mut repo,
+        &original_branch_name,
+        stash_id,
+        original_dir,
+    )?;
+
+    result
+}
+
+// TODO - deprecate run when we remove the old kevlar-laces-rs interface
 pub fn run(mut repo: &mut Repository, branches: &[&str], remote_name: &str, mode: &str) -> Result<()> {
     let (original_branch_name, stash_id, original_dir) = prep_workspace(&mut repo)?;
 
