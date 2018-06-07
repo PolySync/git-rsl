@@ -1,98 +1,154 @@
-# kevlar-laces-rs
+# git-rsl
 
-kevlar-laces-rs is a Rust implementation of the Reference State Log (RSL) detailed in [On omitting
+## Overview
+
+git-rsl is a Rust implementation of the Reference State Log (RSL) detailed in [On omitting
 commits and committing omissions: Preventing Git metadata tampering that
 (re)introduces software
 vulnerabilities](https://www.usenix.org/system/files/conference/usenixsecurity16/sec16_paper_torres-arias.pdf).
 The paper authors are actively working to get RSL incorporated into
 [git](https://github.com/git/git), at which point this project is moot.
 
-### Warning
+git-rsl currently provides two binaries, `git-secure-fetch` and `git-secure-push` which
+work as `git` plugins.
 
-Correct usage of the RSL depends on merging PRs from the command line. Using GitHub's or some other UI to merge will invalidate the RSL. Merging changes the tip of the target branch, requiring a new RSL entry for that branch. In order to take advantage of the extra security afforded by Kevlar Laces, secure push and pull must be used in conjunction with `secure-merge`, which fetches the branches to be merged, and uses `secure-push` to send back to the remote, creating a new RSL entry for the target branch in the process. `secure-merge`, which is not yet implemented, enables repositories to have signed merge commits, which is impossible merging from the UI.
+## Getting Started
 
-## Installation
+### Dependencies
 
-kevlar-laces-rs is intended to be a git helper application installed anywhere in your
-path. When running `git-secure-push`, git will look for the `kevlar-laces-rs` helper application
-and invoke it in the `--push` mode.
+`git-rsl` is a Rust project with some system dependencies.
 
-This crate is currently private. Until it is hosted on crates.io or an internal cargo server, the easiest way to install is to clone this repository and run the install script. The script ensures that all the prerequisites are installed, installs them if necessary, runs the tests, builds the latest version of the project, and installs the compiled binary to `~/.cargo/bin/kevlar-laces-rs`. Then, it creates symlinks from `git-secure-push` and `git-secure-fetch`. kevlar-laces-rs has two modes: fetch and push. If you prefer to install manually, we recommend either creating symlinks as in the install script OR establishing git aliases for these specific modes,\ as shown below.
+* [rust](https://github.com/rust-lang-nursery/rustup.rs)
+* [git](https://git-scm.com/)
+* [gnupg2](https://gnupg.org/)
 
-### Prerequisites
+### Building
 
-* Rust
-* git
-* Cargo
-* gnupg2
+These instructions include the installation instructions for the dependencies,
+assuming some flavor of Linux. `git-rsl` was developed on Ubuntu, and while
+the build instructions assume the same, anywhere the dependencies can be installed
+should work just as well.
 
-### Steps
 
-```
-git clone git@github.com:PolySync/kevlar-laces-rs.git
-cd kevlar-laces-rs
-./install.sh
-```
+* Install Rust dependency
+  ```bash
+  curl https://sh.rustup.rs -sSf | sh
+  ```
+* Install git dependency
+  ```bash
+  sudo apt-get update
+  sudo apt-get install git-core
+  ```
+* Install gnupg2 dependency
+  ```bash
+  sudo apt-get update
+  sudo apt-get install gnupg2
+  ```
+* Download and build `git-rsl` itself:
+  ```bash
+  git clone https://github.com/PolySync/git-rsl.git
+  cd git-rsl
+  cargo build
+  ```
 
-The above example explicitly runs the install script with a preceding `.`. This is solely for convenience in the current terminal session, because `install.sh` may need to modify `$PATH` to include `$HOME/.cargo/bin`. If you already have `$HOME/.cargo/bin` in `$PATH` or you do not need to run the various kevlar-laces git subcommands in the _current_ terminal session, then `./install.sh` will suffice.
+### Installation
 
-### Git Alias
+After obtaining the dependencies listed in the Building section above,
+one can install the `git-rsl` binaries (`git-secure-fetch` and `git-secure-push`)
+by doing the following:
 
-```
-$ git config --global alias.secure-push '!kevlar-laces-rs --push'
-$ git config --global alias.secure-fetch '!kevlar-laces-rs --fetch'
-```
-
-The `!` before the executable name tells git that we are not aliasing a git subcommand but running an external application. NB single quotes around the command are essential to properly escape the bang character.
-
-### Symlinks
-
-```
-$ ln -s kevlar-laces-rs git-secure-fetch
-$ ln -s kevlar-laces-rs git-secure-push
-```
-
-`git-secure-fetch` and `git-secure-push` are specifically searched for by kevlar-laces-rs
-and will automatically invoke `--fetch` and `--push`, respectively.
-
-### For developers
-
-```
-git clone git@github.com:PolySync/kevlar-laces-rs.git
-cd kevlar-laces-rs
-cargo build
-ln -s target/debug/kevlar-laces-rs ~/.cargo/bin
-```
+* Install from git (does not require a local clone):
+  ```bash
+  cargo install --force --git https://github.com/PolySync/git-rsl.git
+  ```
+* Alternatively, if you have cloned the `git-rsl` repo and want to install
+  binaries based on your local development code, you can instead run from
+  the `git-rsl` repository's root directory:
+  ```bash
+  cargo install --force
+  ```
 
 ## Usage
 
-If you have installed the tool successfully using the provided install script, you should be able to push and fetch securely.
+Correct usage of the RSL depends on merging PRs from the command line.
+Using GitHub's or some other UI to merge will invalidate the RSL.
+
+Merging changes the tip of the target branch, requiring a new RSL entry
+for that branch. In order to take advantage of the extra security afforded
+by git-rsl, `secure-push` and `secure-fetch` must be used in conjunction
+with `secure-merge`, which fetches the branches to be merged, and uses
+`secure-push` to send back to the remote, creating a new RSL entry for
+the target branch in the process.
+
+`secure-merge`, which is not yet implemented, enables repositories to
+have signed merge commits, which is impossible merging from the UI.
+
+If you have installed the tools successfully using the provided install script, you should be able to fetch and push securely.
+
+```bash
+# Note that the branch name must be exact and not aliased (no using `HEAD`)
+# Note that only a single remote and a single branch may be specified at a time
+git secure-fetch <REMOTE> <BRANCH>
+
+# Similarly, only a single remote and branch at a time may be specified for pushing
+git secure-push <REMOTE> <BRANCH>
 ```
-git secure-push origin <branch>
-git secure-fetch origin <branch>
+
+
+### Examples
+
+* Example assuming a pre-existing git repository with a remote named "origin"
+  and a branch named "master"
+  ```bash
+  # Within the context of a git repository directory
+  # These commands must be run in the top level of the git project
+  # (i.e. the directory containing the `.git` dir)
+  cd my_git_repo
+  git checkout master
+
+  # Securely fetch content from the remote named `origin` for the branch `master`
+  git secure-fetch origin master
+
+  # Make a new commit
+  echo 'Hello git-rsl' > git_rsl_greeting.txt
+  git add git_rsl_greeting.txt
+  git commit -m 'Trivial commit example'
+
+  # Securely push the commit to your remote
+  git secure-push origin master
+  ```
+
+## Tests
+
+`git-rsl` manages its tests with the standard Rust test framework, plus `proptest`
+for property-based testing.
+
+### Building
+
+Tests can be built from the `git-rsl` repository directory with:
+
+```bash
+cargo build --tests
 ```
-### Limitations
 
-* Branch names must be stipulated (no using `HEAD` =/).
-* Must be run in the top level of the git project (i.e., the one containing the `.git` dir).
-* No pushing or fetching multiple branches.
-* Only supports a single remote, which must be named `origin`.
+### Running
 
-## Exit Codes
+The standard tests available can be run from the `git-rsl` repository directory:
 
-When kevlar-laces-rs encounters an unrecoverable error, the process will exit with a
-unique code to help diagnose the situation.
+```bash
+cargo test
 
-| Code | Description |
-| ---- | ----------- |
-| 0    | Success     |
-| -1   | The reference state log in the remote repository is not valid. May be compromised. |
-| 10   | The remote doesn't have an `RSL` branch. If you've already run `kevlar-laces-rs --push <remote> <branches>` in the past, then this remote is likely compromised since the `RSL` branch is now missing. |
-| 50   | The remote you specified doesn't exist in your configuration. |
-| 51   | The ref or branch name you tried to fetch doesn't exist on the remote. |
-| 52   | We were unable to find a nonce file for writing. This indicates that the `.git` directory is perhaps not writable. |
-| 53   | We found a nonce file in `.git/NONCE`, but we could not write to it.  This is likely a permissions problem in the `.git` directory. |
-| 60   | We were unable to get a random number generator from the operating system for creating the nonce. |
-| 61   | We were unable to open `.git/NONCE` for creation or reading. This is a permissions problem. |
-| 62   | We were unable to write the nonce to `.git/NONCE`. This is a permissions problem. |
-| 99   | A bug. Unexpected situation. Please open an issue. |
+# Additional long-running tests are ignored by default, but can be run using:
+cargo test -- --ignored
+```
+
+# License
+
+© 2018, PolySync Technologies, Inc.
+
+* Jeff Weiss [email:](mailto:jeffweiss@polysync.io)
+* Gabriella Chronis [email:](mailto:gchronis@polysync.io)
+* Katie Cleary [email:](mailto:kcleary@polysync.io)
+* Zack Pierce [email:](mailto:zpierce@polysync.io)
+
+Please see the [LICENSE](./LICENSE) file for more details
