@@ -53,3 +53,17 @@ fn error_handling() {
     }
     teardown_fresh(context)
 }
+
+#[test]
+fn check_rsl() {
+    let mut context = setup_fresh();
+    {
+        let res = kevlar_laces::secure_push_with_cleanup(&mut context.local, &"master", &"origin").unwrap();
+        assert_eq!(res, ());
+        do_work_on_branch(&context.local, "refs/heads/master");
+
+        let res2 = kevlar_laces::secure_push_with_cleanup(&mut context.local, &"master", &"origin").unwrap();
+        assert_eq!(res2, ());
+    }
+    teardown_fresh(context)
+}

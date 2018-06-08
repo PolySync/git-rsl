@@ -53,9 +53,6 @@ pub fn secure_fetch_with_cleanup(mut repo: &mut Repository, branch: &str, remote
 }
 
 pub fn secure_push_with_cleanup(mut repo: &mut Repository, branch: &str, remote_name: &str) -> Result<()> {
-    // Precede all pushes with a fetch to validate state
-    secure_fetch_with_cleanup(repo, branch, remote_name)?;
-
     let (original_branch_name, stash_id, original_dir) = prep_workspace(&mut repo)?;
 
     let result = {
