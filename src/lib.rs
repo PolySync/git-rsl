@@ -34,6 +34,26 @@ use std::env;
 use git2::{Oid, Repository};
 use std::path::PathBuf;
 
+pub fn rsl_init(mut repo: &mut Repository, remote_name: &str) -> Result<()> {
+    let (original_branch_name, stash_id, original_dir) = prep_workspace(&mut repo)?;
+
+    let result = {
+        let mut remote = (&repo)
+            .find_remote(remote_name)
+            .chain_err(|| format!("unable to find remote named {}", remote_name))?;
+        rsl::HasRSL::rsl_init_global(repo, &mut remote)
+    };
+
+    restore_workspace(
+        &mut repo,
+        &original_branch_name,
+        stash_id,
+        original_dir,
+    )?;
+
+    result
+}
+
 pub fn secure_fetch_with_cleanup(mut repo: &mut Repository, branch: &str, remote_name: &str) -> Result<()> {
     let (original_branch_name, stash_id, original_dir) = prep_workspace(&mut repo)?;
 

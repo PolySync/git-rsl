@@ -15,6 +15,8 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
 ) -> Result<()> {
 
     repo.fetch_rsl(&mut remote)?;
+    // TODO - reduce the strength of this init to do something more limited,
+    // such as perhaps just the local RSL branch setup
     repo.init_rsl_if_needed(&mut remote)?;
     git::checkout_branch(repo, "refs/heads/RSL")?;
 
