@@ -1,11 +1,11 @@
-extern crate kevlar_laces;
+extern crate git_rsl;
 extern crate git2;
 
 use std::process::{Command, Stdio};
 use git2::Repository;
 
 pub fn push(mut repo: &mut Repository, branch_name: &str) -> bool {
-    kevlar_laces::run(&mut repo, &[branch_name], &"origin", &"push").is_ok()
+    git_rsl::secure_push_with_cleanup(&mut repo, branch_name, &"origin").is_ok()
 }
 
 fn merge(repo: &Repository, branch_name: &str) -> bool {
@@ -13,7 +13,7 @@ fn merge(repo: &Repository, branch_name: &str) -> bool {
 }
 
 pub fn pull(mut repo: &mut Repository, branch_name: &str) -> bool {
-    match kevlar_laces::run(&mut repo, &[branch_name], &"origin", &"fetch") {
+    match git_rsl::secure_fetch_with_cleanup(&mut repo, branch_name, &"origin") {
         Ok(_) => merge(&repo, branch_name),
         Err(_) => false,
     }
