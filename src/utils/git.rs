@@ -257,7 +257,30 @@ pub fn fetch(
     })
 }
 
+/// Push the branches or tags given in ref_names
 pub fn push(repo: &Repository, remote: &mut Remote, ref_names: &[&str]) -> Result<()> {
+    let refs: Vec<String> = ref_names
+        .to_vec()
+        .iter()
+        .map(|name: &&str| {
+            format!(
+                "refs/heads/{}:refs/heads/{}",
+                name.to_string(),
+                name.to_string()
+            )
+        })
+        .collect();
+
+    let mut refspecs: Vec<&str> = vec![];
+    for name in &refs {
+        refspecs.push(name)
+    }
+
+    push_refspecs(repo, remote, &refspecs)
+}
+
+/// Push the given refspecs
+pub fn push_refspecs(repo: &Repository, remote: &mut Remote, refspecs: &[&str]) -> Result<()> {
     let cfg = repo.config().unwrap();
     let remote_copy = remote.clone();
     let url = remote_copy.url().unwrap();
@@ -268,27 +291,11 @@ pub fn push(repo: &Repository, remote: &mut Remote, ref_names: &[&str]) -> Resul
         let mut opts = PushOptions::new();
         opts.remote_callbacks(cb);
 
-        let refs: Vec<String> = ref_names
-            .to_vec()
-            .iter()
-            .map(|name: &&str| {
-                format!(
-                    "refs/heads/{}:refs/heads/{}",
-                    name.to_string(),
-                    name.to_string()
-                )
-            })
-            .collect();
-
-        let mut refs_ref: Vec<&str> = vec![];
-        for name in &refs {
-            refs_ref.push(name)
-        }
-
-        remote.push(&refs_ref, Some(&mut opts))?;
+        remote.push(refspecs, Some(&mut opts))?;
         Ok(())
     })
 }
+
 
 // for a f `merge --ff-only origin/branch branch`, the target is `branch` and the source is `origin/branch`
 // returns true even if the two branches point to the same ref
