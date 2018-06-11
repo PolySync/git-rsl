@@ -34,7 +34,7 @@ use std::env;
 use git2::{Oid, Repository};
 use std::path::PathBuf;
 
-pub fn rsl_init(mut repo: &mut Repository, remote_name: &str) -> Result<()> {
+pub fn rsl_init_with_cleanup(mut repo: &mut Repository, remote_name: &str) -> Result<()> {
     let (original_branch_name, stash_id, original_dir) = prep_workspace(&mut repo)?;
 
     let result = {

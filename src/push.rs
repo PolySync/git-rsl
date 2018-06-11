@@ -4,7 +4,6 @@ use rsl::{HasRSL, RSL};
 use errors::*;
 
 use utils::git;
-use fetch;
 
 pub fn secure_push<'remote, 'repo: 'remote>(
     repo: &'repo Repository,
@@ -68,7 +67,7 @@ mod tests {
     fn secure_push() {
         let mut context = setup_fresh();
         {
-            assert_eq!((), super::super::rsl_init(&mut context.local, "origin").unwrap());
+            assert_eq!((), super::super::rsl_init_with_cleanup(&mut context.local, "origin").unwrap());
             let repo = &context.local;
             let mut rem = repo.find_remote("origin").unwrap().to_owned();
 
@@ -83,7 +82,7 @@ mod tests {
     fn secure_push_twice() {
         let mut context = setup_fresh();
         {
-            assert_eq!((), super::super::rsl_init(&mut context.local, "origin").unwrap());
+            assert_eq!((), super::super::rsl_init_with_cleanup(&mut context.local, "origin").unwrap());
             let repo = &context.local;
             let mut rem = repo.find_remote("origin").unwrap().to_owned();
             let refs = &["master"];

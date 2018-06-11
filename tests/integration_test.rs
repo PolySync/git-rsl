@@ -8,6 +8,8 @@ use kevlar_laces::utils::test_helper::*;
 fn push_and_fetch() {
     let mut context = setup_fresh();
     {
+        assert_eq!((), kevlar_laces::rsl_init_with_cleanup(&mut context.local, "origin")
+            .expect("Could not rsl-init"));
         let res = kevlar_laces::run(&mut context.local, &[&"master"], &"origin", &"push").unwrap();
         assert_eq!(res, ());
         do_work_on_branch(&context.local, "refs/heads/master");
@@ -31,7 +33,6 @@ fn error_handling() {
 
     let mut context = setup_fresh();
     {
-        let refs = &["master"];
         let res = kevlar_laces::run(&mut context.local, &[&"master"], &"origin", &"push").unwrap();
         assert_eq!(res, ());
 
@@ -45,6 +46,7 @@ fn error_handling() {
         do_work_on_branch(&context.local, "refs/heads/master");
         //let res2 = push::secure_push(&repo, &mut rem, refs).unwrap_err();
         let res2 = kevlar_laces::run(&mut context.local, &[&"master"], &"origin", &"push").unwrap_err();
+        // TODO - analyse this test and find out what res2 here should be, then add an assert
         // assert that we are on the right branch_head
         let head = context.local.head().unwrap().name().unwrap().to_owned();
         assert_eq!(head, "refs/heads/master");

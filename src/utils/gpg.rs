@@ -126,6 +126,7 @@ fn find_gpg_home() -> Option<String> {
 mod tests {
     use std::fs::File;
     use std::io::prelude::*;
+    use std::path::PathBuf;
 
     #[test]
     fn detached_sign() {
@@ -207,7 +208,8 @@ mod tests {
 
         // get doc to sign as a string
         let mut doc_data = String::new();
-        let mut document = File::open("./fixtures/test.txt").unwrap();
+        let fixtures_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures");
+        let mut document = File::open(fixtures_dir.join("test.txt")).unwrap();
         document.read_to_string(&mut doc_data).unwrap();
 
         let signature = super::cli_detached_sign(&doc_data, Some(&gpghome)).unwrap();

@@ -29,7 +29,7 @@ fn main() {
     let mut repo = git::discover_repo()
         .expect("You don't appear to be in a git project. Please check yourself and try again");
 
-    if let Err(ref e) = git_rsl::rsl_init(&mut repo, &remote) {
+    if let Err(ref e) = git_rsl::rsl_init_with_cleanup(&mut repo, &remote) {
         handle_error(e);
         process::exit(1);
     }

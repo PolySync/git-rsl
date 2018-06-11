@@ -47,3 +47,7 @@ path = "src/bin/git-secure-fetch.rs"
 name = "git-secure-push"
 path = "src/bin/git-secure-push.rs"
 
+[[bin]]
+name = "git-rsl-init"
+path = "src/bin/git-rsl-init.rs"
+
