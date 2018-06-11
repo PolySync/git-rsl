@@ -240,9 +240,6 @@ fn find_last_push_entry(repo: &Repository, oid: &Oid) -> Result<PushEntry> {
 }
 
 pub trait HasRSL<'repo> {
-    // TODO - DELETE
-    fn init_rsl_if_needed(&self, remote: &mut Remote) -> Result<()>;
-
     fn init_local_rsl_if_needed(&self, remote: &mut Remote) -> Result<()>;
     fn rsl_init_global(&self, remote: &mut Remote) -> Result<()>;
     fn rsl_init_local(&self, remote: &mut Remote) -> Result<()>;
@@ -388,30 +385,7 @@ impl<'repo> HasRSL<'repo> for Repository {
         Ok(())
     }
 
-    // TODO - DEPRECATED - DELETE
-    fn init_rsl_if_needed(&self, remote: &mut Remote) -> Result<()> {
-        // validate that RSL does not exist locally or remotely
-        match (
-            self.find_branch("origin/RSL", BranchType::Remote),
-            self.find_branch("RSL", BranchType::Local),
-        ) {
-            (Err(_), Err(_)) => {
-                self.rsl_init_global(remote)
-                    .chain_err(|| "could not initialize remote RSL")?;
-                Ok(())
-            } // first use of git-rsl for repo
-            (Ok(_), Err(_)) => {
-                self.rsl_init_local(remote)
-                    .chain_err(|| "could not initialize local rsl")?;
-                Ok(())
-            } // first use of git-rsl for this developer in this repo
-            (Err(_), Ok(_)) => bail!("RSL exists locally but not globally. Somebody has deleted the remote RSL for this project, or else you are interacting with a remote that does not have an RSL."), // local exists but global not found
-            (Ok(_), Ok(_)) => Ok(()),                                        // RSL already set up
-        }
-    }
-
     fn init_local_rsl_if_needed(&self, remote: &mut Remote) -> Result<()> {
-        // validate that RSL does not exist locally or remotely
         match (
             self.find_branch("origin/RSL", BranchType::Remote),
             self.find_branch("RSL", BranchType::Local),

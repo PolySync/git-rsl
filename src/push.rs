@@ -15,9 +15,7 @@ pub fn secure_push<'remote, 'repo: 'remote>(
     repo.fetch_rsl(&mut remote)
         .chain_err(|| "Problem fetching Remote RSL. Check your connection or your SSH config")?;
 
-    // TODO - reduce the strength of this init to do something more limited,
-    // such as perhaps just the local RSL branch setup
-    repo.init_rsl_if_needed(&mut remote)
+    repo.init_local_rsl_if_needed(&mut remote)
         .chain_err(|| "Problem initializing RSL")?;
 
     // checkout RSL branch
