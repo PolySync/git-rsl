@@ -5,8 +5,10 @@ extern crate git_rsl;
 extern crate git2;
 
 use std::process;
-pub use git_rsl::errors::*;
-pub use git_rsl::utils::git;
+
+use git_rsl::{RemoteName, rsl_init_with_cleanup};
+use git_rsl::errors::*;
+use git_rsl::utils::git;
 use clap::{App, Arg};
 
 fn main() {
@@ -29,7 +31,7 @@ fn main() {
     let mut repo = git::discover_repo()
         .expect("You don't appear to be in a git project. Please check yourself and try again");
 
-    if let Err(ref e) = git_rsl::rsl_init_with_cleanup(&mut repo, &remote) {
+    if let Err(ref e) = rsl_init_with_cleanup(&mut repo, &RemoteName::new(&remote)) {
         handle_error(e);
         process::exit(1);
     }

@@ -37,10 +37,6 @@ name = "git_rsl"
 path = "src/lib.rs"
 
 [[bin]]
-name = "kevlar-laces-rs"
-path = "src/bin/kevlar-laces-rs.rs"
-
-[[bin]]
 name = "git-secure-fetch"
 path = "src/bin/git-secure-fetch.rs"
 
