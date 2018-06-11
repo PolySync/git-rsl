@@ -20,11 +20,11 @@ pub struct Context {
 
 pub fn setup_fresh() -> Context {
     // create temporary directory
-    let local_dir = TempDir::new("rsl_test").expect("Could not make a temp dir").into_path();
+    let temp_dir = TempDir::new("rsl_test").expect("Could not make a temp dir").into_path();
     let fixtures_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures");
 
     // init git repo in temp directory
-    let local = Repository::init(&local_dir).expect("Could not init a git repo");
+    let local = Repository::init(&temp_dir.join("0")).expect("Could not init a git repo");
 
     // copy test config into local git repo dir
     let config_path = &local.path().join("config");
@@ -46,14 +46,15 @@ pub fn setup_fresh() -> Context {
     ).unwrap();
 
     // init bare remote repo with same state
-    let remote_dir = format!("{}.git", &local_dir.to_str().unwrap());
+    // let remote_dir = format!("{}.git", &local_dir.to_str().unwrap());
+    let remote_dir = temp_dir.join("central.git");
     create_all(&remote_dir, true).unwrap();
     let remote = Repository::init_bare(&remote_dir).unwrap();
 
-    let repo_dir = local_dir;
+    let repo_dir = local.workdir().expect("failed to get local repo working dir").to_path_buf();
 
     // set remote origin to remote repo
-    &local.remote("origin", &remote_dir);
+    &local.remote("origin", &remote_dir.to_str().expect("failed to stringify remote path"));
     Context {
         local,
         remote,
