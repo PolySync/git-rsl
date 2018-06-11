@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::env;
 use std::process::{Command, Stdio};
 use git2::{Repository, BranchType};
@@ -6,7 +6,8 @@ use tempdir::TempDir;
 use names::Generator;
 
 fn set_gnupg_home() {
-    let gnupg_fixture_path = env::current_dir().expect("failed to get current dir").join("fixtures/fixture.gnupghome");
+    let fixtures_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures");
+    let gnupg_fixture_path = fixtures_dir.join("fixture.gnupghome");
 
     env::set_var("GNUPGHOME", gnupg_fixture_path.to_str().expect("failed to set gnupghome"));
 }

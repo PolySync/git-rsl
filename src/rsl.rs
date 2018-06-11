@@ -240,7 +240,7 @@ fn find_last_push_entry(repo: &Repository, oid: &Oid) -> Result<PushEntry> {
 }
 
 pub trait HasRSL<'repo> {
-    fn init_rsl_if_needed(&self, remote: &mut Remote) -> Result<()>;
+    fn init_local_rsl_if_needed(&self, remote: &mut Remote) -> Result<()>;
     fn rsl_init_global(&self, remote: &mut Remote) -> Result<()>;
     fn rsl_init_local(&self, remote: &mut Remote) -> Result<()>;
     fn fetch_rsl(&self, remote: &mut Remote) -> Result<()>;
@@ -385,17 +385,14 @@ impl<'repo> HasRSL<'repo> for Repository {
         Ok(())
     }
 
-    fn init_rsl_if_needed(&self, remote: &mut Remote) -> Result<()> {
-        // validate that RSL does not exist locally or remotely
+    fn init_local_rsl_if_needed(&self, remote: &mut Remote) -> Result<()> {
         match (
             self.find_branch("origin/RSL", BranchType::Remote),
             self.find_branch("RSL", BranchType::Local),
         ) {
             (Err(_), Err(_)) => {
-                self.rsl_init_global(remote)
-                    .chain_err(|| "could not initialize remote RSL")?;
-                Ok(())
-            } // first use of git-rsl for repo
+                bail!("RSL branch did not exist on origin. Perhaps rsl-init hasn't been run yet for this repo?")
+            }
             (Ok(_), Err(_)) => {
                 self.rsl_init_local(remote)
                     .chain_err(|| "could not initialize local rsl")?;
@@ -517,9 +514,9 @@ mod tests {
             let repo = &context.local;
 
             // RSL commit only works on RSL branch; we have to initialize it and check it out
-            let mut rem = repo.find_remote("origin").unwrap().to_owned();
-            repo.rsl_init_global(&mut rem).unwrap();
-            git::checkout_branch(repo, "refs/heads/RSL").unwrap();
+            let mut rem = repo.find_remote("origin").expect("Could not find remote origin").to_owned();
+            repo.rsl_init_global(&mut rem).expect("Could not rsl_init_global");
+            git::checkout_branch(repo, "refs/heads/RSL").expect("Could not check out refs/heads/RSL");
 
             // try commit
             let entry = PushEntry::new(
@@ -531,15 +528,16 @@ mod tests {
             let oid = repo.commit_push_entry(&entry, "refs/heads/RSL").unwrap();
 
             // we are on the correct branch with new commit at the tip
-            let head = repo.head().unwrap();
-            let ref_name = head.name().unwrap();
-            let tip = head.target().unwrap();
+            let head = repo.head().expect("Trouble getting repo head");
+            let ref_name = head.name().expect("Trouble getting repo head name");
+            let tip = head.target().expect("Trouble getting repo head target (tip)");
             assert_eq!(ref_name, "refs/heads/RSL");
             assert_eq!(oid, tip);
 
             // check text of commit
-            let obj = repo.find_commit(oid).unwrap();
-            let result = PushEntry::from_str(&obj.message().unwrap()).unwrap();
+            let obj = repo.find_commit(oid).expect("Could not find commit with desired oid");
+            let result = PushEntry::from_str(&obj.message().expect("Could not interpret commit message as utf8"))
+                .expect("Could not interpret (json) PushEntry from message string");
             assert_eq!(result, entry);
 
             // commit is signed and we are on the right branch

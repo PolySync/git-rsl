@@ -4,7 +4,6 @@ use rsl::{HasRSL, RSL};
 use errors::*;
 
 use utils::git;
-use fetch;
 
 pub fn secure_push<'remote, 'repo: 'remote>(
     repo: &'repo Repository,
@@ -16,7 +15,7 @@ pub fn secure_push<'remote, 'repo: 'remote>(
     repo.fetch_rsl(&mut remote)
         .chain_err(|| "Problem fetching Remote RSL. Check your connection or your SSH config")?;
 
-    repo.init_rsl_if_needed(&mut remote)
+    repo.init_local_rsl_if_needed(&mut remote)
         .chain_err(|| "Problem initializing RSL")?;
 
     // checkout RSL branch
@@ -64,10 +63,12 @@ mod tests {
 
     #[test]
     fn secure_push() {
-        let context = setup_fresh();
+        let mut context = setup_fresh();
         {
+            assert_eq!((), super::super::rsl_init_with_cleanup(&mut context.local, "origin").unwrap());
             let repo = &context.local;
             let mut rem = repo.find_remote("origin").unwrap().to_owned();
+
             let refs = vec!["master"];
             let res = super::secure_push(&repo, &mut rem, &refs).unwrap();
             assert_eq!(res, ());
@@ -77,8 +78,9 @@ mod tests {
 
     #[test]
     fn secure_push_twice() {
-        let context = setup_fresh();
+        let mut context = setup_fresh();
         {
+            assert_eq!((), super::super::rsl_init_with_cleanup(&mut context.local, "origin").unwrap());
             let repo = &context.local;
             let mut rem = repo.find_remote("origin").unwrap().to_owned();
             let refs = &["master"];

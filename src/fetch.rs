@@ -15,7 +15,7 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
 ) -> Result<()> {
 
     repo.fetch_rsl(&mut remote)?;
-    repo.init_rsl_if_needed(&mut remote)?;
+    repo.init_local_rsl_if_needed(&mut remote)?;
     git::checkout_branch(repo, "refs/heads/RSL")?;
 
     //TODO paper algo uses spin lock here, probably a better alternative

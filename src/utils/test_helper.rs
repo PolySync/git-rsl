@@ -20,19 +20,18 @@ pub struct Context {
 
 pub fn setup_fresh() -> Context {
     // create temporary directory
-    let local_dir = TempDir::new("rsl_test").unwrap().into_path();
+    let local_dir = TempDir::new("rsl_test").expect("Could not make a temp dir").into_path();
+    let fixtures_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures");
 
     // init git repo in temp directory
-    let local = Repository::init(&local_dir).unwrap();
+    let local = Repository::init(&local_dir).expect("Could not init a git repo");
 
     // copy test config into local git repo dir
     let config_path = &local.path().join("config");
-    fs::copy("fixtures/fixture.gitconfig", config_path).unwrap();
+    fs::copy(fixtures_dir.join("fixture.gitconfig"), config_path).expect("Could not copy the fixtures");
 
     // set gpghome for this process
-    let gnupghome = env::current_dir()
-        .unwrap()
-        .join("fixtures/fixture.gnupghome");
+    let gnupghome = fixtures_dir.join("fixture.gnupghome");
     env::set_var("GNUPGHOME", gnupghome.to_str().unwrap());
 
     // add and commit some work

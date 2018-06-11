@@ -13,7 +13,7 @@ git2 = { git = "https://github.com/alexcrichton/git2-rs", branch = "master" }
 
 #libgit2-sys = "~0.7.1"
 gpgme = "0.6"
-lazy_static = "0.2"
+lazy_static = "1.0"
 rand = "0.3"
 regex = "0.2"
 rust-crypto = "0.2"
@@ -28,6 +28,7 @@ hex = "0.3.1"
 clippy = { version = "*", optional = true }
 
 [dev-dependencies]
+lazy_static = "1.0"
 proptest = "0.3.3"
 names = "0.10.0"
 
@@ -46,4 +47,8 @@ path = "src/bin/git-secure-fetch.rs"
 [[bin]]
 name = "git-secure-push"
 path = "src/bin/git-secure-push.rs"
+
+[[bin]]
+name = "git-rsl-init"
+path = "src/bin/git-rsl-init.rs"
 
