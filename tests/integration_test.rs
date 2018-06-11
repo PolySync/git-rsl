@@ -5,6 +5,7 @@ extern crate git_rsl;
 extern crate git2;
 use std::process::Command;
 use std::sync::Mutex;
+use git_rsl::{BranchName, RemoteName};
 use git_rsl::utils::test_helper::*;
 
 lazy_static! {
@@ -26,20 +27,20 @@ sequential_test! {
     fn push_and_fetch() {
         let mut context = setup_fresh();
         {
-            assert_eq!((), git_rsl::rsl_init_with_cleanup(&mut context.local, "origin")
+            assert_eq!((), git_rsl::rsl_init_with_cleanup(&mut context.local, &RemoteName::new("origin"))
                 .expect("Could not rsl-init"));
-            let res = git_rsl::secure_push_with_cleanup(&mut context.local, "master", "origin").expect("Could not run first push");
+            let res = git_rsl::secure_push_with_cleanup(&mut context.local, &RemoteName::new("origin"), &BranchName::new("master")).expect("Could not run first push");
             assert_eq!(res, ());
             do_work_on_branch(&context.local, "refs/heads/master");
 
-            let res2 = git_rsl::secure_push_with_cleanup(&mut context.local, "master", "origin").expect("Could not run second push");
+            let res2 = git_rsl::secure_push_with_cleanup(&mut context.local, &RemoteName::new("origin"), &BranchName::new("master")).expect("Could not run second push");
             assert_eq!(res2, ());
 
-            let res3 = git_rsl::secure_fetch_with_cleanup(&mut context.local, "master", "origin").expect("Could not run fetch");
+            let res3 = git_rsl::secure_fetch_with_cleanup(&mut context.local, &RemoteName::new("origin"), &BranchName::new("master")).expect("Could not run fetch");
             assert_eq!(res3, ());
 
             do_work_on_branch(&context.local, "refs/heads/master");
-            let res4 = git_rsl::secure_push_with_cleanup(&mut context.local, "master", "origin").expect("Could not run third push");
+            let res4 = git_rsl::secure_push_with_cleanup(&mut context.local, &RemoteName::new("origin"), &BranchName::new("master")).expect("Could not run third push");
             assert_eq!(res4, ());
             // TODO check that the git log of RSL looks how we want it to
         }
@@ -51,9 +52,9 @@ sequential_test! {
     fn error_handling() {
         let mut context = setup_fresh();
         {
-            assert_eq!((), git_rsl::rsl_init_with_cleanup(&mut context.local, "origin")
+            assert_eq!((), git_rsl::rsl_init_with_cleanup(&mut context.local, &RemoteName::new("origin"))
                 .expect("Could not rsl-init"));
-            let res = git_rsl::secure_push_with_cleanup(&mut context.local, "master", "origin").unwrap();
+            let res = git_rsl::secure_push_with_cleanup(&mut context.local, &RemoteName::new("origin"), &BranchName::new("master")).unwrap();
             assert_eq!(res, ());
 
             let nonce_file = context.repo_dir.join(".git/NONCE");
@@ -65,7 +66,7 @@ sequential_test! {
 
             do_work_on_branch(&context.local, "refs/heads/master");
             //let res2 = push::secure_push(&repo, &mut rem, refs).unwrap_err();
-            let res2 = git_rsl::secure_push_with_cleanup(&mut context.local, "master", "origin").unwrap_err();
+            let res2 = git_rsl::secure_push_with_cleanup(&mut context.local, &RemoteName::new("origin"), &BranchName::new("master")).unwrap_err();
             // TODO - analyse this test and find out what res2 here should be, then add an assert
             // assert that we are on the right branch_head
             let head = context.local.head().unwrap().name().unwrap().to_owned();
@@ -81,13 +82,13 @@ sequential_test! {
     fn check_rsl() {
         let mut context = setup_fresh();
         {
-            assert_eq!((), git_rsl::rsl_init_with_cleanup(&mut context.local, "origin")
+            assert_eq!((), git_rsl::rsl_init_with_cleanup(&mut context.local, &RemoteName::new("origin"))
                 .expect("Could not rsl-init"));
-            let res = git_rsl::secure_push_with_cleanup(&mut context.local, &"master", &"origin").expect("First push failed");
+            let res = git_rsl::secure_push_with_cleanup(&mut context.local, &RemoteName::new("origin"), &BranchName::new("master")).expect("First push failed");
             assert_eq!(res, ());
             do_work_on_branch(&context.local, "refs/heads/master");
 
-            let res2 = git_rsl::secure_push_with_cleanup(&mut context.local, &"master", &"origin").expect("Second push failed");
+            let res2 = git_rsl::secure_push_with_cleanup(&mut context.local, &RemoteName::new("origin"), &BranchName::new("master")).expect("Second push failed");
             assert_eq!(res2, ());
         }
         teardown_fresh(context)

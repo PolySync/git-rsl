@@ -122,7 +122,6 @@ fn find_gpg_home() -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use std::env;
     use std::fs::File;
     use std::io::prelude::*;
     use std::path::PathBuf;

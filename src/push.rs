@@ -60,12 +60,13 @@ pub fn secure_push<'remote, 'repo: 'remote>(
 #[cfg(test)]
 mod tests {
     use utils::test_helper::*;
+    use super::super::RemoteName;
 
     #[test]
     fn secure_push() {
         let mut context = setup_fresh();
         {
-            assert_eq!((), super::super::rsl_init_with_cleanup(&mut context.local, "origin").unwrap());
+            assert_eq!((), super::super::rsl_init_with_cleanup(&mut context.local, &RemoteName::new("origin")).unwrap());
             let repo = &context.local;
             let mut rem = repo.find_remote("origin").unwrap().to_owned();
 
@@ -80,7 +81,7 @@ mod tests {
     fn secure_push_twice() {
         let mut context = setup_fresh();
         {
-            assert_eq!((), super::super::rsl_init_with_cleanup(&mut context.local, "origin").unwrap());
+            assert_eq!((), super::super::rsl_init_with_cleanup(&mut context.local, &RemoteName::new("origin")).unwrap());
             let repo = &context.local;
             let mut rem = repo.find_remote("origin").unwrap().to_owned();
             let refs = &["master"];

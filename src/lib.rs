@@ -33,30 +33,68 @@ use std::env;
 use git2::{Oid, Repository};
 use std::path::PathBuf;
 
-pub fn rsl_init_with_cleanup(repo: &mut Repository, remote_name: &str) -> Result<()> {
+/// Wrapper around a string reference to a branch name to reduce the odds of parameter mismatch
+#[derive(Clone, Debug)]
+pub struct BranchName<'a>(&'a str);
+
+impl <'a> BranchName<'a> {
+    pub fn new(source: &'a str) -> BranchName<'a> {
+        BranchName(source)
+    }
+}
+
+impl <'a> AsRef<str> for BranchName<'a> {
+    fn as_ref(&self) -> &str {
+        self.0
+    }
+}
+
+/// Wrapper around a string reference to a remote name to reduce the odds of parameter mismatch
+#[derive(Clone, Debug)]
+pub struct RemoteName<'a>(&'a str);
+
+impl <'a> RemoteName<'a> {
+    pub fn new(source: &'a str) -> RemoteName<'a> {
+        RemoteName(source)
+    }
+}
+
+impl <'a> AsRef<str> for RemoteName<'a> {
+    fn as_ref(&self) -> &str {
+        self.0
+    }
+}
+
+
+/// Initialize RSL usage for a global/central repository.
+/// Subsequent to the completion of this call, no further calls should be made to this function.
+pub fn rsl_init_with_cleanup(repo: &mut Repository, remote_name: &RemoteName) -> Result<()> {
+    ensure!(remote_name.0 == "origin", "Remote name must be \"origin\"");
     let ws = Workspace::new(repo)?;
-    let mut remote = ws.repo.find_remote(remote_name)
-        .chain_err(|| format!("unable to find remote named {}", remote_name))?;
+    let mut remote = ws.repo.find_remote(remote_name.as_ref())
+        .chain_err(|| format!("unable to find remote named {}", remote_name.as_ref()))?;
     rsl::HasRSL::rsl_init_global(ws.repo, &mut remote)
 }
 
-pub fn secure_fetch_with_cleanup(repo: &mut Repository, branch: &str, remote_name: &str) -> Result<()> {
+pub fn secure_fetch_with_cleanup(repo: &mut Repository, remote_name: &RemoteName, branch: &BranchName) -> Result<()> {
+    ensure!(remote_name.0 == "origin", "Remote name must be \"origin\"");
     let ws = Workspace::new(repo)?;
-    let mut remote = ws.repo.find_remote(remote_name)
-        .chain_err(|| format!("unable to find remote named {}", remote_name))?;
-    fetch::secure_fetch(ws.repo, &mut remote, &[branch])
+    let mut remote = ws.repo.find_remote(remote_name.as_ref())
+        .chain_err(|| format!("unable to find remote named {}", remote_name.as_ref()))?;
+    fetch::secure_fetch(ws.repo, &mut remote, &[branch.as_ref()])
 }
 
-pub fn secure_push_with_cleanup(repo: &mut Repository, branch: &str, remote_name: &str) -> Result<()> {
+pub fn secure_push_with_cleanup(repo: &mut Repository, remote_name: &RemoteName, branch: &BranchName) -> Result<()> {
+    ensure!(remote_name.0 == "origin", "Remote name must be \"origin\"");
     let ws = Workspace::new(repo)?;
-    let mut remote = ws.repo.find_remote(remote_name)
-        .chain_err(|| format!("unable to find remote named {}", remote_name))?;
-    push::secure_push(ws.repo, &mut remote, &[branch])
+    let mut remote = ws.repo.find_remote(remote_name.as_ref())
+        .chain_err(|| format!("unable to find remote named {}", remote_name.as_ref()))?;
+    push::secure_push(ws.repo, &mut remote, &[branch.as_ref()])
 }
 
-struct Workspace<'repo> {
+pub struct Workspace<'repo> {
     pub repo: &'repo mut Repository,
-    pub old_state: WorkspaceSnapshot
+    old_state: WorkspaceSnapshot
 }
 
 /// An informal wrapper around workspace state with metadata for state prior to an operation for later restoration
