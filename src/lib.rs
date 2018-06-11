@@ -54,29 +54,6 @@ pub fn secure_push_with_cleanup(repo: &mut Repository, branch: &str, remote_name
     push::secure_push(ws.repo, &mut remote, &[branch])
 }
 
-// Returns a tuple containing the branch name, Some(stash_commit_id) if a stash took place or None if it was not necessary, and the path to the original working directory (if the user is not in the project root), in that order.
-fn prep_workspace(mut repo: &mut Repository) -> Result<WorkspaceSnapshot> {
-    let current_branch_name = repo.head()?
-        .name()
-        .ok_or("Not on a named branch. Please switch to one so we can put you back where you started when this is all through.")? // TODO allow this??
-        .to_owned();
-
-    let stash_id =
-        git::stash_local_changes(&mut repo).chain_err(|| "Couldn't stash local changes.")?;
-
-    // save current working directory and cd to project root
-    let cwd = env::current_dir()?;
-    let project_root = repo.workdir().ok_or("RSL not supported for bare repos")?;
-    let original_dir = if project_root != cwd {
-        env::set_current_dir(&project_root)?;
-        Some(cwd)
-    } else {
-        Some(cwd)
-    };
-
-    Ok(WorkspaceSnapshot { original_branch_name: current_branch_name.to_string(), stash_commit_id: stash_id, original_working_dir: original_dir })
-}
-
 struct Workspace<'repo> {
     pub repo: &'repo mut Repository,
     pub old_state: WorkspaceSnapshot
@@ -91,6 +68,28 @@ struct WorkspaceSnapshot {
 
 impl <'repo> Workspace<'repo> {
     pub fn new(repo: &'repo mut Repository) -> Result<Workspace> {
+        // Returns a tuple containing the branch name, Some(stash_commit_id) if a stash took place or None if it was not necessary, and the path to the original working directory (if the user is not in the project root), in that order.
+        fn prep_workspace(mut repo: &mut Repository) -> Result<WorkspaceSnapshot> {
+            let current_branch_name = repo.head()?
+                .name()
+                .ok_or("Not on a named branch. Please switch to one so we can put you back where you started when this is all through.")? // TODO allow this??
+                .to_owned();
+
+            let stash_id =
+                git::stash_local_changes(&mut repo).chain_err(|| "Couldn't stash local changes.")?;
+
+            // save current working directory and cd to project root
+            let cwd = env::current_dir()?;
+            let project_root = repo.workdir().ok_or("RSL not supported for bare repos")?;
+            let original_dir = if project_root != cwd {
+                env::set_current_dir(&project_root)?;
+                Some(cwd)
+            } else {
+                Some(cwd)
+            };
+
+            Ok(WorkspaceSnapshot { original_branch_name: current_branch_name.to_string(), stash_commit_id: stash_id, original_working_dir: original_dir })
+        }
         let snapshot = prep_workspace(repo)?;
         Ok(Workspace {
             repo,
@@ -101,33 +100,33 @@ impl <'repo> Workspace<'repo> {
 
 impl <'repo> Drop for Workspace<'repo> {
     fn drop(&mut self) {
+        fn restore_workspace(
+            mut repo: &mut Repository,
+            WorkspaceSnapshot {
+                original_branch_name,
+                stash_commit_id,
+                original_working_dir,
+            }: &WorkspaceSnapshot
+        ) -> Result<()> {
+            println!("Returning to {} branch", original_branch_name);
+            git::checkout_branch(repo, &original_branch_name).chain_err(|| {
+                "Couldn't checkout starting branch. Sorry if we messed with your repo state. Ensure you are on the desired branch. It may be necessary to apply changes from the stash"
+            })?;
+
+            if let Some(dir) = original_working_dir {
+                env::set_current_dir(dir)?;
+            }
+
+            if let Some(_) = stash_commit_id {
+                println!("Unstashing local changes");
+            }
+            git::unstash_local_changes(&mut repo, *stash_commit_id).chain_err(|| {
+                "Couldn't unstash local changes. Sorry if we messed with your repository state. It may be necessary to apply changes from the stash. {:?}"
+            })?;
+            Ok(())
+        }
         restore_workspace(&mut self.repo, &self.old_state)
             .expect("Could not restore workspace to original configuration");
     }
 }
 
-fn restore_workspace(
-    mut repo: &mut Repository,
-    WorkspaceSnapshot {
-    original_branch_name,
-    stash_commit_id,
-    original_working_dir,
-    }: &WorkspaceSnapshot
-) -> Result<()> {
-    println!("Returning to {} branch", original_branch_name);
-    git::checkout_branch(repo, &original_branch_name).chain_err(|| {
-        "Couldn't checkout starting branch. Sorry if we messed with your repo state. Ensure you are on the desired branch. It may be necessary to apply changes from the stash"
-    })?;
-
-    if let Some(dir) = original_working_dir {
-        env::set_current_dir(dir)?;
-    }
-
-    if let Some(_) = stash_commit_id {
-        println!("Unstashing local changes");
-    }
-    git::unstash_local_changes(&mut repo, *stash_commit_id).chain_err(|| {
-        "Couldn't unstash local changes. Sorry if we messed with your repository state. It may be necessary to apply changes from the stash. {:?}"
-    })?;
-    Ok(())
-}
