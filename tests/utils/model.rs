@@ -43,7 +43,7 @@ impl Repo {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Copy)]
 pub enum Tool {
     Git,
     RSL,
