@@ -65,13 +65,9 @@ sequential_test! {
             .expect("failed to change permissions");
 
             do_work_on_branch(&context.local, "refs/heads/master");
-            //let res2 = push::secure_push(&repo, &mut rem, refs).unwrap_err();
-            let res2 = git_rsl::secure_push_with_cleanup(&mut context.local, &RemoteName::new("origin"), &BranchName::new("master")).unwrap_err();
-            // TODO - analyse this test and find out what res2 here should be, then add an assert
-            // assert that we are on the right branch_head
+            let _res2 = git_rsl::secure_push_with_cleanup(&mut context.local, &RemoteName::new("origin"), &BranchName::new("master")).unwrap_err();
             let head = context.local.head().unwrap().name().unwrap().to_owned();
             assert_eq!(head, "refs/heads/master");
-            //assert_eq!(res2.description(), "");
 
         }
         teardown_fresh(context)

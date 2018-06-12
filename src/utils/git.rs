@@ -297,7 +297,7 @@ pub fn fast_forward_possible(repo: &Repository, theirs: &str) -> Result<bool> {
         .target()
         .ok_or("not a direct reference")?;
     let their_commit = repo.find_annotated_commit(their_oid)?;
-    let (analysis, preference) = repo.merge_analysis(&[&their_commit])?;
+    let (analysis, _preference) = repo.merge_analysis(&[&their_commit])?;
     Ok(analysis.contains(MergeAnalysis::ANALYSIS_FASTFORWARD))
 }
 

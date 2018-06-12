@@ -26,7 +26,6 @@ pub struct RSL<'remote, 'repo: 'remote> {
     last_remote_push_entry: PushEntry,
     nonce_bag: NonceBag,
     nonce: Nonce,
-    username: String,
 }
 
 impl<'remote, 'repo> RSL<'remote, 'repo> {
@@ -40,8 +39,6 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
         let last_remote_push_entry = find_last_push_entry(repo, &remote_head)?;
         let nonce_bag = repo.read_nonce_bag().chain_err(|| "nonce bag read error")?;
         let nonce = repo.read_nonce()?;
-        let username = git::username(repo)?;
-
         let rsl: RSL<'remote, 'repo> = RSL {
             repo,
             remote,
@@ -51,7 +48,6 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
             last_remote_push_entry,
             nonce_bag,
             nonce,
-            username,
         };
         Ok(rsl)
     }
@@ -80,7 +76,6 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
         let result = remaining
             .inspect(|x| println!("about to fold: {}", x))
             .fold(last_hash, |prev_hash, oid| {
-                //println!("last hash: {:?}", last_hash);
                 println!("prev_hash: {:?}", prev_hash);
                 println!("oid {:?}", oid);
                 let current_push_entry = PushEntry::from_oid(self.repo, &oid).unwrap_or(None);
@@ -95,7 +90,6 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
                         if current_prev_hash == self.last_local_push_entry.hash() {
 
                             if !self.nonce_bag.contains(&self.nonce) && !entry.get_nonce_bag().contains(&self.nonce) {
-                                //bail!(ErrorKind::MismatchedNonce)
                                 return None
                             }
                         }
@@ -149,11 +143,6 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
     }
 
     pub fn update_nonce_bag(&mut self) -> Result<()> {
-
-        // if !self.nonce_bag.remove(&self.nonce) {
-        //     // if nonce in bag does not match local nonce, stop and warn user of possible tampering
-        //     bail!("Your local '.git/NONCE' does not match the one fetched from the remote reference state log. Someone may have tampered with the remote repo.");
-        // }
         self.nonce_bag.remove(&self.nonce);
 
         // save new random nonce locally
@@ -212,7 +201,7 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
                     return Ok(Some(pe));
                 }
             }
-            // .next() returns Opt<Res<Oid>>
+            // NB .next() returns Opt<Res<Oid>>
             current = revwalk.next().and_then(|res| res.ok());
         }
         Ok(None)
@@ -359,7 +348,6 @@ impl<'repo> HasRSL<'repo> for Repository {
             .chain_err(|| "nonce write error")?;
 
         // add that nonce to the bag
-        let username = git::username(self)?;
         nonce_bag.insert(new_nonce);
         self.write_nonce_bag(&nonce_bag)
             .chain_err(|| "couldn't write to nonce bag file")?;
@@ -542,7 +530,6 @@ mod tests {
 
             // commit is signed and we are on the right branch
             let status = Command::new("git")
-                //.env("GNUPGHOME", "./fixtures/fixture.gnupghome")
                 .args(&["--exec-path", &context.repo_dir.to_str().unwrap()])
                 .args(&["verify-commit", "HEAD"])
                 .status()

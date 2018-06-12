@@ -37,8 +37,6 @@ impl From<OidDef> for Oid {
 
 #[derive(Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct PushEntry {
-    //#[serde(with = "Vec::<OidDef>")]
-    //pub related_commits: Vec<Oid>,
     branch: String,
     #[serde(with = "OidDef")] head: Oid,
     prev_hash: String,
