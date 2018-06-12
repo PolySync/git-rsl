@@ -39,8 +39,12 @@ pub fn checkout_branch(repo: &Repository, ref_name: &str) -> Result<()> {
 }
 
 pub fn discover_repo() -> Result<Repository> {
-    let current_dir = env::current_dir()?;
-    Repository::discover(current_dir).chain_err(|| "cwd is not a git repo")
+    if let Ok(git_dir) = env::var("GIT_DIR") {
+        Repository::discover(git_dir).chain_err(|| "GIT_DIR is not a git repo")
+    } else {
+        let current_dir = env::current_dir()?;
+        Repository::discover(current_dir).chain_err(|| "cwd is not a git repo")
+    }
 }
 
 // Stash any changes in the local working directory, including untracked files. Returns  Oid of stash commit if there was anything to stash, and None if the working directory already matches HEAD. Files ignored by git are left alone.
