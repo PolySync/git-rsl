@@ -15,6 +15,7 @@ use std::ops::Range;
 use std::collections::HashMap;
 use tempdir::TempDir;
 use git_rsl::utils::test_helper::*;
+use git_rsl::{BranchName, RemoteName};
 
 pub fn repos(repo_count: Range<usize>) -> BoxedStrategy<Vec<Repo>> {
     prop::collection::vec(repo(), repo_count).boxed()
@@ -194,8 +195,11 @@ proptest!{
         {
             let mut action_allowed = true;
 
-            git_rsl::rsl_init_with_cleanup(&mut context.local, "origin").expect("failed to init rsl");
-            git_rsl::secure_push_with_cleanup(&mut context.local, "master", "origin").expect("failed to secure push initial commit");
+            let remote_name = RemoteName::new("origin");
+
+            git_rsl::rsl_init_with_cleanup(&mut context.local, &remote_name).expect("failed to init rsl");
+            git_rsl::secure_push_with_cleanup(&mut context.local, &remote_name, &BranchName::new("master")).expect("failed to secure push initial commit");
+
 
             let mut locals = vec![context.local];
 
@@ -248,8 +252,10 @@ proptest!{
                 }
             }
 
-            git_rsl::rsl_init_with_cleanup(&mut rsl_context.local, "origin").expect("failed to init rsl");
-            git_rsl::secure_push_with_cleanup(&mut rsl_context.local, "master", "origin").expect("failed to secure push initial commit");
+            let remote_name = RemoteName::new("origin");
+
+            git_rsl::rsl_init_with_cleanup(&mut rsl_context.local, &remote_name).expect("failed to init rsl");
+            git_rsl::secure_push_with_cleanup(&mut rsl_context.local, &remote_name, &BranchName::new("master")).expect("failed to secure push initial commit");
 
             let mut rsl_locals = vec![rsl_context.local];
 
