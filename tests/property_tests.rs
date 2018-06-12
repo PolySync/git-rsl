@@ -1,5 +1,6 @@
 #[cfg(test)]
 #[macro_use] extern crate proptest;
+extern crate git_rsl;
 extern crate git2;
 extern crate tempdir;
 extern crate names;
@@ -13,6 +14,7 @@ use proptest::prelude::*;
 use std::ops::Range;
 use std::collections::HashMap;
 use tempdir::TempDir;
+use git_rsl::utils::test_helper::*;
 
 pub fn repos(repo_count: Range<usize>) -> BoxedStrategy<Vec<Repo>> {
     prop::collection::vec(repo(), repo_count).boxed()
@@ -143,64 +145,131 @@ fn arb_attacked_state_history() -> BoxedStrategy<(State, Action)> {
 /// To run these tests, simply run `cargo test -- --ignored`. You may optionally add the `--nocapture` option for more verbose test failure information.
 proptest!{
     #![proptest_config(ProptestConfig {
-    cases: 10, .. ProptestConfig::default()
+    cases: 5, .. ProptestConfig::default()
     })]
+    #[test] 
+    #[ignore]
+    fn git_fails_to_detect_attack((ref state, ref attack) in arb_attacked_state_history()) 
+    {
+        let actions: Vec<Action> = utils::collect_actions(state);
+
+        let mut context = setup_fresh();
+        {
+            let mut action_allowed = true;
+            let mut num_allowed_actions = 0;
+
+            let mut locals = vec![context.local];
+
+            for i in 1..state.locals.len() {
+                let mut local = utils::git::clone(&context.remote, i);
+                locals.push(local)
+            }
+
+            for action in &actions {
+                if action_allowed {
+                        action_allowed = action.apply(&context.remote, &mut locals, Tool::Git);
+                        num_allowed_actions += 1;
+                } else {
+                    break;
+                }
+            }
+
+            prop_assert!(action_allowed == true, 
+                            "git detected attack {:?} at {}: {:?}\n
+                            command list: {:?}", 
+                            attack,
+                            num_allowed_actions, 
+                            actions[num_allowed_actions-1], 
+                            actions);
+        }
+    }
+
     #[test] 
     #[ignore]
     fn rsl_detects_attack((ref state, ref attack) in arb_attacked_state_history()) 
     {
         let actions: Vec<Action> = utils::collect_actions(state);
 
-        let temp_dir = TempDir::new("test-rsl").expect("failed to create temporary directory");
-        let (main, mut locals) = utils::create_system_state(&temp_dir.path(), state.locals.len());
+        let mut context = setup_fresh();
+        {
+            let mut action_allowed = true;
 
-        let mut action_allowed = true;
+            git_rsl::rsl_init_with_cleanup(&mut context.local, "origin").expect("failed to init rsl");
+            git_rsl::secure_push_with_cleanup(&mut context.local, "master", "origin").expect("failed to secure push initial commit");
 
-        for action in &actions {
-            if action_allowed {
-                action_allowed = action.apply(&main, &mut locals, Tool::RSL);
-            } else {
-                break;
+            let mut locals = vec![context.local];
+
+            for i in 1..state.locals.len() {
+                let mut local = utils::git::clone(&context.remote, i);
+                locals.push(local)
             }
-        }
 
-        prop_assert!(action_allowed == false, 
-                        "rsl failed to detect attack {:?}\n
-                        command list: {:?}", attack, actions);
+            for action in &actions {
+                if action_allowed {
+                        action_allowed = action.apply(&context.remote, &mut locals, Tool::RSL);
+                } else {
+                    break;
+                }
+            }
+
+            prop_assert!(action_allowed == false, 
+                            "rsl failed to detect attack {:?}\n
+                            command list: {:?}", 
+                            attack,
+                            actions);
+        }
     }
+
     #[test] 
     #[ignore]
     fn rsl_detects_before_git((ref state, ref attack) in arb_attacked_state_history()) 
     {
         let actions: Vec<Action> = utils::collect_actions(state);
 
-        let mut temp_dir = TempDir::new("git-v-rsl-test-git").expect("failed to create temporary directory");
-        let (main, mut locals) = utils::create_system_state(&temp_dir.path(), state.locals.len());
+        let mut git_context = setup_fresh();
+        let mut rsl_context = setup_fresh();
+        {
+            let mut git_command_allowed = true;
+            let mut git_num_allowed_actions = 0;
+            utils::git::commit(&git_context.local, "Initial commit");
+            utils::git::push(&git_context.local, "master");
 
-        let mut git_command_allowed = true;
-        let mut git_num_allowed_actions = 0;
+            let mut git_locals = vec![git_context.local];
 
-        for action in &actions {
-            if git_command_allowed {
-                git_command_allowed = action.apply(&main, &mut locals, Tool::Git);
-                git_num_allowed_actions += 1;
+            for i in 1..state.locals.len() {
+                let mut local = utils::git::clone(&git_context.remote, i);
+                git_locals.push(local)
             }
-        }
 
-        temp_dir = TempDir::new("git-v-rsl-test-rsl").expect("failed to create temporary directory");
-        let (main_2, mut locals_2) = utils::create_system_state(&temp_dir.path(), state.locals.len());
-
-        let mut rsl_command_allowed = true;
-        let mut rsl_num_allowed_actions = 0;
-
-        for action in &actions {
-            if rsl_command_allowed {
-                rsl_command_allowed = action.apply(&main_2, &mut locals_2, Tool::RSL);
-                rsl_num_allowed_actions += 1;
+            for action in &actions {
+                if git_command_allowed {
+                        git_command_allowed = action.apply(&git_context.remote, &mut git_locals, Tool::Git);
+                    git_num_allowed_actions += 1;
+                }
             }
-        }
 
-        prop_assert!(git_num_allowed_actions >= rsl_num_allowed_actions,
-            "git detected attack faster than rsl: \n\t{:?}\n\t{:?}", attack, actions);
+            git_rsl::rsl_init_with_cleanup(&mut rsl_context.local, "origin").expect("failed to init rsl");
+            git_rsl::secure_push_with_cleanup(&mut rsl_context.local, "master", "origin").expect("failed to secure push initial commit");
+
+            let mut rsl_locals = vec![rsl_context.local];
+
+            for i in 1..state.locals.len() {
+                let mut local = utils::git::clone(&rsl_context.remote, i);
+                rsl_locals.push(local)
+            }
+
+            let mut rsl_command_allowed = true;
+            let mut rsl_num_allowed_actions = 0;
+
+            for action in &actions {
+                if rsl_command_allowed {
+                        rsl_command_allowed = action.apply(&rsl_context.remote, &mut rsl_locals, Tool::RSL);
+                    rsl_num_allowed_actions += 1;
+                }
+            }
+
+            prop_assert!(git_num_allowed_actions >= rsl_num_allowed_actions,
+                "git detected attack faster than rsl: \n\t{:?}\n\t{:?}", attack, actions);
+        }
     }
 }
