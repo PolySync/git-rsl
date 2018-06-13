@@ -264,7 +264,6 @@ pub fn fetch(
 /// Push the branches or tags given in ref_names
 pub fn push(repo: &Repository, remote: &mut Remote, ref_names: &[&str]) -> Result<()> {
     let refs: Vec<String> = ref_names
-        .to_vec()
         .iter()
         .map(|name: &&str| {
             format!(
