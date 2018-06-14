@@ -46,7 +46,6 @@ pub fn setup_fresh() -> Context {
     ).unwrap();
 
     // init bare remote repo with same state
-    // let remote_dir = format!("{}.git", &local_dir.to_str().unwrap());
     let remote_dir = temp_dir.join("central.git");
     create_all(&remote_dir, true).unwrap();
     let remote = Repository::init_bare(&remote_dir).unwrap();
