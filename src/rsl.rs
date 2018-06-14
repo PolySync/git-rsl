@@ -22,7 +22,6 @@ pub enum RSLType {
 pub fn all_push_entries_in_fetch_head(repo: &Repository, rsl: &RSL, ref_names: &[&str]) -> bool {
     // find the last push entry for each branch
     let latest_push_entries: Vec<Oid> = ref_names
-        .clone()
         .into_iter()
         .filter_map(|ref_name| {
             match rsl.find_last_remote_push_entry_for_branch(ref_name)
@@ -36,7 +35,6 @@ pub fn all_push_entries_in_fetch_head(repo: &Repository, rsl: &RSL, ref_names: &
 
     // find the Oid of the tip of each remote fetched branch
     let fetch_heads: Vec<Oid> = ref_names
-        .clone()
         .into_iter()
         .filter_map(|ref_name| {
             println!("ref_name: {:?}", ref_name);
