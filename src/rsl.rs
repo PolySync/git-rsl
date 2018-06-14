@@ -1,6 +1,9 @@
 use git2::{BranchType, Oid, Remote, Repository, Revwalk, Sort};
 use git2::build::CheckoutBuilder;
 
+use std::collections::HashSet;
+use std::iter::FromIterator;
+
 use nonce::{HasNonce, Nonce};
 use nonce_bag::{HasNonceBag, NonceBag};
 use push_entry::PushEntry;
@@ -14,6 +17,38 @@ const REFLOG_MSG: &str = "Retrieve RSL branches from remote";
 pub enum RSLType {
     Local,
     Remote,
+}
+
+pub fn all_push_entries_in_fetch_head(repo: &Repository, rsl: &RSL, ref_names: &[&str]) -> bool {
+    // find the last push entry for each branch
+    let latest_push_entries: Vec<Oid> = ref_names
+        .into_iter()
+        .filter_map(|ref_name| {
+            match rsl.find_last_remote_push_entry_for_branch(ref_name)
+                .ok()
+            {
+                Some(Some(pe)) => Some(pe.head()),
+                Some(None) | None => None,
+            }
+        })
+        .collect();
+
+    // find the Oid of the tip of each remote fetched branch
+    let fetch_heads: Vec<Oid> = ref_names
+        .into_iter()
+        .filter_map(|ref_name| {
+            println!("ref_name: {:?}", ref_name);
+            match repo.find_branch(&format!("origin/{}", ref_name), BranchType::Remote) {
+                Ok(branch) => branch.get().target(),
+                Err(_) => None,
+            }
+        })
+        .collect();
+    let push_entries: HashSet<&Oid> = HashSet::from_iter(&latest_push_entries);
+    let fetch_head: HashSet<&Oid> = HashSet::from_iter(&fetch_heads);
+    println!("push_entries: {:?}", &push_entries);
+    println!("fetch_head: {:?}", &fetch_head);
+    push_entries.is_subset(&fetch_head)
 }
 
 //#[derive(Debug)]

@@ -1,6 +1,7 @@
 use git2::{Remote, Repository};
 
 use rsl::{HasRSL, RSL};
+use rsl;
 use errors::*;
 
 use utils::git;
@@ -29,6 +30,12 @@ pub fn secure_push<'remote, 'repo: 'remote>(
 
         {
             let mut rsl = RSL::read(repo, &mut remote).chain_err(|| "couldn't read RSL")?;
+
+            if !rsl::all_push_entries_in_fetch_head(repo, &rsl, ref_names) {
+                rsl.reset_remote_to_local()?;
+                bail!(ErrorKind::InvalidRSL);
+            }
+
 
             // reset to last trusted RSL if invalid
             if let Err(e) = rsl.validate() {
