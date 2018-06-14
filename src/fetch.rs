@@ -1,8 +1,4 @@
-use std::vec::Vec;
-use std::collections::HashSet;
-use std::iter::FromIterator;
-
-use git2::{BranchType, Oid, Remote, Repository};
+use git2::{Remote, Repository};
 
 use rsl::{HasRSL, RSL};
 use rsl;
