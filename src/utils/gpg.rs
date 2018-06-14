@@ -228,7 +228,6 @@ mod tests {
 
     #[test]
     fn gpg_cli_sign_and_verify() {
-        let fixtures_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures");
         // sign as test user Testy McTesterson
         let gpghome_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures").join("fixture.gnupghome");
         let gpghome = &gpghome_dir.to_str().expect("Could not stringify gpghome path");

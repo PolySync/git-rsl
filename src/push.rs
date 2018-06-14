@@ -10,8 +10,6 @@ pub fn secure_push<'remote, 'repo: 'remote>(
     mut remote: &'remote mut Remote<'repo>,
     ref_names: &[&str],
 ) -> Result<()> {
-    //let mut refs = ref_names.iter().filter_map(|name| &repo.find_reference(name).ok());
-
     repo.fetch_rsl(&mut remote)
         .chain_err(|| "Problem fetching Remote RSL. Check your connection or your SSH config")?;
 

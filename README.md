@@ -9,7 +9,7 @@ vulnerabilities](https://www.usenix.org/system/files/conference/usenixsecurity16
 The paper authors are actively working to get RSL incorporated into
 [git](https://github.com/git/git), at which point this project is moot.
 
-git-rsl currently provides two binaries, `git-secure-fetch` and `git-secure-push` which
+git-rsl currently provides three binaries, `git-rsl-init`, `git-secure-fetch`, and `git-secure-push` which
 work as `git` plugins.
 
 ## Getting Started
@@ -70,6 +70,13 @@ by doing the following:
 
 ## Usage
 
+Assuming a central `"origin"` repository off of which other repositories are based,
+start by running `git rsl-init "origin"` to prepare the central repository for RSL use.
+
+After `git rsl-init` has been run (a single time in the lifecycle of the central repo),
+*any* cloned instance can now interact with the repository securely
+using `git secure-fetch` and `git secure-push`.
+
 Correct usage of the RSL depends on merging PRs from the command line.
 Using GitHub's or some other UI to merge will invalidate the RSL.
 
@@ -83,14 +90,22 @@ the target branch in the process.
 `secure-merge`, which is not yet implemented, enables repositories to
 have signed merge commits, which is impossible merging from the UI.
 
-If you have installed the tools successfully using the provided install script, you should be able to fetch and push securely.
+If you have installed the tools successfully,
+you should be able to init, fetch and push securely.
 
 ```bash
+# rsl-init needs to be run once for a central repository,
+# and then local clones need not run it at all.
+# Note that the remote must be named "origin"
+git rsl-init <REMOTE>
+
 # Note that the branch name must be exact and not aliased (no using `HEAD`)
 # Note that only a single remote and a single branch may be specified at a time
+# Furthermore, the remote must be named "origin"
 git secure-fetch <REMOTE> <BRANCH>
 
 # Similarly, only a single remote and branch at a time may be specified for pushing
+# Furthermore, the remote must be named "origin"
 git secure-push <REMOTE> <BRANCH>
 ```
 
@@ -105,6 +120,9 @@ git secure-push <REMOTE> <BRANCH>
   # (i.e. the directory containing the `.git` dir)
   cd my_git_repo
   git checkout master
+
+  # If RSL has not been set up globally for the "origin" repository, run:
+  git rsl-init origin
 
   # Securely fetch content from the remote named `origin` for the branch `master`
   git secure-fetch origin master
