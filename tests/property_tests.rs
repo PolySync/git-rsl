@@ -1,7 +1,7 @@
 #[cfg(test)]
 #[macro_use] extern crate proptest;
+extern crate git_rsl;
 extern crate git2;
-extern crate tempdir;
 extern crate names;
 
 mod utils;
@@ -12,7 +12,8 @@ use proptest::sample::select;
 use proptest::prelude::*;
 use std::ops::Range;
 use std::collections::HashMap;
-use tempdir::TempDir;
+use git_rsl::utils::test_helper::*;
+use git_rsl::{BranchName, RemoteName};
 
 pub fn repos(repo_count: Range<usize>) -> BoxedStrategy<Vec<Repo>> {
     prop::collection::vec(repo(), repo_count).boxed()
@@ -143,64 +144,88 @@ fn arb_attacked_state_history() -> BoxedStrategy<(State, Action)> {
 /// To run these tests, simply run `cargo test -- --ignored`. You may optionally add the `--nocapture` option for more verbose test failure information.
 proptest!{
     #![proptest_config(ProptestConfig {
-    cases: 10, .. ProptestConfig::default()
+    cases: 5, .. ProptestConfig::default()
     })]
+    #[test] 
+    #[ignore]
+    fn git_fails_to_detect_attack((ref state, ref attack) in arb_attacked_state_history()) 
+    {
+        let actions: Vec<Action> = utils::collect_actions(state);
+
+        let context = setup_fresh();
+        {
+            let mut locals = utils::setup_local_repos(&context, state.locals.len());
+
+            let num_successful_actions = utils::apply_actions_to_system(
+                &context.remote, &mut locals, &actions, Tool::Git);
+
+            prop_assert!(num_successful_actions == actions.len(), 
+                            "git detected attack {:?} at {}: {:?}\n
+                            command list: {:?}", 
+                            attack,
+                            num_successful_actions, 
+                            actions[num_successful_actions-1], 
+                            actions);
+        }
+        teardown_fresh(context)
+    }
+
     #[test] 
     #[ignore]
     fn rsl_detects_attack((ref state, ref attack) in arb_attacked_state_history()) 
     {
         let actions: Vec<Action> = utils::collect_actions(state);
 
-        let temp_dir = TempDir::new("test-rsl").expect("failed to create temporary directory");
-        let (main, mut locals) = utils::create_system_state(&temp_dir.path(), state.locals.len());
+        let mut context = setup_fresh();
+        {
+            let remote_name = RemoteName::new("origin");
 
-        let mut action_allowed = true;
+            git_rsl::rsl_init_with_cleanup(&mut context.local, &remote_name).expect("failed to init rsl");
+            git_rsl::secure_push_with_cleanup(&mut context.local, &remote_name, &BranchName::new("master")).expect("failed to secure push initial commit");
 
-        for action in &actions {
-            if action_allowed {
-                action_allowed = action.apply(&main, &mut locals, Tool::RSL);
-            } else {
-                break;
-            }
+            let mut locals = utils::setup_local_repos(&context, state.locals.len());
+
+            let num_successful_actions = utils::apply_actions_to_system(
+                &context.remote, &mut locals, &actions, Tool::RSL);
+
+            prop_assert!(num_successful_actions < actions.len(), 
+                            "rsl failed to detect attack {:?}\n
+                            command list: {:?}", 
+                            attack,
+                            actions);
         }
-
-        prop_assert!(action_allowed == false, 
-                        "rsl failed to detect attack {:?}\n
-                        command list: {:?}", attack, actions);
+        teardown_fresh(context)
     }
+
     #[test] 
     #[ignore]
     fn rsl_detects_before_git((ref state, ref attack) in arb_attacked_state_history()) 
     {
         let actions: Vec<Action> = utils::collect_actions(state);
 
-        let mut temp_dir = TempDir::new("git-v-rsl-test-git").expect("failed to create temporary directory");
-        let (main, mut locals) = utils::create_system_state(&temp_dir.path(), state.locals.len());
+        let mut context = setup_fresh();
+        let num_successful_git_actions = {
+            let mut locals = utils::setup_local_repos(&context, state.locals.len());
 
-        let mut git_command_allowed = true;
-        let mut git_num_allowed_actions = 0;
+            utils::apply_actions_to_system(
+                &context.remote, &mut locals, &actions, Tool::Git)
+        };
+        teardown_fresh(context);
+        
+        context = setup_fresh();
+        let num_successful_rsl_actions = {
+            let remote_name = RemoteName::new("origin");
+            git_rsl::rsl_init_with_cleanup(&mut context.local, &remote_name).expect("failed to init rsl");
+            git_rsl::secure_push_with_cleanup(&mut context.local, &remote_name, &BranchName::new("master")).expect("failed to secure push initial commit");
 
-        for action in &actions {
-            if git_command_allowed {
-                git_command_allowed = action.apply(&main, &mut locals, Tool::Git);
-                git_num_allowed_actions += 1;
-            }
-        }
+            let mut locals = utils::setup_local_repos(&context, state.locals.len());
 
-        temp_dir = TempDir::new("git-v-rsl-test-rsl").expect("failed to create temporary directory");
-        let (main_2, mut locals_2) = utils::create_system_state(&temp_dir.path(), state.locals.len());
+            utils::apply_actions_to_system(
+                &context.remote, &mut locals, &actions, Tool::RSL)
+        };
+        teardown_fresh(context);
 
-        let mut rsl_command_allowed = true;
-        let mut rsl_num_allowed_actions = 0;
-
-        for action in &actions {
-            if rsl_command_allowed {
-                rsl_command_allowed = action.apply(&main_2, &mut locals_2, Tool::RSL);
-                rsl_num_allowed_actions += 1;
-            }
-        }
-
-        prop_assert!(git_num_allowed_actions >= rsl_num_allowed_actions,
-            "git detected attack faster than rsl: \n\t{:?}\n\t{:?}", attack, actions);
+        prop_assert!(num_successful_git_actions >= num_successful_rsl_actions,
+                "git detected attack faster than rsl: \n\t{:?}\n\t{:?}", attack, actions);
     }
 }

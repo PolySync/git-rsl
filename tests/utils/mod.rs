@@ -4,9 +4,8 @@ pub mod model;
 pub mod rsl;
 
 use git2::Repository;
-use std::path::Path;
-use utils::model::{State, Action, Repo};
-use tempdir::TempDir;
+use utils::model::{State, Action, Repo, Tool};
+use git_rsl::utils::test_helper::*;
 
 pub const NUM_STARTING_ACTIONS_LOW: usize = 5;
 pub const NUM_STARTING_ACTIONS_HIGH: usize = 10;
@@ -32,48 +31,34 @@ pub fn collect_actions(state: &State) -> Vec<Action> {
     actions
 }
 
-pub fn create_system_state(temp_dir: &Path, local_count: usize) -> (Repository, Vec<Repository>) {
-    let (remote, local) = git::init(&temp_dir);
+pub fn setup_local_repos(context: &Context, num_clones: usize) -> Vec<Repository> {
+    let first_clone = Repository::open(context.local.path()).expect("failed to open local repository from context");
 
-    let mut locals: Vec<Repository> = Vec::new();
-    locals.push(local);
+    git::commit(&first_clone, "Initial commit");
+    git::push(&first_clone, "master");
 
-    for i in 1..local_count {
-        let local_path = &temp_dir.join(format!("{}", i));
-        let local = git::clone(&remote.path(), local_path, i);
-        locals.push(local);
+    let mut locals = vec![first_clone];
+
+    for i in 1..num_clones {
+        let clone = git::clone(&context.remote, i);
+        locals.push(clone);
     }
 
-    (remote, locals)
+    locals
 }
 
-#[test]
-fn check_system_state() {
-    let temp_dir = TempDir::new("test").expect("failed to create temporary directory");
-    let (main, mut locals) = create_system_state(&temp_dir.path(), 2);
-    let local_2 = &mut locals.pop().expect("failed to pop repo");
-    let local_1 = &mut locals.pop().expect("failed to pop repo");
+pub fn apply_actions_to_system(remote: &Repository, locals: &mut Vec<Repository>, actions: &Vec<Action>, tool: Tool) -> usize {
+    let mut action_allowed = true;
+    let mut num_allowed_actions = 0;
 
-    assert!(git::commit(&local_1, "some words here"));
-    assert!(git::push(&local_1, "master"));
-    assert!(git::pull(&local_2, "master"));
-    assert!(git::commit(&local_2, "here are more words"));
-    assert!(git::push(&local_2, "master"));
-    assert!(git::pull(&local_1, "master"));
+    for action in actions {
+        if action_allowed {
+            action_allowed = action.apply(remote, locals, tool);
+            num_allowed_actions += 1;
+        } else {
+            break;
+        }
+    }
 
-    git::log(&main, "master");
-
-    let temp_dir_2 = TempDir::new("test").expect("failed to create temporary directory");
-    let (main_2, mut locals_2) = create_system_state(&temp_dir_2.path(), 2);
-    let local_2_2 = &mut locals_2.pop().expect("failed to pop repo");
-    let local_2_1 = &mut locals_2.pop().expect("failed to pop repo");
-
-    assert!(git::commit(&local_2_1, "main 222222222222222"));
-    assert!(git::push(&local_2_1, "master"));
-    assert!(git::pull(&local_2_2, "master"));
-    assert!(git::commit(&local_2_2, "more main 22222222222"));
-    assert!(git::push(&local_2_2, "master"));
-    assert!(git::pull(&local_2_1, "master"));
-
-    git::log(&main_2, "master");
+    num_allowed_actions
 }
