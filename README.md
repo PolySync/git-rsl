@@ -72,8 +72,10 @@ by doing the following:
 
 Assuming a central `"origin"` repository off of which other repositories are based,
 start by running `git rsl-init "origin"` to prepare the central repository for RSL use.
+
 After `git rsl-init` has been run (a single time in the lifecycle of the central repo),
-one can interact with the repository securely using `git secure-fetch` and `git secure-push`.
+*any* cloned instance can now interact with the repository securely
+using `git secure-fetch` and `git secure-push`.
 
 Correct usage of the RSL depends on merging PRs from the command line.
 Using GitHub's or some other UI to merge will invalidate the RSL.
