@@ -129,22 +129,25 @@ fn git_push() {
     teardown_fresh(context);
 }
 
-// #[test]
-// fn git_pull() {
-//     let temp_dir = TempDir::new("test").expect("failed to create temporary directory");
-//     let (main, mut locals) = super::create_system_state(&temp_dir.path(), 2);
-//     let local_1 = &mut locals.pop().expect("failed to pop repo");
-//     let local_2 = &mut locals.pop().expect("failed to pop repo");
+#[test]
+fn git_pull() {
+    let mut context = setup_fresh();
+    {
+        let mut locals = super::setup_local_repos(&context, 2);
+        let local_1 = &mut locals.pop().expect("failed to pop repo");
+        let local_2 = &mut locals.pop().expect("failed to pop repo");
 
-//     commit(local_1, "C2");
-//     let oid = local_1.head().expect("failed to get head").target().expect("failed to get C2 oid...");
-//     assert!(main.find_commit(oid).is_err());
+        commit(local_1, "C2");
+        let oid = local_1.head().expect("failed to get head").target().expect("failed to get C2 oid...");
+        assert!(&context.remote.find_commit(oid).is_err());
 
-//     push(local_1, "master");
+        push(local_1, "master");
 
-//     assert!(local_2.find_commit(oid).is_err());
+        assert!(local_2.find_commit(oid).is_err());
 
-//     pull(local_2, "master");
+        pull(local_2, "master");
 
-//     assert!(local_2.find_commit(oid).is_ok());
-// }
+        assert!(local_2.find_commit(oid).is_ok());
+    }
+    teardown_fresh(context);
+}
