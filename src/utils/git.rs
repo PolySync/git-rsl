@@ -39,8 +39,12 @@ pub fn checkout_branch(repo: &Repository, ref_name: &str) -> Result<()> {
 }
 
 pub fn discover_repo() -> Result<Repository> {
-    let current_dir = env::current_dir()?;
-    Repository::discover(current_dir).chain_err(|| "cwd is not a git repo")
+    if let Ok(git_dir) = env::var("GIT_DIR") {
+        Repository::discover(git_dir).chain_err(|| "GIT_DIR is not a git repo")
+    } else {
+        let current_dir = env::current_dir()?;
+        Repository::discover(current_dir).chain_err(|| "cwd is not a git repo")
+    }
 }
 
 // Stash any changes in the local working directory, including untracked files. Returns  Oid of stash commit if there was anything to stash, and None if the working directory already matches HEAD. Files ignored by git are left alone.
@@ -257,7 +261,29 @@ pub fn fetch(
     })
 }
 
+/// Push the branches or tags given in ref_names
 pub fn push(repo: &Repository, remote: &mut Remote, ref_names: &[&str]) -> Result<()> {
+    let refs: Vec<String> = ref_names
+        .iter()
+        .map(|name: &&str| {
+            format!(
+                "refs/heads/{}:refs/heads/{}",
+                name.to_string(),
+                name.to_string()
+            )
+        })
+        .collect();
+
+    let mut refspecs: Vec<&str> = vec![];
+    for name in &refs {
+        refspecs.push(name)
+    }
+
+    push_refspecs(repo, remote, &refspecs)
+}
+
+/// Push the given refspecs
+pub fn push_refspecs(repo: &Repository, remote: &mut Remote, refspecs: &[&str]) -> Result<()> {
     let cfg = repo.config().unwrap();
     let remote_copy = remote.clone();
     let url = remote_copy.url().unwrap();
@@ -268,27 +294,11 @@ pub fn push(repo: &Repository, remote: &mut Remote, ref_names: &[&str]) -> Resul
         let mut opts = PushOptions::new();
         opts.remote_callbacks(cb);
 
-        let refs: Vec<String> = ref_names
-            .to_vec()
-            .iter()
-            .map(|name: &&str| {
-                format!(
-                    "refs/heads/{}:refs/heads/{}",
-                    name.to_string(),
-                    name.to_string()
-                )
-            })
-            .collect();
-
-        let mut refs_ref: Vec<&str> = vec![];
-        for name in &refs {
-            refs_ref.push(name)
-        }
-
-        remote.push(&refs_ref, Some(&mut opts))?;
+        remote.push(refspecs, Some(&mut opts))?;
         Ok(())
     })
 }
+
 
 // for a f `merge --ff-only origin/branch branch`, the target is `branch` and the source is `origin/branch`
 // returns true even if the two branches point to the same ref
