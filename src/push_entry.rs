@@ -72,7 +72,7 @@ impl PushEntry {
     }
 
     pub fn head(&self) -> Oid {
-        self.head.clone()
+        self.head
     }
 
     pub fn branch(&self) -> &str {
@@ -91,7 +91,7 @@ impl PushEntry {
         hasher.result_str()
     }
 
-    pub fn from_str(string: &str) -> Option<PushEntry> {
+    pub fn try_from_str(string: &str) -> Option<PushEntry> {
         match serde_json::from_str(string) {
             Ok(p) => Some(p),
             Err(_) => None,
@@ -140,11 +140,11 @@ mod tests {
             branch: String::from("branch_name"),
             head: oid,
             prev_hash: String::from("fwjjk42ofw093j"),
-            nonce_bag: NonceBag::new(),
+            nonce_bag: NonceBag::default(),
         };
         let serialized = &entry.to_string();
         println!("{}", &serialized);
-        let deserialized = PushEntry::from_str(&serialized).unwrap();
+        let deserialized = PushEntry::try_from_str(&serialized).unwrap();
         assert_eq!(entry, deserialized)
     }
 
@@ -164,9 +164,9 @@ mod tests {
             branch: String::from("branch_name"),
             head: Oid::from_str("decbf2be529ab6557d5429922251e5ee36519817").unwrap(),
             prev_hash: String::from("fwjjk42ofw093j"),
-            nonce_bag: NonceBag::new(),
+            nonce_bag: NonceBag::default(),
         };
-        let deserialized = PushEntry::from_str(&string).unwrap();
+        let deserialized = PushEntry::try_from_str(&string).unwrap();
 
         assert_eq!(deserialized, entry)
     }
@@ -184,12 +184,11 @@ mod tests {
                 repo,
                 &"master",
                 String::from("fwjjk42ofw093j"),
-                NonceBag::new(),
+                NonceBag::default(),
             );
             let oid = repo.commit_push_entry(&entry, "refs/heads/RSL").unwrap();
 
             assert_eq!(PushEntry::from_oid(&repo, &oid).unwrap().unwrap(), entry);
         }
-        teardown_fresh(context);
     }
 }

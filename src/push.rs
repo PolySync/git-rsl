@@ -51,7 +51,7 @@ pub fn secure_push<'remote, 'repo: 'remote>(
             Err(e) => {
                 println!(
                     "Error: unable to push reference(s) {:?} to remote {:?}",
-                    ref_names.clone().join(", "),
+                    ref_names.join(", "),
                     &remote.name().unwrap()
                 );
                 println!("  {}", e);
@@ -82,7 +82,6 @@ mod tests {
             let res = super::secure_push(&repo, &mut rem, &refs).unwrap();
             assert_eq!(res, ());
         }
-        teardown_fresh(context)
     }
 
     #[test]
@@ -102,6 +101,5 @@ mod tests {
             super::secure_push(&repo, &mut rem, refs).unwrap();
             // TODO add conditions
         }
-        teardown_fresh(context)
     }
 }

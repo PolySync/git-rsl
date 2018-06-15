@@ -173,7 +173,7 @@ impl<'repo> Drop for Workspace<'repo> {
                 env::set_current_dir(dir)?;
             }
 
-            if let Some(_) = stash_commit_id {
+            if stash_commit_id.is_some() {
                 println!("Unstashing local changes");
             }
             git::unstash_local_changes(&mut repo, *stash_commit_id).chain_err(|| {

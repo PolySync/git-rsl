@@ -50,7 +50,7 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
                 Err(e) => {
                     println!(
                         "Error: unable to fetch reference {} from remote {}",
-                        ref_names.clone().join(", "),
+                        ref_names.join(", "),
                         &remote.name().unwrap()
                     );
                     println!("  {}", e);

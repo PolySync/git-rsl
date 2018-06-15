@@ -137,7 +137,6 @@ fn git_branch() {
                 .is_ok()
         );
     }
-    teardown_fresh(context);
 }
 
 #[test]
@@ -170,7 +169,6 @@ fn git_checkout() {
             .expect("failed to get latest commit...");
         assert!(commit.summary() == Some(&random_master_commit_msg));
     }
-    teardown_fresh(context);
 }
 
 #[test]
@@ -190,7 +188,6 @@ fn git_commit() {
 
         assert!(commit.summary() == Some(&random_commit_msg));
     }
-    teardown_fresh(context);
 }
 
 #[test]
@@ -210,7 +207,6 @@ fn git_push() {
         push(&context.local, "master");
         assert!(&context.remote.find_commit(oid).is_ok());
     }
-    teardown_fresh(context);
 }
 
 #[test]
@@ -237,5 +233,4 @@ fn git_pull() {
 
         assert!(local_2.find_commit(oid).is_ok());
     }
-    teardown_fresh(context);
 }

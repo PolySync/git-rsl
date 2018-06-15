@@ -154,7 +154,7 @@ pub fn add_and_commit_signed(
 
     // stupid duplication because &[&T] is a terrible type to mess with
     let oid = if let Some(parent_commit) = parent {
-        let c = commit_signed(
+        commit_signed(
             repo,
             Some(branch), //  point HEAD to our new commit
             &signature,   // author
@@ -162,10 +162,9 @@ pub fn add_and_commit_signed(
             message,      // commit message
             &tree,        // tree
             &[&parent_commit],
-        )?; // parents
-        c
+        )? // parents
     } else {
-        let c = commit_signed(
+        commit_signed(
             repo,
             Some(branch), //  point HEAD to our new commit
             &signature,   // author
@@ -173,8 +172,7 @@ pub fn add_and_commit_signed(
             message,      // commit message
             &tree,        // tree
             &[],
-        )?; // parents
-        c
+        )? // parents
     };
 
     let commit = repo.find_commit(oid)?;
@@ -541,7 +539,6 @@ mod test {
             // are we on new branch?
             assert!(repo.head().unwrap().name().unwrap() == "refs/heads/branch");
         }
-        teardown_fresh(context)
     }
 
     #[test]
@@ -564,7 +561,6 @@ mod test {
             let res = super::fast_forward_possible(&repo, &"refs/heads/branch").unwrap();
             assert_eq!(res, true);
         }
-        teardown_fresh(context)
     }
 
     #[test]
@@ -594,7 +590,6 @@ mod test {
                 .unwrap();
             assert_eq!(master_tip, branch_tip)
         }
-        teardown_fresh(context)
     }
 
     #[test]
@@ -615,7 +610,6 @@ mod test {
             super::unstash_local_changes(&mut repo2, stash_id).unwrap();
             assert_eq!(path.is_file(), true);
         }
-        teardown_fresh(context)
     }
 
     // this is a terrible test! as it was designed to test a feature that I have
@@ -667,7 +661,6 @@ mod test {
             }
             assert_eq!(path.is_file(), true);
         }
-        teardown_fresh(context);
     }
 
     #[test]
@@ -681,7 +674,6 @@ mod test {
             let contents = super::commit_as_str(&commit).unwrap();
             assert!(commit_contents.is_match(&contents))
         }
-        teardown_fresh(context)
     }
 
     #[test]
@@ -701,7 +693,6 @@ mod test {
             assert!(header.contains(&header_pattern));
             assert_eq!(message, &message_string)
         }
-        teardown_fresh(context)
     }
 
     #[test]
@@ -721,7 +712,6 @@ mod test {
             assert!(header.contains(&header_pattern));
             assert_eq!(message, &message_string)
         }
-        teardown_fresh(context)
     }
 
     #[test]
@@ -731,6 +721,5 @@ mod test {
             super::username(&context.local).unwrap(),
             String::from("idontexistanythingaboutthat@email.com")
         );
-        teardown_fresh(context);
     }
 }

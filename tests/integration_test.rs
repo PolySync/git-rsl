@@ -51,7 +51,6 @@ sequential_test! {
             assert_eq!(res4, ());
             // TODO check that the git log of RSL looks how we want it to
         }
-        teardown_fresh(context)
     }
 }
 
@@ -77,7 +76,6 @@ sequential_test! {
             assert_eq!(head, "refs/heads/master");
 
         }
-        teardown_fresh(context)
     }
 }
 
@@ -94,7 +92,6 @@ sequential_test! {
             let res2 = git_rsl::secure_push_with_cleanup(&mut context.local, &RemoteName::new("origin"), &BranchName::new("master")).expect("Second push failed");
             assert_eq!(res2, ());
         }
-        teardown_fresh(context)
     }
 }
 
@@ -117,6 +114,5 @@ sequential_test! {
             let res3 = git_rsl::secure_push_with_cleanup(&mut context.local, &RemoteName::new("origin"), &BranchName::new("master")).expect_err("Checking for invalid RSL detection");
             assert_eq!(res3.description(), "invalid remote RSL");
         }
-        teardown_fresh(context)
     }
 }

@@ -207,7 +207,6 @@ proptest!{
                             actions[num_successful_actions-1],
                             actions);
         }
-        teardown_fresh(context)
     }
 
     #[test]
@@ -234,7 +233,6 @@ proptest!{
                             attack,
                             actions);
         }
-        teardown_fresh(context)
     }
 
     #[test]
@@ -250,7 +248,6 @@ proptest!{
             utils::apply_actions_to_system(
                 &context.remote, &mut locals, &actions, Tool::Git)
         };
-        teardown_fresh(context);
 
         context = setup_fresh();
         let num_successful_rsl_actions = {
@@ -263,7 +260,6 @@ proptest!{
             utils::apply_actions_to_system(
                 &context.remote, &mut locals, &actions, Tool::RSL)
         };
-        teardown_fresh(context);
 
         prop_assert!(num_successful_git_actions >= num_successful_rsl_actions,
                 "git detected attack faster than rsl: \n\t{:?}\n\t{:?}", attack, actions);

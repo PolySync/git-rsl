@@ -123,12 +123,11 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
                         // bag, or b) in the first new push entry. If not, then someone may have
                         // tampered with the RSL TODO does this take care
                         // of when there haven't been any new entries or only one new entry?
-                        if current_prev_hash == self.last_local_push_entry.hash() {
-                            if !self.nonce_bag.contains(&self.nonce)
-                                && !entry.get_nonce_bag().contains(&self.nonce)
-                            {
-                                return None;
-                            }
+                        if current_prev_hash == self.last_local_push_entry.hash()
+                            && !self.nonce_bag.contains(&self.nonce)
+                            && !entry.get_nonce_bag().contains(&self.nonce)
+                        {
+                            return None;
                         }
                         println!("current_prev_hash: {:?}", current_prev_hash);
 
@@ -151,9 +150,10 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
             bail!("invalid RSL entry");
         }
 
-        match verify_commit_signature(self.repo, self.remote_head)? {
-            true => Ok(()),
-            false => bail!("GPG signature of remote RSL head invalid"),
+        if verify_commit_signature(self.repo, self.remote_head)? {
+            Ok(())
+        } else {
+            bail!("GPG signature of remote RSL head invalid")
         }
     }
 
@@ -256,7 +256,7 @@ fn find_last_push_entry(repo: &Repository, oid: &Oid) -> Result<PushEntry> {
     let tree_tip = oid;
     let mut revwalk: Revwalk = repo.revwalk().expect("Failed to make revwalk");
     revwalk.push(tree_tip.clone())?;
-    let mut current = Some(tree_tip.clone());
+    let mut current = Some(*tree_tip);
     while current != None {
         if let Some(pe) = PushEntry::from_oid(repo, &current.unwrap())? {
             return Ok(pe);
@@ -285,7 +285,6 @@ impl<'repo> HasRSL<'repo> for Repository {
         let head_name = self.head()?
             .name()
             .ok_or("Not on a named branch")?
-            .clone()
             .to_owned();
 
         // create new parentless orphan commit
@@ -352,7 +351,7 @@ impl<'repo> HasRSL<'repo> for Repository {
             .chain_err(|| "couldn't write local nonce")?;
 
         // create new nonce bag with initial nonce
-        let mut nonce_bag = NonceBag::new();
+        let mut nonce_bag = NonceBag::default();
         nonce_bag.insert(nonce);
 
         self.write_nonce_bag(&nonce_bag)?;
@@ -469,7 +468,6 @@ mod tests {
             // simultaneously show deleted NONCE_BAG file?? git gets confused??? Open
             // git2rs issue about needing to reset after commit.
         }
-        teardown_fresh(context);
     }
 
     #[test]
@@ -507,7 +505,6 @@ mod tests {
             git::checkout_branch(&repo, "refs/heads/RSL").unwrap();
             assert!(!repo.workdir().unwrap().join("work.txt").is_file());
         }
-        teardown_fresh(context);
     }
 
     #[test]
@@ -537,7 +534,6 @@ mod tests {
 
             assert!(&repo.find_branch("RSL", BranchType::Local).is_err());
         }
-        teardown_fresh(context)
     }
 
     #[test]
@@ -561,7 +557,7 @@ mod tests {
                 repo,
                 &"master",                              // branch
                 String::from("hash_of_last_pushentry"), // prev
-                NonceBag::new(),
+                NonceBag::default(),
             );
             let oid = repo.commit_push_entry(&entry, "refs/heads/RSL").unwrap();
 
@@ -576,7 +572,7 @@ mod tests {
             // check text of commit
             let obj = repo.find_commit(oid)
                 .expect("Could not find commit with desired oid");
-            let result = PushEntry::from_str(&obj.message()
+            let result = PushEntry::try_from_str(&obj.message()
                 .expect("Could not interpret commit message as utf8"))
                 .expect(
                 "Could not interpret (json) PushEntry from message string",
@@ -591,7 +587,6 @@ mod tests {
                 .unwrap();
             assert!(status.success());
         }
-        teardown_fresh(context);
     }
 
     #[test]
@@ -649,6 +644,5 @@ mod tests {
                 assert_eq!(rsl.remote_head, rsl.local_head);
             }
         }
-        teardown_fresh(context)
     }
 }

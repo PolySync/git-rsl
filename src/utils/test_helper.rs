@@ -18,6 +18,13 @@ pub struct Context {
     pub repo_dir: PathBuf,
 }
 
+impl Drop for Context {
+    fn drop(&mut self) {
+        rm_rf(self.local.path().parent().unwrap());
+        rm_rf(self.remote.path());
+    }
+}
+
 pub fn setup_fresh() -> Context {
     // create temporary directory
     let temp_dir = TempDir::new("rsl_test")
@@ -59,12 +66,14 @@ pub fn setup_fresh() -> Context {
         .to_path_buf();
 
     // set remote origin to remote repo
-    &local.remote(
-        "origin",
-        &remote_dir
-            .to_str()
-            .expect("failed to stringify remote path"),
-    );
+    local
+        .remote(
+            "origin",
+            &remote_dir
+                .to_str()
+                .expect("failed to stringify remote path"),
+        )
+        .expect("Could not set remote named origin to remote repo");
     Context {
         local,
         remote,
@@ -78,19 +87,13 @@ pub fn create_file_with_text<P: AsRef<Path>>(path: P, text: &str) -> () {
     file.write_all(text.as_bytes()).unwrap();
 }
 
-pub fn teardown_fresh(context: Context) {
-    rm_rf(context.local.path().parent().unwrap());
-    rm_rf(context.remote.path());
-}
-
 pub fn do_work_on_branch(repo: &Repository, branch_name: &str) -> () {
     git::checkout_branch(&repo, branch_name).unwrap();
     git::add_and_commit(&repo, None, "a commit with some work", branch_name).unwrap();
 }
 
-fn rm_rf(path: &Path) -> () {
+fn rm_rf(path: &Path) {
     fs::remove_dir_all(&path).unwrap();
-    ()
 }
 
 #[cfg(test)]
@@ -107,6 +110,5 @@ mod tests {
             username.value(),
             Some("idontexistanythingaboutthat@email.com")
         );
-        teardown_fresh(context)
     }
 }
