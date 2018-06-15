@@ -1,19 +1,19 @@
-use std::path::Path;
 use std::env;
+use std::path::Path;
 
 use git2;
+use git2::BranchType;
+use git2::build::CheckoutBuilder;
 use git2::{Commit, DiffOptions, FetchOptions, Oid, PushOptions, Remote, RemoteCallbacks,
            Repository, RepositoryState, Signature, Tree};
-use git2::build::CheckoutBuilder;
-use git2::BranchType;
 
+use git2::CredentialType;
+use git2::MergeAnalysis;
 use git2::StashApplyOptions;
 use git2::StashFlags;
-use git2::MergeAnalysis;
-use git2::CredentialType;
 
-use utils::gpg;
 use errors::*;
+use utils::gpg;
 
 pub fn oid_from_long_name(repo: &Repository, ref_name: &str) -> Result<Oid> {
     let oid = repo.find_reference(ref_name)?
@@ -113,20 +113,20 @@ pub fn add_and_commit(
     if let Some(parent_commit) = parent {
         let oid = repo.commit(
             Some(branch), //  point HEAD to our new commit
-            &signature,      // author
-            &signature,      // committer
-            message,         // commit message
-            &tree,           // tree
+            &signature,   // author
+            &signature,   // committer
+            message,      // commit message
+            &tree,        // tree
             &[&parent_commit],
         )?; // parents
         Ok(oid)
     } else {
         let oid = repo.commit(
             Some(branch), //  point HEAD to our new commit
-            &signature,      // author
-            &signature,      // committer
-            message,         // commit message
-            &tree,           // tree
+            &signature,   // author
+            &signature,   // committer
+            message,      // commit message
+            &tree,        // tree
             &[],
         )?; // parents
         Ok(oid)
@@ -154,27 +154,25 @@ pub fn add_and_commit_signed(
 
     // stupid duplication because &[&T] is a terrible type to mess with
     let oid = if let Some(parent_commit) = parent {
-        let c = commit_signed(
+        commit_signed(
             repo,
             Some(branch), //  point HEAD to our new commit
-            &signature,      // author
-            &signature,      // committer
-            message,         // commit message
-            &tree,           // tree
+            &signature,   // author
+            &signature,   // committer
+            message,      // commit message
+            &tree,        // tree
             &[&parent_commit],
-        )?; // parents
-        c
+        )? // parents
     } else {
-        let c = commit_signed(
+        commit_signed(
             repo,
             Some(branch), //  point HEAD to our new commit
-            &signature,      // author
-            &signature,      // committer
-            message,         // commit message
-            &tree,           // tree
+            &signature,   // author
+            &signature,   // committer
+            message,      // commit message
+            &tree,        // tree
             &[],
-        )?; // parents
-        c
+        )? // parents
     };
 
     let commit = repo.find_commit(oid)?;
@@ -186,7 +184,12 @@ pub fn add_and_commit_signed(
     Ok(oid)
 }
 
-// TODO use the libgit2 function commit_create_buffer (will need to write git2rs bindings for this) to make the commit object without writing it to the git object database, so we don't actually create two commits. However, even if we do this, we might still need to manually update the target reference afterwards, since `git2::Repo::commit_signed` doesn't seem to do this.
+// TODO use the libgit2 function commit_create_buffer (will need to write
+// git2rs bindings for this) to make the commit object without writing it to
+// the git object database, so we don't actually create two commits. However,
+// even if we do this, we might still need to manually update the target
+// reference afterwards, since `git2::Repo::commit_signed` doesn't seem to do
+// this.
 pub fn commit_signed(
     repo: &Repository,
     update_ref: Option<&str>,
@@ -208,7 +211,9 @@ pub fn commit_signed(
     // sign commit--creates a new object in odb with new oid
     let oid2 = create_signed_commit(repo, oid1)?;
 
-    // point update ref to the *signed* commit and just pretend like the in-between commit does not exist (only if we were given a branch to commit to; otherwise, this will be an orphan commit)
+    // point update ref to the *signed* commit and just pretend like the in-between
+    // commit does not exist (only if we were given a branch to commit to;
+    // otherwise, this will be an orphan commit)
     let reflog_msg = "Switching head to signed commit";
     if let Some(reference) = update_ref {
         repo.find_reference(reference)?
@@ -230,7 +235,8 @@ fn create_signed_commit(repo: &Repository, commit_id: Oid) -> Result<Oid> {
     Ok(oid)
 }
 
-// TODO it's possible you will need another newline between the message and headers. Unclear as yet
+// TODO it's possible you will need another newline between the message and
+// headers. Unclear as yet
 pub fn commit_as_str(commit: &Commit) -> Result<String> {
     let message = commit.message_raw().ok_or("invalid utf8")?;
     let headers = commit.raw_header().ok_or("invalid utf8")?;
@@ -299,9 +305,9 @@ pub fn push_refspecs(repo: &Repository, remote: &mut Remote, refspecs: &[&str]) 
     })
 }
 
-
-// for a f `merge --ff-only origin/branch branch`, the target is `branch` and the source is `origin/branch`
-// returns true even if the two branches point to the same ref
+// for a f `merge --ff-only origin/branch branch`, the target is `branch` and
+// the source is `origin/branch` returns true even if the two branches point to
+// the same ref
 pub fn fast_forward_possible(repo: &Repository, theirs: &str) -> Result<bool> {
     let their_oid = repo.find_reference(theirs)?
         .target()
@@ -511,12 +517,12 @@ where
 
 #[cfg(test)]
 mod test {
-    use utils::test_helper::*;
     use super::*;
+    use regex::Regex;
     use std::fs::File;
     use std::io::prelude::*;
     use std::path::PathBuf;
-    use regex::Regex;
+    use utils::test_helper::*;
 
     #[test]
     fn checkout_branch() {
@@ -533,7 +539,6 @@ mod test {
             // are we on new branch?
             assert!(repo.head().unwrap().name().unwrap() == "refs/heads/branch");
         }
-        teardown_fresh(context)
     }
 
     #[test]
@@ -556,7 +561,6 @@ mod test {
             let res = super::fast_forward_possible(&repo, &"refs/heads/branch").unwrap();
             assert_eq!(res, true);
         }
-        teardown_fresh(context)
     }
 
     #[test]
@@ -586,7 +590,6 @@ mod test {
                 .unwrap();
             assert_eq!(master_tip, branch_tip)
         }
-        teardown_fresh(context)
     }
 
     #[test]
@@ -607,10 +610,11 @@ mod test {
             super::unstash_local_changes(&mut repo2, stash_id).unwrap();
             assert_eq!(path.is_file(), true);
         }
-        teardown_fresh(context)
     }
 
-    // this is a terrible test! as it was designed to test a feature that I have since removed...so now it isn't really testing anything until I add more assertions about what should be happening
+    // this is a terrible test! as it was designed to test a feature that I have
+    // since removed...so now it isn't really testing anything until I add more
+    // assertions about what should be happening
     #[test]
     fn preserve_ignored_files() {
         let path: PathBuf;
@@ -641,7 +645,8 @@ mod test {
             let stash_id = super::stash_local_changes(&mut context.local)
                 .unwrap()
                 .to_owned();
-            // should NOT have stashed something because we are no longer stashing ignored files
+            // should NOT have stashed something because we are no longer stashing ignored
+            // files
             assert!(stash_id.is_none());
             // worktree should still contain untracked file
             assert_eq!(path.is_file(), true);
@@ -656,7 +661,6 @@ mod test {
             }
             assert_eq!(path.is_file(), true);
         }
-        teardown_fresh(context);
     }
 
     #[test]
@@ -670,7 +674,6 @@ mod test {
             let contents = super::commit_as_str(&commit).unwrap();
             assert!(commit_contents.is_match(&contents))
         }
-        teardown_fresh(context)
     }
 
     #[test]
@@ -690,7 +693,6 @@ mod test {
             assert!(header.contains(&header_pattern));
             assert_eq!(message, &message_string)
         }
-        teardown_fresh(context)
     }
 
     #[test]
@@ -710,7 +712,6 @@ mod test {
             assert!(header.contains(&header_pattern));
             assert_eq!(message, &message_string)
         }
-        teardown_fresh(context)
     }
 
     #[test]
@@ -720,6 +721,5 @@ mod test {
             super::username(&context.local).unwrap(),
             String::from("idontexistanythingaboutthat@email.com")
         );
-        teardown_fresh(context);
     }
 }

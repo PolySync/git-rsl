@@ -2,9 +2,9 @@ use hex::{self, FromHex};
 use serde::{Deserialize, Deserializer, Serializer};
 
 //#[cfg(test)]
-pub mod test_helper;
 pub mod git;
 pub mod gpg;
+pub mod test_helper;
 
 /// Serializes `buffer` to a lowercase hex string.
 pub fn buffer_to_hex<T, S>(buffer: &T, serializer: S) -> Result<S::Ok, S::Error>

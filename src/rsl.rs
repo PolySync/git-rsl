@@ -1,13 +1,13 @@
-use git2::{BranchType, Oid, Remote, Repository, Revwalk, Sort};
 use git2::build::CheckoutBuilder;
+use git2::{BranchType, Oid, Remote, Repository, Revwalk, Sort};
 
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
+use errors::*;
 use nonce::{HasNonce, Nonce};
 use nonce_bag::{HasNonceBag, NonceBag};
 use push_entry::PushEntry;
-use errors::*;
 use utils::*;
 
 const RSL_BRANCH: &str = "RSL";
@@ -23,14 +23,12 @@ pub fn all_push_entries_in_fetch_head(repo: &Repository, rsl: &RSL, ref_names: &
     // find the last push entry for each branch
     let latest_push_entries: Vec<Oid> = ref_names
         .into_iter()
-        .filter_map(|ref_name| {
-            match rsl.find_last_remote_push_entry_for_branch(ref_name)
-                .ok()
-            {
+        .filter_map(
+            |ref_name| match rsl.find_last_remote_push_entry_for_branch(ref_name).ok() {
                 Some(Some(pe)) => Some(pe.head()),
                 Some(None) | None => None,
-            }
-        })
+            },
+        )
         .collect();
 
     // find the Oid of the tip of each remote fetched branch
@@ -120,13 +118,16 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
                         let current_prev_hash = entry.prev_hash();
 
                         // validate nonce bag (lines 1-2):
-                        // if we have arrived at the first *new* push entry after the last local one recorded one), then check if local nonce is either a) in the nonce bag, or b) in the first new push entry. If not, then someone may have tampered with the RSL
-                        // TODO does this take care of when there haven't been any new entries or only one new entry?
-                        if current_prev_hash == self.last_local_push_entry.hash() {
-
-                            if !self.nonce_bag.contains(&self.nonce) && !entry.get_nonce_bag().contains(&self.nonce) {
-                                return None
-                            }
+                        // if we have arrived at the first *new* push entry after the last local
+                        // one recorded one), then check if local nonce is either a) in the nonce
+                        // bag, or b) in the first new push entry. If not, then someone may have
+                        // tampered with the RSL TODO does this take care
+                        // of when there haven't been any new entries or only one new entry?
+                        if current_prev_hash == self.last_local_push_entry.hash()
+                            && !self.nonce_bag.contains(&self.nonce)
+                            && !entry.get_nonce_bag().contains(&self.nonce)
+                        {
+                            return None;
                         }
                         println!("current_prev_hash: {:?}", current_prev_hash);
 
@@ -149,12 +150,12 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
             bail!("invalid RSL entry");
         }
 
-        match verify_commit_signature(self.repo, self.remote_head)? {
-            true => Ok(()),
-            false => bail!("GPG signature of remote RSL head invalid")
+        if verify_commit_signature(self.repo, self.remote_head)? {
+            Ok(())
+        } else {
+            bail!("GPG signature of remote RSL head invalid")
         }
     }
-
 
     pub fn push(&mut self) -> Result<()> {
         println!("Pushing updated RSL to remote : )");
@@ -211,7 +212,8 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
         Ok(())
     }
 
-    // If we have detected a problem with the RSL, we need to reset the fetched origin/RSL to the last trusted revision of our local RSL.
+    // If we have detected a problem with the RSL, we need to reset the fetched
+    // origin/RSL to the last trusted revision of our local RSL.
     pub fn reset_remote_to_local(&mut self) -> Result<()> {
         // find reference of origin/RSL
         let mut reference = self.repo.find_reference("refs/remotes/origin/RSL")?;
@@ -248,12 +250,13 @@ fn verify_commit_signature(repo: &Repository, oid: Oid) -> Result<bool> {
     gpg::verify_detached_signature(sig.as_str().ok_or("")?, content.as_str().ok_or("")?, None)
 }
 
-// find the last commit on the branch pointed to by the given Oid that represents a push entry
+// find the last commit on the branch pointed to by the given Oid that
+// represents a push entry
 fn find_last_push_entry(repo: &Repository, oid: &Oid) -> Result<PushEntry> {
     let tree_tip = oid;
     let mut revwalk: Revwalk = repo.revwalk().expect("Failed to make revwalk");
     revwalk.push(tree_tip.clone())?;
-    let mut current = Some(tree_tip.clone());
+    let mut current = Some(*tree_tip);
     while current != None {
         if let Some(pe) = PushEntry::from_oid(repo, &current.unwrap())? {
             return Ok(pe);
@@ -272,16 +275,16 @@ pub trait HasRSL<'repo> {
 }
 
 impl<'repo> HasRSL<'repo> for Repository {
-
     fn rsl_init_global(&self, remote: &mut Remote) -> Result<()> {
         println!("Initializing Reference State Log for this repository.");
-        println!("You will be prompted for your gpg pin and/or touch sig in order to sign RSL entries.");
+        println!(
+            "You will be prompted for your gpg pin and/or touch sig in order to sign RSL entries."
+        );
 
         // get current branch name
         let head_name = self.head()?
             .name()
             .ok_or("Not on a named branch")?
-            .clone()
             .to_owned();
 
         // create new parentless orphan commit
@@ -348,7 +351,7 @@ impl<'repo> HasRSL<'repo> for Repository {
             .chain_err(|| "couldn't write local nonce")?;
 
         // create new nonce bag with initial nonce
-        let mut nonce_bag = NonceBag::new();
+        let mut nonce_bag = NonceBag::default();
         nonce_bag.insert(nonce);
 
         self.write_nonce_bag(&nonce_bag)?;
@@ -402,7 +405,8 @@ impl<'repo> HasRSL<'repo> for Repository {
 
     fn fetch_rsl(&self, remote: &mut Remote) -> Result<()> {
         // not sure the behavior here if the branch doesn't exist
-        // should return Some(()) or Some(Reference) if remote exists and None if it doesn't exist and Err if it failed for some other reason.
+        // should return Some(()) or Some(Reference) if remote exists and None if it
+        // doesn't exist and Err if it failed for some other reason.
         git::fetch(self, remote, &[RSL_BRANCH], Some(REFLOG_MSG))
             .chain_err(|| "could not fetch RSL")?;
         Ok(())
@@ -430,10 +434,10 @@ impl<'repo> HasRSL<'repo> for Repository {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use utils::test_helper::*;
+    use git2::RepositoryState;
     use std::path::Path;
     use std::process::Command;
-    use git2::RepositoryState;
+    use utils::test_helper::*;
 
     #[test]
     fn rsl_init_global() {
@@ -460,9 +464,10 @@ mod tests {
                     .count(),
                 0
             );
-            // TODO to test that the repo does not contain untracked NONCE_BAG file and simultaneously show deleted NONCE_BAG file?? git gets confused??? Open git2rs issue about needing to reset after commit.
+            // TODO to test that the repo does not contain untracked NONCE_BAG file and
+            // simultaneously show deleted NONCE_BAG file?? git gets confused??? Open
+            // git2rs issue about needing to reset after commit.
         }
-        teardown_fresh(context);
     }
 
     #[test]
@@ -495,16 +500,18 @@ mod tests {
             // check that foo.txt is still there
             assert_eq!(foo_path.is_file(), true);
 
-            // checkout RSL and ensure wwork.txt is not there and foo.txt is and is untracked
+            // checkout RSL and ensure wwork.txt is not there and foo.txt is and is
+            // untracked
             git::checkout_branch(&repo, "refs/heads/RSL").unwrap();
             assert!(!repo.workdir().unwrap().join("work.txt").is_file());
         }
-        teardown_fresh(context);
     }
 
     #[test]
     fn rsl_fetch() {
-        // test that RSL fetch gets the remote branch but doesnt create a local branch if it doesn't yet exist. if it does, we need to change how we decide whether to init.
+        // test that RSL fetch gets the remote branch but doesnt create a local branch
+        // if it doesn't yet exist. if it does, we need to change how we decide whether
+        // to init.
         let context = setup_fresh();
         {
             let repo = &context.local;
@@ -527,7 +534,6 @@ mod tests {
 
             assert!(&repo.find_branch("RSL", BranchType::Local).is_err());
         }
-        teardown_fresh(context)
     }
 
     #[test]
@@ -536,31 +542,41 @@ mod tests {
         {
             let repo = &context.local;
 
-            // RSL commit only works on RSL branch; we have to initialize it and check it out
-            let mut rem = repo.find_remote("origin").expect("Could not find remote origin").to_owned();
-            repo.rsl_init_global(&mut rem).expect("Could not rsl_init_global");
-            git::checkout_branch(repo, "refs/heads/RSL").expect("Could not check out refs/heads/RSL");
+            // RSL commit only works on RSL branch; we have to initialize it and check it
+            // out
+            let mut rem = repo.find_remote("origin")
+                .expect("Could not find remote origin")
+                .to_owned();
+            repo.rsl_init_global(&mut rem)
+                .expect("Could not rsl_init_global");
+            git::checkout_branch(repo, "refs/heads/RSL")
+                .expect("Could not check out refs/heads/RSL");
 
             // try commit
             let entry = PushEntry::new(
                 repo,
-                &"master", // branch
+                &"master",                              // branch
                 String::from("hash_of_last_pushentry"), // prev
-                NonceBag::new()
+                NonceBag::default(),
             );
             let oid = repo.commit_push_entry(&entry, "refs/heads/RSL").unwrap();
 
             // we are on the correct branch with new commit at the tip
             let head = repo.head().expect("Trouble getting repo head");
             let ref_name = head.name().expect("Trouble getting repo head name");
-            let tip = head.target().expect("Trouble getting repo head target (tip)");
+            let tip = head.target()
+                .expect("Trouble getting repo head target (tip)");
             assert_eq!(ref_name, "refs/heads/RSL");
             assert_eq!(oid, tip);
 
             // check text of commit
-            let obj = repo.find_commit(oid).expect("Could not find commit with desired oid");
-            let result = PushEntry::from_str(&obj.message().expect("Could not interpret commit message as utf8"))
-                .expect("Could not interpret (json) PushEntry from message string");
+            let obj = repo.find_commit(oid)
+                .expect("Could not find commit with desired oid");
+            let result = PushEntry::try_from_str(&obj.message()
+                .expect("Could not interpret commit message as utf8"))
+                .expect(
+                "Could not interpret (json) PushEntry from message string",
+            );
             assert_eq!(result, entry);
 
             // commit is signed and we are on the right branch
@@ -571,7 +587,6 @@ mod tests {
                 .unwrap();
             assert!(status.success());
         }
-        teardown_fresh(context);
     }
 
     #[test]
@@ -590,14 +605,23 @@ mod tests {
                 // create push entry manuallly and commit it to the remote rsl branch
                 let prev_hash = rsl.last_remote_push_entry.hash();
                 let push_entry = PushEntry::new(&repo, &"master", prev_hash, rsl.nonce_bag);
-                let oid = repo.commit_push_entry(&push_entry, "refs/remotes/origin/RSL").unwrap();
+                let oid = repo.commit_push_entry(&push_entry, "refs/remotes/origin/RSL")
+                    .unwrap();
 
                 // remote rsl head is this latest commit
-                let remote_head = rsl.repo.find_reference("refs/remotes/origin/RSL").unwrap().target().unwrap();
+                let remote_head = rsl.repo
+                    .find_reference("refs/remotes/origin/RSL")
+                    .unwrap()
+                    .target()
+                    .unwrap();
                 assert_eq!(oid, remote_head);
 
                 // remote and local rsl branches differ
-                let local_head = rsl.repo.find_reference("refs/heads/RSL").unwrap().target().unwrap();
+                let local_head = rsl.repo
+                    .find_reference("refs/heads/RSL")
+                    .unwrap()
+                    .target()
+                    .unwrap();
                 assert_ne!(local_head, remote_head);
             }
             {
@@ -606,13 +630,19 @@ mod tests {
                 // do reset
                 rsl.reset_remote_to_local().unwrap();
 
-                let remote_head = rsl.repo.find_reference("refs/remotes/origin/RSL").unwrap().target().unwrap();
-                let local_head = rsl.repo.find_reference("refs/heads/RSL").unwrap().target().unwrap();
+                let remote_head = rsl.repo
+                    .find_reference("refs/remotes/origin/RSL")
+                    .unwrap()
+                    .target()
+                    .unwrap();
+                let local_head = rsl.repo
+                    .find_reference("refs/heads/RSL")
+                    .unwrap()
+                    .target()
+                    .unwrap();
                 assert_eq!(remote_head, local_head);
                 assert_eq!(rsl.remote_head, rsl.local_head);
             }
-
         }
-        teardown_fresh(context)
     }
 }

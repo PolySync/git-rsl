@@ -1,8 +1,8 @@
 use git2::{Remote, Repository};
 
-use rsl::{HasRSL, RSL};
-use rsl;
 use errors::*;
+use rsl;
+use rsl::{HasRSL, RSL};
 
 use utils::git;
 
@@ -36,7 +36,6 @@ pub fn secure_push<'remote, 'repo: 'remote>(
                 bail!(ErrorKind::InvalidRSL);
             }
 
-
             // reset to last trusted RSL if invalid
             if let Err(e) = rsl.validate() {
                 rsl.reset_remote_to_local()?;
@@ -52,7 +51,7 @@ pub fn secure_push<'remote, 'repo: 'remote>(
             Err(e) => {
                 println!(
                     "Error: unable to push reference(s) {:?} to remote {:?}",
-                    ref_names.clone().join(", "),
+                    ref_names.join(", "),
                     &remote.name().unwrap()
                 );
                 println!("  {}", e);
@@ -64,14 +63,18 @@ pub fn secure_push<'remote, 'repo: 'remote>(
 
 #[cfg(test)]
 mod tests {
-    use utils::test_helper::*;
     use super::super::RemoteName;
+    use utils::test_helper::*;
 
     #[test]
     fn secure_push() {
         let mut context = setup_fresh();
         {
-            assert_eq!((), super::super::rsl_init_with_cleanup(&mut context.local, &RemoteName::new("origin")).unwrap());
+            assert_eq!(
+                (),
+                super::super::rsl_init_with_cleanup(&mut context.local, &RemoteName::new("origin"))
+                    .unwrap()
+            );
             let repo = &context.local;
             let mut rem = repo.find_remote("origin").unwrap().to_owned();
 
@@ -79,14 +82,17 @@ mod tests {
             let res = super::secure_push(&repo, &mut rem, &refs).unwrap();
             assert_eq!(res, ());
         }
-        teardown_fresh(context)
     }
 
     #[test]
     fn secure_push_twice() {
         let mut context = setup_fresh();
         {
-            assert_eq!((), super::super::rsl_init_with_cleanup(&mut context.local, &RemoteName::new("origin")).unwrap());
+            assert_eq!(
+                (),
+                super::super::rsl_init_with_cleanup(&mut context.local, &RemoteName::new("origin"))
+                    .unwrap()
+            );
             let repo = &context.local;
             let mut rem = repo.find_remote("origin").unwrap().to_owned();
             let refs = &["master"];
@@ -95,6 +101,5 @@ mod tests {
             super::secure_push(&repo, &mut rem, refs).unwrap();
             // TODO add conditions
         }
-        teardown_fresh(context)
     }
 }

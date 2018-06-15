@@ -1,8 +1,8 @@
 use git2::{Remote, Repository};
 
-use rsl::{HasRSL, RSL};
-use rsl;
 use errors::*;
+use rsl;
+use rsl::{HasRSL, RSL};
 use utils::git;
 
 pub fn secure_fetch<'remote, 'repo: 'remote>(
@@ -10,7 +10,6 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
     mut remote: &'remote mut Remote<'repo>,
     ref_names: &[&str],
 ) -> Result<()> {
-
     repo.fetch_rsl(&mut remote)?;
     repo.init_local_rsl_if_needed(&mut remote)?;
     git::checkout_branch(repo, "refs/heads/RSL")?;
@@ -21,7 +20,9 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
     let mut err: Result<()> = Err("".into());
     'store: loop {
         if store_counter == 0 {
-            err.chain_err(|| "Couldn't store new fetch entry in RSL; check your connection and try again")?;
+            err.chain_err(|| {
+                "Couldn't store new fetch entry in RSL; check your connection and try again"
+            })?;
         }
         let mut counter = 5;
         'fetch: loop {
@@ -30,7 +31,6 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
             }
             repo.fetch_rsl(&mut remote)?;
 
-
             let mut remote_2 = remote.clone();
             let mut rsl = RSL::read(repo, &mut remote_2).chain_err(|| "couldn't read RSL")?;
 
@@ -38,7 +38,9 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
             for branch in ref_names {
                 match rsl.find_last_remote_push_entry_for_branch(&branch) {
                     Ok(None) => bail!("no push records for the ref you are attempting to fetch"),
-                    Err(e) => return Err(e.chain_err(|| "couldn't check that provided refs are valid")),
+                    Err(e) => {
+                        return Err(e.chain_err(|| "couldn't check that provided refs are valid"))
+                    }
                     Ok(_) => (),
                 }
             }
@@ -48,7 +50,7 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
                 Err(e) => {
                     println!(
                         "Error: unable to fetch reference {} from remote {}",
-                        ref_names.clone().join(", "),
+                        ref_names.join(", "),
                         &remote.name().unwrap()
                     );
                     println!("  {}", e);
@@ -69,14 +71,12 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
 
         let mut rsl = RSL::read(&repo, &mut remote).chain_err(|| "couldn't read RSL")?;
 
-
         // reset to last trusted RSL if invalid
         if let Err(e) = rsl.validate() {
             rsl.reset_remote_to_local()?;
             // TODO reset remote fetchspec(s) to local as well
             return Err(e).chain_err(|| ErrorKind::InvalidRSL)?;
         }
-
 
         // Fastforward valid remote RSL onto local branch
         rsl.update_local()?;

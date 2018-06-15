@@ -1,19 +1,18 @@
 use errors::*;
 use gpgme::{Context, Protocol};
 use std;
-use std::io::prelude::*;
 use std::fs::File;
+use std::io::prelude::*;
 use std::process::Command;
 use tempfile::NamedTempFile;
-
-
 
 /// Signs with the provided key,
 /// or else uses the default signing key
 pub fn detached_sign(input: &str, _key_id: Option<&str>, gpghome: Option<&str>) -> Result<String> {
     let mut ctx = Context::from_protocol(Protocol::OpenPgp)?;
 
-    // resolve gpg home in order of provided path, environment variable, default, or give up
+    // resolve gpg home in order of provided path, environment variable, default,
+    // or give up
     if let Some(path) = gpghome {
         ctx.set_engine_home_dir(path)?;
     } else if let Some(path) = find_gpg_home() {
@@ -26,7 +25,8 @@ pub fn detached_sign(input: &str, _key_id: Option<&str>, gpghome: Option<&str>) 
     let mut output = Vec::new();
     ctx.sign_detached(input, &mut output)
         .chain_err(|| "gpg signing failed")?;
-    // TODO this should always be valid utf8  if the ascii-armored signature succeeded and we get this far but still...get rid of this unwrap please
+    // TODO this should always be valid utf8  if the ascii-armored signature
+    // succeeded and we get this far but still...get rid of this unwrap please
     let string_version = String::from_utf8(output).unwrap();
 
     Ok(string_version)
@@ -36,7 +36,8 @@ pub fn verify_detached_signature(sig: &str, buf: &str, gpghome: Option<&str>) ->
     // create new context for operations
     let mut ctx = Context::from_protocol(Protocol::OpenPgp)?;
 
-    // resolve gpg home in order of provided path, environment variable, default, or give up
+    // resolve gpg home in order of provided path, environment variable, default,
+    // or give up
     if let Some(path) = gpghome {
         ctx.set_engine_home_dir(path)?;
     } else if let Some(path) = find_gpg_home() {
@@ -131,7 +132,9 @@ mod tests {
         let fixtures_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures");
         // use test fixture Testy McTesterson's keyring
         let gpghome_dir = fixtures_dir.join("fixture.gnupghome");
-        let gpghome = &gpghome_dir.to_str().expect("Could not stringify gpghome path");
+        let gpghome = &gpghome_dir
+            .to_str()
+            .expect("Could not stringify gpghome path");
 
         // get doc to sign as a string
         let mut doc_data = String::new();
@@ -150,7 +153,9 @@ mod tests {
         let fixtures_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures");
         // use test fixture Testy McTesterson's keyring
         let gpghome_dir = fixtures_dir.join("fixture.gnupghome");
-        let gpghome = &gpghome_dir.to_str().expect("Could not stringify gpghome path");
+        let gpghome = &gpghome_dir
+            .to_str()
+            .expect("Could not stringify gpghome path");
 
         // get document and signature to be verified
         let mut doc_data = String::new();
@@ -160,8 +165,7 @@ mod tests {
         let mut sig = File::open(fixtures_dir.join("test.txt.asc")).unwrap();
         sig.read_to_string(&mut sig_data).unwrap();
 
-        let result =
-            super::verify_detached_signature(&sig_data, &doc_data, Some(gpghome)).unwrap();
+        let result = super::verify_detached_signature(&sig_data, &doc_data, Some(gpghome)).unwrap();
         assert!(result)
     }
 
@@ -170,7 +174,9 @@ mod tests {
         let fixtures_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures");
         // use test fixture Testy McTesterson's keyring
         let gpghome_dir = fixtures_dir.join("fixture.gnupghome");
-        let gpghome = &gpghome_dir.to_str().expect("Could not stringify gpghome path");
+        let gpghome = &gpghome_dir
+            .to_str()
+            .expect("Could not stringify gpghome path");
 
         // get document and signature to be verified
         let mut doc_data = String::new();
@@ -192,7 +198,9 @@ mod tests {
         let fixtures_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures");
         // use test fixture Testy McTesterson's keyring
         let gpghome_dir = fixtures_dir.join("fixture.gnupghome");
-        let gpghome = &gpghome_dir.to_str().expect("Could not stringify gpghome path");
+        let gpghome = &gpghome_dir
+            .to_str()
+            .expect("Could not stringify gpghome path");
 
         // get document and signature to be verified
         let mut doc_data = String::new();
@@ -211,15 +219,20 @@ mod tests {
     fn gpg_cli_detached_sign() {
         let fixtures_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures");
         // sign as test user Testy McTesterson
-        let gpghome_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures").join("fixture.gnupghome");
-        let gpghome = &gpghome_dir.to_str().expect("Could not stringify gpghome path");
+        let gpghome_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("fixtures")
+            .join("fixture.gnupghome");
+        let gpghome = &gpghome_dir
+            .to_str()
+            .expect("Could not stringify gpghome path");
 
         // get doc to sign as a string
         let mut doc_data = String::new();
         let mut document = File::open(fixtures_dir.join("test.txt")).unwrap();
         document.read_to_string(&mut doc_data).unwrap();
 
-        let signature = super::cli_detached_sign(&doc_data, Some(gpghome)).expect("Unsuccessful cli_detached_sign");
+        let signature = super::cli_detached_sign(&doc_data, Some(gpghome))
+            .expect("Unsuccessful cli_detached_sign");
 
         let result =
             super::cli_verify_detached_signature(&signature, &doc_data, Some(gpghome)).unwrap();
@@ -229,13 +242,17 @@ mod tests {
     #[test]
     fn gpg_cli_sign_and_verify() {
         // sign as test user Testy McTesterson
-        let gpghome_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures").join("fixture.gnupghome");
-        let gpghome = &gpghome_dir.to_str().expect("Could not stringify gpghome path");
+        let gpghome_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("fixtures")
+            .join("fixture.gnupghome");
+        let gpghome = &gpghome_dir
+            .to_str()
+            .expect("Could not stringify gpghome path");
 
         let data = "some data to sign";
-        let signature = super::cli_detached_sign(&data, Some(gpghome)).expect("Failed to run cli_detached_sign");
-        let valid =
-            super::cli_verify_detached_signature(&signature, &data, Some(gpghome)).unwrap();
+        let signature = super::cli_detached_sign(&data, Some(gpghome))
+            .expect("Failed to run cli_detached_sign");
+        let valid = super::cli_verify_detached_signature(&signature, &data, Some(gpghome)).unwrap();
         assert!(valid)
     }
 }

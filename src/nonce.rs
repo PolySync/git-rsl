@@ -23,12 +23,10 @@ impl Nonce {
     }
 
     pub fn from_bytes(bytes: [u8; 32]) -> Nonce {
-        Nonce {
-            bytes
-        }
+        Nonce { bytes }
     }
 
-    pub fn from_str(string: &str) -> Result<Nonce> {
+    pub fn try_from_str(string: &str) -> Result<Nonce> {
         let result = serde_json::from_str(string).chain_err(|| "couldn't parse nonce from string")?;
         Ok(result)
     }
@@ -80,7 +78,7 @@ impl HasNonce for Repository {
 
         f.read_to_string(&mut buffer)
             .chain_err(|| "could not parse nonce file")?;
-        let parsed = Nonce::from_str(&buffer)?;
+        let parsed = Nonce::try_from_str(&buffer)?;
         Ok(parsed)
     }
 
@@ -101,13 +99,14 @@ impl HasNonce for Repository {
 
 #[cfg(test)]
 mod tests {
-    use utils::test_helper::*;
-    use std::fs::File;
     use super::*;
+    use std::fs::File;
+    use utils::test_helper::*;
 
     fn fake_nonce() -> Nonce {
-        Nonce::from_bytes(
-            [224, 251, 50, 63, 34, 58, 207, 35, 15, 74, 137, 143, 176, 178, 92, 226, 103, 114, 220, 224, 180, 21, 241, 2, 213, 252, 126, 245, 137, 245, 119, 45,
+        Nonce::from_bytes([
+            224, 251, 50, 63, 34, 58, 207, 35, 15, 74, 137, 143, 176, 178, 92, 226, 103, 114, 220,
+            224, 180, 21, 241, 2, 213, 252, 126, 245, 137, 245, 119, 45,
         ])
     }
 
@@ -142,7 +141,6 @@ mod tests {
                 .expect("something went wrong reading the file");
             assert_eq!(nonce, fake_nonce());
         }
-        teardown_fresh(context);
     }
 
     #[test]
@@ -154,7 +152,6 @@ mod tests {
             let nonce = repo.read_nonce().unwrap();
             assert_eq!(nonce, fake_nonce());
         }
-        teardown_fresh(context);
     }
 
     #[test]
@@ -164,9 +161,9 @@ mod tests {
     }
 
     #[test]
-    fn from_str() {
+    fn try_from_str() {
         let serialized = "{\"bytes\":[224,251,50,63,34,58,207,35,15,74,137,143,176,178,92,226,103,114,220,224,180,21,241,2,213,252,126,245,137,245,119,45]}";
-        let deserialized = Nonce::from_str(&serialized).unwrap();
+        let deserialized = Nonce::try_from_str(&serialized).unwrap();
         assert_eq!(&deserialized, &fake_nonce())
     }
 }

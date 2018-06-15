@@ -1,15 +1,15 @@
 #[macro_use]
 extern crate clap;
 
-extern crate git_rsl;
 extern crate git2;
+extern crate git_rsl;
 
 use std::process;
 
-use git_rsl::{BranchName, RemoteName, secure_fetch_with_cleanup};
+use clap::{App, Arg};
 use git_rsl::errors::*;
 use git_rsl::utils::git;
-use clap::{App, Arg};
+use git_rsl::{secure_fetch_with_cleanup, BranchName, RemoteName};
 
 fn main() {
     let matches = App::new("git-secure-fetch")
@@ -29,33 +29,32 @@ fn main() {
 
     let remote = match matches.value_of("REMOTE") {
         None => panic!("Must supply a REMOTE argument"),
-        Some(v) => v.to_owned()
+        Some(v) => v.to_owned(),
     };
 
     let branch = match matches.value_of("BRANCH") {
         None => panic!("Must supply a BRANCH argument"),
-        Some(v) => v.to_owned()
+        Some(v) => v.to_owned(),
     };
     // TODO - reduce code duplication across the top level of the binaries
     let mut repo = git::discover_repo()
         .expect("You don't appear to be in a git project. Please check yourself and try again");
 
-    if let Err(ref e) = secure_fetch_with_cleanup(&mut repo, &RemoteName::new(&remote), &BranchName::new(&branch)) {
+    if let Err(ref e) = secure_fetch_with_cleanup(
+        &mut repo,
+        &RemoteName::new(&remote),
+        &BranchName::new(&branch),
+    ) {
         handle_error(e);
         process::exit(1);
     }
     println!("Success!")
 }
 
-
 fn handle_error(e: &Error) -> () {
     report_error(&e);
     match *e {
-        Error(ErrorKind::ReadError(_), _) => {
-            process::exit(1)
-        }
-        Error(_, _) => {
-            process::exit(2)
-        }
+        Error(ErrorKind::ReadError(_), _) => process::exit(1),
+        Error(_, _) => process::exit(2),
     }
 }

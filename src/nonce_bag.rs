@@ -1,6 +1,6 @@
-use std::io::Write;
-use std::fs::OpenOptions;
 use std::collections::HashSet;
+use std::fs::OpenOptions;
+use std::io::Write;
 
 use std::path::Path;
 
@@ -9,8 +9,8 @@ use std::io::prelude::*;
 use git2::{self, Oid, Repository};
 use serde_json;
 
-use nonce::Nonce;
 use errors::*;
+use nonce::Nonce;
 use utils::git;
 
 const NONCE_BAG_PATH: &str = "NONCE_BAG";
@@ -20,13 +20,15 @@ pub struct NonceBag {
     bag: HashSet<Nonce>,
 }
 
-impl NonceBag {
-    pub fn new() -> NonceBag {
+impl Default for NonceBag {
+    fn default() -> Self {
         NonceBag {
             bag: HashSet::new(),
         }
     }
+}
 
+impl NonceBag {
     pub fn insert(&mut self, nonce: Nonce) -> bool {
         self.bag.insert(nonce)
     }
@@ -39,7 +41,7 @@ impl NonceBag {
         self.bag.contains(nonce)
     }
 
-    pub fn from_str(string: &str) -> Result<NonceBag> {
+    pub fn try_from_str(string: &str) -> Result<NonceBag> {
         let result = serde_json::from_str(string).chain_err(|| "couldn't parse nonce bag as JSON")?;
         Ok(result)
     }
@@ -67,7 +69,7 @@ impl HasNonceBag for Repository {
             .chain_err(|| "couldn't open nonce bag for reading")?;
         let mut buffer = String::new();
         f.read_to_string(&mut buffer)?;
-        let nonce_bag = NonceBag::from_str(&buffer)?;
+        let nonce_bag = NonceBag::try_from_str(&buffer)?;
         Ok(nonce_bag)
     }
 
@@ -123,7 +125,7 @@ mod tests {
     }
 
     fn bag_a() -> NonceBag {
-        let mut bag = NonceBag::new();
+        let mut bag = NonceBag::default();
         bag.insert(nonce_1());
         bag.insert(nonce_2());
         bag.insert(nonce_3());
@@ -146,7 +148,7 @@ mod tests {
     fn to_string_and_back() {
         let bag = bag_a();
         let result = NonceBag::to_string(&bag).unwrap();
-        let bag2 = NonceBag::from_str(&result).unwrap();
+        let bag2 = NonceBag::try_from_str(&result).unwrap();
         assert_eq!(bag, bag2)
     }
 
@@ -160,7 +162,6 @@ mod tests {
             let res = repo.read_nonce_bag().expect("bad read");
             assert_eq!(res, bag);
         }
-        teardown_fresh(context);
     }
 
     #[test]
@@ -172,7 +173,7 @@ mod tests {
                 {"bytes": [165,36,170,43,1,62,34,53,25,160,177,19,87,62,189,151,168,134,196,85,33,237,9,52,198,39,79,32,180,145,165,132]}
             ]
         }"#;
-        let nonce_bag = NonceBag::from_str(&serialized).unwrap();
+        let nonce_bag = NonceBag::try_from_str(&serialized).unwrap();
         assert_eq!(nonce_bag.bag.contains(&nonce_1()), true);
         assert_eq!(nonce_bag.bag.contains(&nonce_2()), true);
         assert_eq!(nonce_bag.bag.contains(&nonce_3()), true);
@@ -181,10 +182,9 @@ mod tests {
     #[test]
     fn commit_nonce_bag() {
         let context = setup_fresh();
-        let bag = NonceBag::new();
+        let bag = NonceBag::default();
         &context.local.write_nonce_bag(&bag).unwrap();
         &context.local.commit_nonce_bag().unwrap();
         assert!(context.local.state() == git2::RepositoryState::Clean);
-        teardown_fresh(context)
     }
 }
