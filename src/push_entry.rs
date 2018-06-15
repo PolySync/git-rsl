@@ -7,9 +7,9 @@ use git2::{self, BranchType, Oid, Reference, Repository};
 
 use nonce_bag::NonceBag;
 
+use errors::*;
 use serde_json;
 use utils;
-use errors::*;
 
 #[serde(remote = "Oid")]
 #[derive(Serialize, Deserialize)]
@@ -20,8 +20,10 @@ struct OidDef {
 }
 
 fn get_raw_oid(oid: &Oid) -> Vec<u8> {
-    // TODO this should be changed back to [u8: GIT_OID_RAWSZ] when libgit2-sys can be added as a dependency again (i.e. when both of the packages are tagged at or above 0.7.1)
-    //let mut oid_array: [u8; GIT_OID_RAWSZ] = Default::default();
+    // TODO this should be changed back to [u8: GIT_OID_RAWSZ] when libgit2-sys can
+    // be added as a dependency again (i.e. when both of the packages are tagged at
+    // or above 0.7.1) let mut oid_array: [u8; GIT_OID_RAWSZ] =
+    // Default::default();
 
     let mut oid_array: [u8; 20] = Default::default();
     oid_array.copy_from_slice(oid.as_bytes());
@@ -38,7 +40,8 @@ impl From<OidDef> for Oid {
 #[derive(Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct PushEntry {
     branch: String,
-    #[serde(with = "OidDef")] head: Oid,
+    #[serde(with = "OidDef")]
+    head: Oid,
     prev_hash: String,
     nonce_bag: NonceBag,
 }
@@ -125,9 +128,9 @@ impl fmt::Display for PushEntry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use utils::test_helper::*;
-    use utils::git;
     use rsl::HasRSL;
+    use utils::git;
+    use utils::test_helper::*;
 
     #[test]
     fn to_string_and_back() {
@@ -181,7 +184,7 @@ mod tests {
                 repo,
                 &"master",
                 String::from("fwjjk42ofw093j"),
-                NonceBag::new()
+                NonceBag::new(),
             );
             let oid = repo.commit_push_entry(&entry, "refs/heads/RSL").unwrap();
 

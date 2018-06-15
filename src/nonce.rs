@@ -23,9 +23,7 @@ impl Nonce {
     }
 
     pub fn from_bytes(bytes: [u8; 32]) -> Nonce {
-        Nonce {
-            bytes
-        }
+        Nonce { bytes }
     }
 
     pub fn from_str(string: &str) -> Result<Nonce> {
@@ -101,13 +99,14 @@ impl HasNonce for Repository {
 
 #[cfg(test)]
 mod tests {
-    use utils::test_helper::*;
-    use std::fs::File;
     use super::*;
+    use std::fs::File;
+    use utils::test_helper::*;
 
     fn fake_nonce() -> Nonce {
-        Nonce::from_bytes(
-            [224, 251, 50, 63, 34, 58, 207, 35, 15, 74, 137, 143, 176, 178, 92, 226, 103, 114, 220, 224, 180, 21, 241, 2, 213, 252, 126, 245, 137, 245, 119, 45,
+        Nonce::from_bytes([
+            224, 251, 50, 63, 34, 58, 207, 35, 15, 74, 137, 143, 176, 178, 92, 226, 103, 114, 220,
+            224, 180, 21, 241, 2, 213, 252, 126, 245, 137, 245, 119, 45,
         ])
     }
 

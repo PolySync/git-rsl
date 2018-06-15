@@ -1,6 +1,6 @@
-use std::io::Write;
-use std::fs::OpenOptions;
 use std::collections::HashSet;
+use std::fs::OpenOptions;
+use std::io::Write;
 
 use std::path::Path;
 
@@ -9,8 +9,8 @@ use std::io::prelude::*;
 use git2::{self, Oid, Repository};
 use serde_json;
 
-use nonce::Nonce;
 use errors::*;
+use nonce::Nonce;
 use utils::git;
 
 const NONCE_BAG_PATH: &str = "NONCE_BAG";

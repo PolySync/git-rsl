@@ -1,18 +1,18 @@
 #[macro_use]
 extern crate lazy_static;
 
-extern crate tempdir;
-extern crate names;
-extern crate git_rsl;
 extern crate git2;
+extern crate git_rsl;
+extern crate names;
+extern crate tempdir;
 
-mod utils; 
+mod utils;
 
+use git_rsl::errors::{Error, ErrorKind};
+use git_rsl::utils::test_helper::*;
+use git_rsl::{BranchName, RemoteName};
 use std::process::Command;
 use std::sync::Mutex;
-use git_rsl::{BranchName, RemoteName};
-use git_rsl::utils::test_helper::*;
-use git_rsl::errors::{Error, ErrorKind};
 use utils::attack;
 
 lazy_static! {

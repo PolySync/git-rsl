@@ -1,9 +1,9 @@
-use std::path::Path;
 use std::env;
 use std::fs::{self, File};
-use std::str;
 use std::io::prelude::*;
+use std::path::Path;
 use std::path::PathBuf;
+use std::str;
 
 use super::git;
 
@@ -20,7 +20,9 @@ pub struct Context {
 
 pub fn setup_fresh() -> Context {
     // create temporary directory
-    let temp_dir = TempDir::new("rsl_test").expect("Could not make a temp dir").into_path();
+    let temp_dir = TempDir::new("rsl_test")
+        .expect("Could not make a temp dir")
+        .into_path();
     let fixtures_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures");
 
     // init git repo in temp directory
@@ -28,7 +30,8 @@ pub fn setup_fresh() -> Context {
 
     // copy test config into local git repo dir
     let config_path = &local.path().join("config");
-    fs::copy(fixtures_dir.join("fixture.gitconfig"), config_path).expect("Could not copy the fixtures");
+    fs::copy(fixtures_dir.join("fixture.gitconfig"), config_path)
+        .expect("Could not copy the fixtures");
 
     // set gpghome for this process
     let gnupghome = fixtures_dir.join("fixture.gnupghome");
@@ -50,10 +53,18 @@ pub fn setup_fresh() -> Context {
     create_all(&remote_dir, true).unwrap();
     let remote = Repository::init_bare(&remote_dir).unwrap();
 
-    let repo_dir = local.workdir().expect("failed to get local repo working dir").to_path_buf();
+    let repo_dir = local
+        .workdir()
+        .expect("failed to get local repo working dir")
+        .to_path_buf();
 
     // set remote origin to remote repo
-    &local.remote("origin", &remote_dir.to_str().expect("failed to stringify remote path"));
+    &local.remote(
+        "origin",
+        &remote_dir
+            .to_str()
+            .expect("failed to stringify remote path"),
+    );
     Context {
         local,
         remote,
@@ -92,7 +103,10 @@ mod tests {
         let context = setup_fresh();
         let cfg = Config::open(&context.local.path().join("config")).unwrap();
         let username = cfg.get_entry("user.email").unwrap();
-        assert_eq!(username.value(), Some("idontexistanythingaboutthat@email.com"));
+        assert_eq!(
+            username.value(),
+            Some("idontexistanythingaboutthat@email.com")
+        );
         teardown_fresh(context)
     }
 }

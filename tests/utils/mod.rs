@@ -1,11 +1,11 @@
-pub mod git;
 pub mod attack;
+pub mod git;
 pub mod model;
 pub mod rsl;
 
 use git2::Repository;
-use utils::model::{State, Action, Repo, Tool};
 use git_rsl::utils::test_helper::*;
+use utils::model::{Action, Repo, State, Tool};
 
 pub const NUM_STARTING_ACTIONS_LOW: usize = 5;
 pub const NUM_STARTING_ACTIONS_HIGH: usize = 10;
@@ -32,7 +32,8 @@ pub fn collect_actions(state: &State) -> Vec<Action> {
 }
 
 pub fn setup_local_repos(context: &Context, num_clones: usize) -> Vec<Repository> {
-    let first_clone = Repository::open(context.local.path()).expect("failed to open local repository from context");
+    let first_clone = Repository::open(context.local.path())
+        .expect("failed to open local repository from context");
 
     git::commit(&first_clone, "Initial commit");
     git::push(&first_clone, "master");
@@ -47,7 +48,12 @@ pub fn setup_local_repos(context: &Context, num_clones: usize) -> Vec<Repository
     locals
 }
 
-pub fn apply_actions_to_system(remote: &Repository, locals: &mut Vec<Repository>, actions: &Vec<Action>, tool: Tool) -> usize {
+pub fn apply_actions_to_system(
+    remote: &Repository,
+    locals: &mut Vec<Repository>,
+    actions: &Vec<Action>,
+    tool: Tool,
+) -> usize {
     let mut action_allowed = true;
     let mut num_allowed_actions = 0;
 

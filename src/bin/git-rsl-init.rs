@@ -1,15 +1,15 @@
 #[macro_use]
 extern crate clap;
 
-extern crate git_rsl;
 extern crate git2;
+extern crate git_rsl;
 
 use std::process;
 
-use git_rsl::{RemoteName, rsl_init_with_cleanup};
+use clap::{App, Arg};
 use git_rsl::errors::*;
 use git_rsl::utils::git;
-use clap::{App, Arg};
+use git_rsl::{rsl_init_with_cleanup, RemoteName};
 
 fn main() {
     let matches = App::new("git-rsl-init")
@@ -25,7 +25,7 @@ fn main() {
 
     let remote = match matches.value_of("REMOTE") {
         None => panic!("Must supply a REMOTE argument"),
-        Some(v) => v.to_owned()
+        Some(v) => v.to_owned(),
     };
     // TODO - reduce code duplication across the top level of the binaries
     let mut repo = git::discover_repo()
@@ -38,15 +38,10 @@ fn main() {
     println!("Success!")
 }
 
-
 fn handle_error(e: &Error) -> () {
     report_error(&e);
     match *e {
-        Error(ErrorKind::ReadError(_), _) => {
-            process::exit(1)
-        }
-        Error(_, _) => {
-            process::exit(2)
-        }
+        Error(ErrorKind::ReadError(_), _) => process::exit(1),
+        Error(_, _) => process::exit(2),
     }
 }

@@ -1,21 +1,21 @@
 extern crate git_rsl;
-use std::collections::{HashMap, HashSet};
-use std::iter::FromIterator;
-use std::fmt;
-use git2::Repository;
 use self::git_rsl::BranchName;
+use git2::Repository;
 use names::Generator;
+use std::collections::{HashMap, HashSet};
+use std::fmt;
+use std::iter::FromIterator;
 
-use super::{git, attack, rsl};
+use super::{attack, git, rsl};
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
 pub struct Commit {
-    pub message: String
+    pub message: String,
 }
 
 #[derive(Hash, Eq, PartialEq, Debug, Clone)]
 pub struct Branch {
-    pub commits: Vec<Commit>
+    pub commits: Vec<Commit>,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -24,18 +24,22 @@ pub struct Repo {
     pub current_branch: String,
 }
 
-impl Repo {  
+impl Repo {
     pub fn add_branch(&mut self, name: &str) {
         let new_branch = Branch {
-            commits: self.get_current_branch().commits.clone()
+            commits: self.get_current_branch().commits.clone(),
         };
         self.branches.insert(name.to_string(), new_branch);
     }
 
     pub fn commit(&mut self, message: &str) {
         let current_branch = self.current_branch.clone();
-        let branch = self.branches.get_mut(&current_branch).expect("failed to get mutable ref to branch");
-        branch.commits.push(Commit { message: message.to_string() });
+        let branch = self.branches
+            .get_mut(&current_branch)
+            .expect("failed to get mutable ref to branch");
+        branch.commits.push(Commit {
+            message: message.to_string(),
+        });
     }
 
     pub fn get_current_branch(&self) -> &Branch {
@@ -64,36 +68,22 @@ pub enum Action {
 impl Action {
     pub fn apply(&self, remote: &Repository, locals: &mut Vec<Repository>, tool: Tool) -> bool {
         match self {
-           &Action::Commit(repo_num, ref message) => {
-                git::commit(&locals[repo_num], message)
-           },
-           &Action::Push(repo_num, ref branch) => {
-                match tool {
-                    Tool::Git => git::push(&locals[repo_num], branch),
-                    Tool::RSL => rsl::push(&mut locals[repo_num], &BranchName::new(branch)),
-                }
-           },
-           &Action::Pull(repo_num, ref branch) => {
-                match tool {
-                    Tool::Git => git::pull(&locals[repo_num], branch),
-                    Tool::RSL => rsl::pull(&mut locals[repo_num], &BranchName::new(branch)),
-                }
-           },
-           &Action::Branch(repo_num, ref name) => {
-                git::branch(&locals[repo_num], name)
-           },
-           &Action::Checkout(repo_num, ref branch) => {
-                git::checkout(&locals[repo_num], branch)
-           },
-           &Action::Teleport(ref target_branch, ref teleport_target) => {
+            &Action::Commit(repo_num, ref message) => git::commit(&locals[repo_num], message),
+            &Action::Push(repo_num, ref branch) => match tool {
+                Tool::Git => git::push(&locals[repo_num], branch),
+                Tool::RSL => rsl::push(&mut locals[repo_num], &BranchName::new(branch)),
+            },
+            &Action::Pull(repo_num, ref branch) => match tool {
+                Tool::Git => git::pull(&locals[repo_num], branch),
+                Tool::RSL => rsl::pull(&mut locals[repo_num], &BranchName::new(branch)),
+            },
+            &Action::Branch(repo_num, ref name) => git::branch(&locals[repo_num], name),
+            &Action::Checkout(repo_num, ref branch) => git::checkout(&locals[repo_num], branch),
+            &Action::Teleport(ref target_branch, ref teleport_target) => {
                 attack::teleport(remote, target_branch, teleport_target)
-           },
-           &Action::Rollback(ref target_branch) => {
-                attack::rollback(remote, target_branch)
-           },
-           &Action::Deletion(ref target_branch) => {
-                attack::deletion(remote, target_branch)
-           }
+            }
+            &Action::Rollback(ref target_branch) => attack::rollback(remote, target_branch),
+            &Action::Deletion(ref target_branch) => attack::deletion(remote, target_branch),
         }
     }
 }
@@ -127,7 +117,12 @@ pub struct State {
 impl fmt::Debug for State {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let prev_action = &self.action;
-        write!(f, "State {{ num_locals: {}, prev_action: {:?} }}", self.locals.len(), prev_action)
+        write!(
+            f,
+            "State {{ num_locals: {}, prev_action: {:?} }}",
+            self.locals.len(),
+            prev_action
+        )
     }
 }
 
@@ -173,14 +168,17 @@ impl State {
             if branch.commits.len() > 1 {
                 attacks.push(Action::Rollback(name.to_string()));
             }
-            
+
             let mut teleport_branches = branches.clone();
 
             teleport_branches.retain(|k, _| k != name);
 
             for (teleport_name, teleport_branch) in teleport_branches {
                 if branch_contains_unique_commit(&branch.commits, &teleport_branch.commits) {
-                    attacks.push(Action::Teleport(name.to_string(), teleport_name.to_string()));
+                    attacks.push(Action::Teleport(
+                        name.to_string(),
+                        teleport_name.to_string(),
+                    ));
                 }
             }
         }
@@ -188,7 +186,12 @@ impl State {
         attacks
     }
 
-    pub fn allowable_actions(&self, repo: usize, local_branch: String, remote_branch: String) -> Vec<Action> {
+    pub fn allowable_actions(
+        &self,
+        repo: usize,
+        local_branch: String,
+        remote_branch: String,
+    ) -> Vec<Action> {
         let mut actions = Vec::new();
 
         let random_name = Generator::default().next().expect("failed to get a name");
@@ -199,7 +202,11 @@ impl State {
         actions.push(Action::Commit(repo, commit_msg));
         actions.push(Action::Branch(repo, branch_name));
 
-        let potential_actions = vec![Action::Push(repo, local_branch.clone()), Action::Pull(repo, remote_branch.clone()), Action::Checkout(repo, local_branch.clone())];
+        let potential_actions = vec![
+            Action::Push(repo, local_branch.clone()),
+            Action::Pull(repo, remote_branch.clone()),
+            Action::Checkout(repo, local_branch.clone()),
+        ];
 
         for action in potential_actions {
             if self.allows(&action) {
@@ -218,8 +225,14 @@ impl State {
                 } else if !self.locals[repo].branches.contains_key(branch) {
                     false
                 } else {
-                    let remote_branch = self.remote.branches.get(branch).expect("remote doesn't have this branch..."); 
-                    let local_branch = self.locals[repo].branches.get(branch).expect("local doesn't have this branch?");
+                    let remote_branch = self.remote
+                        .branches
+                        .get(branch)
+                        .expect("remote doesn't have this branch...");
+                    let local_branch = self.locals[repo]
+                        .branches
+                        .get(branch)
+                        .expect("local doesn't have this branch?");
 
                     if remote_branch == local_branch {
                         false
@@ -227,15 +240,21 @@ impl State {
                         ff_possible(&remote_branch.commits, &local_branch.commits)
                     }
                 }
-            },
+            }
             &Action::Pull(repo, ref branch) => {
                 if !self.locals[repo].branches.contains_key(branch) {
                     true
                 } else if !self.remote.branches.contains_key(branch) {
                     false
                 } else {
-                    let remote_branch = self.remote.branches.get(branch).expect("remote doesn't have this branch..."); 
-                    let local_branch = self.locals[repo].branches.get(branch).expect("local doesn't have this branch?");
+                    let remote_branch = self.remote
+                        .branches
+                        .get(branch)
+                        .expect("remote doesn't have this branch...");
+                    let local_branch = self.locals[repo]
+                        .branches
+                        .get(branch)
+                        .expect("local doesn't have this branch?");
 
                     if local_branch == remote_branch {
                         false
@@ -245,8 +264,9 @@ impl State {
                 }
             }
             &Action::Checkout(repo, ref branch_name) => {
-                self.locals[repo].branches.contains_key(branch_name) && self.locals[repo].current_branch != branch_name.to_string()
-            },
+                self.locals[repo].branches.contains_key(branch_name)
+                    && self.locals[repo].current_branch != branch_name.to_string()
+            }
             _ => true,
         }
     }
@@ -257,29 +277,39 @@ impl State {
         match action {
             &Action::Branch(repo, ref name) => {
                 self.locals[repo].add_branch(name);
-            },
+            }
             &Action::Commit(repo, ref message) => {
                 self.locals[repo].commit(message);
-            },
+            }
             &Action::Checkout(repo, ref branch) => {
                 self.locals[repo].current_branch = branch.to_string();
-            },
+            }
             &Action::Push(repo, ref branch) => {
-                let local_branch = self.locals[repo].branches.get(branch).expect("failed to get local branch");
-                self.remote.branches.insert(branch.to_string(), local_branch.clone());
-            },
+                let local_branch = self.locals[repo]
+                    .branches
+                    .get(branch)
+                    .expect("failed to get local branch");
+                self.remote
+                    .branches
+                    .insert(branch.to_string(), local_branch.clone());
+            }
             &Action::Pull(repo, ref branch) => {
-                let remote_branch = self.remote.branches.get(branch).expect("failed to get remote branch");
-                self.locals[repo].branches.insert(branch.to_string(), remote_branch.clone());
-            },
-            _ => ()
+                let remote_branch = self.remote
+                    .branches
+                    .get(branch)
+                    .expect("failed to get remote branch");
+                self.locals[repo]
+                    .branches
+                    .insert(branch.to_string(), remote_branch.clone());
+            }
+            _ => (),
         };
 
         State {
             remote: self.remote.clone(),
             locals: self.locals.clone(),
             prev_state: Some(Box::new(old_state)),
-            action: Some(action.clone())
+            action: Some(action.clone()),
         }
     }
 }
