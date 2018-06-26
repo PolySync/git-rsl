@@ -5,6 +5,14 @@ extern crate git2;
 extern crate git_rsl;
 extern crate names;
 
+#[macro_use]
+extern crate lazy_static;
+use std::sync::Mutex;
+
+lazy_static! {
+    static ref SEQUENTIAL_TEST_MUTEX: Mutex<()> = Mutex::new(());
+}
+
 mod utils;
 
 use utils::model::{Action, Branch, Commit, Repo, State, Tool};
@@ -184,12 +192,15 @@ fn arb_attacked_state_history() -> BoxedStrategy<(State, Action)> {
 /// option for more verbose test failure information.
 proptest!{
     #![proptest_config(ProptestConfig {
-    cases: 5, .. ProptestConfig::default()
+        cases: 5,
+        .. ProptestConfig::default()
     })]
+
     #[test]
     #[ignore]
     fn git_fails_to_detect_attack((ref state, ref attack) in arb_attacked_state_history())
     {
+        let _guard = SEQUENTIAL_TEST_MUTEX.lock();
         let actions: Vec<Action> = utils::collect_actions(state);
 
         let context = setup_fresh();
@@ -213,6 +224,7 @@ proptest!{
     #[ignore]
     fn rsl_detects_attack((ref state, ref attack) in arb_attacked_state_history())
     {
+        let _guard = SEQUENTIAL_TEST_MUTEX.lock();
         let actions: Vec<Action> = utils::collect_actions(state);
 
         let mut context = setup_fresh();
@@ -239,6 +251,7 @@ proptest!{
     #[ignore]
     fn rsl_detects_before_git((ref state, ref attack) in arb_attacked_state_history())
     {
+        let _guard = SEQUENTIAL_TEST_MUTEX.lock();
         let actions: Vec<Action> = utils::collect_actions(state);
 
         let mut context = setup_fresh();
