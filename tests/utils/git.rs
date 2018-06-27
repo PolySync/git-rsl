@@ -2,7 +2,7 @@ use git2::{BranchType, Repository};
 use git_rsl::utils::test_helper::*;
 use names::Generator;
 use std::env;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
 fn set_gnupg_home() {
@@ -124,7 +124,7 @@ pub fn checkout(repo: &Repository, branch_name: &str) -> bool {
 
 #[test]
 fn git_branch() {
-    let mut context = setup_fresh();
+    let context = setup_fresh();
     {
         let random_branch_name = Generator::default().next().expect("failed to get a name");
 
@@ -141,7 +141,7 @@ fn git_branch() {
 
 #[test]
 fn git_checkout() {
-    let mut context = setup_fresh();
+    let context = setup_fresh();
     {
         let random_master_commit_msg = Generator::default().next().expect("failed to get a name");
         commit(&context.local, &random_master_commit_msg);
@@ -173,7 +173,7 @@ fn git_checkout() {
 
 #[test]
 fn git_commit() {
-    let mut context = setup_fresh();
+    let context = setup_fresh();
     {
         let random_commit_msg = Generator::default().next().expect("failed to get a name");
 
@@ -192,7 +192,7 @@ fn git_commit() {
 
 #[test]
 fn git_push() {
-    let mut context = setup_fresh();
+    let context = setup_fresh();
     {
         commit(&context.local, "C2");
 
@@ -211,7 +211,7 @@ fn git_push() {
 
 #[test]
 fn git_pull() {
-    let mut context = setup_fresh();
+    let context = setup_fresh();
     {
         let mut locals = super::setup_local_repos(&context, 2);
         let local_1 = &mut locals.pop().expect("failed to pop repo");

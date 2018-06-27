@@ -8,7 +8,6 @@ extern crate tempdir;
 
 mod utils;
 
-use git_rsl::errors::{Error, ErrorKind};
 use git_rsl::utils::test_helper::*;
 use git_rsl::{BranchName, RemoteName};
 use std::process::Command;
