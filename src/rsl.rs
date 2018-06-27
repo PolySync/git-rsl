@@ -25,7 +25,7 @@ pub fn all_push_entries_in_fetch_head(repo: &Repository, rsl: &RSL, ref_names: &
         .into_iter()
         .filter_map(
             |ref_name| match rsl.find_last_remote_push_entry_for_branch(ref_name).ok() {
-                Some(Some(pe)) => Some(pe.head()),
+                Some(Some(pe)) => Some(pe.oid()),
                 Some(None) | None => None,
             },
         )
@@ -227,14 +227,15 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
 
     pub fn find_last_remote_push_entry_for_branch(
         &self,
-        reference: &str,
+        branch: &str,
     ) -> Result<Option<PushEntry>> {
         let mut revwalk: Revwalk = self.repo.revwalk()?;
         revwalk.push(self.remote_head)?;
         let mut current = Some(self.remote_head);
+        let ref_name = format!("refs/heads/{}", branch);
         while current != None {
             if let Some(pe) = PushEntry::from_oid(self.repo, &current.unwrap())? {
-                if pe.branch() == reference {
+                if pe.ref_name() == ref_name {
                     return Ok(Some(pe));
                 }
             }

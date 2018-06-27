@@ -39,9 +39,9 @@ impl From<OidDef> for Oid {
 
 #[derive(Debug, Eq, PartialEq, Deserialize, Serialize)]
 pub struct PushEntry {
-    branch: String,
+    ref_name: String,
     #[serde(with = "OidDef")]
-    head: Oid,
+    oid: Oid,
     prev_hash: String,
     nonce_bag: NonceBag,
 }
@@ -60,8 +60,8 @@ impl PushEntry {
             .unwrap();
 
         PushEntry {
-            branch: String::from(branch_str), //TODO change this to be all ref_names
-            head: branch_head,
+            ref_name: format!("refs/heads/{}", branch_str),
+            oid: branch_head,
             prev_hash: prev,
             nonce_bag,
         }
@@ -71,12 +71,12 @@ impl PushEntry {
         self.prev_hash.clone()
     }
 
-    pub fn head(&self) -> Oid {
-        self.head
+    pub fn oid(&self) -> Oid {
+        self.oid
     }
 
-    pub fn branch(&self) -> &str {
-        &self.branch
+    pub fn ref_name(&self) -> &str {
+        &self.ref_name
     }
 
     pub fn get_nonce_bag(&self) -> &NonceBag {
@@ -137,8 +137,8 @@ mod tests {
         let oid = Oid::from_str("decbf2be529ab6557d5429922251e5ee36519817").unwrap();
         let entry = PushEntry {
             //related_commits: vec![oid.to_owned(), oid.to_owned()],
-            branch: String::from("branch_name"),
-            head: oid,
+            ref_name: String::from("refs/heads/branch_name"),
+            oid: oid,
             prev_hash: String::from("fwjjk42ofw093j"),
             nonce_bag: NonceBag::default(),
         };
@@ -150,8 +150,9 @@ mod tests {
 
     #[test]
     fn from_string() {
-        let string = r#"{"branch": "branch_name",
-            "head": {
+        let string = r#"{
+            "ref_name": "refs/heads/branch_name",
+            "oid": {
                 "raw": "decbf2be529ab6557d5429922251e5ee36519817"
             },
             "prev_hash": "fwjjk42ofw093j",
@@ -161,8 +162,8 @@ mod tests {
         }"#;
         let entry = PushEntry {
             //related_commits: vec![oid.to_owned(), oid.to_owned()],
-            branch: String::from("branch_name"),
-            head: Oid::from_str("decbf2be529ab6557d5429922251e5ee36519817").unwrap(),
+            ref_name: String::from("refs/heads/branch_name"),
+            oid: Oid::from_str("decbf2be529ab6557d5429922251e5ee36519817").unwrap(),
             prev_hash: String::from("fwjjk42ofw093j"),
             nonce_bag: NonceBag::default(),
         };
