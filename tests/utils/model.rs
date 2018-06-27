@@ -25,6 +25,7 @@ pub struct Repo {
 }
 
 impl Repo {
+    #[allow(dead_code)]
     pub fn add_branch(&mut self, name: &str) {
         let new_branch = Branch {
             commits: self.get_current_branch().commits.clone(),
@@ -32,6 +33,7 @@ impl Repo {
         self.branches.insert(name.to_string(), new_branch);
     }
 
+    #[allow(dead_code)]
     pub fn commit(&mut self, message: &str) {
         let current_branch = self.current_branch.clone();
         let branch = self.branches
@@ -42,18 +44,21 @@ impl Repo {
         });
     }
 
+    #[allow(dead_code)]
     pub fn get_current_branch(&self) -> &Branch {
         &self.branches[&self.current_branch]
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Copy)]
+#[allow(dead_code)]
 pub enum Tool {
     Git,
     RSL,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
 pub enum Action {
     Commit(usize, String),
     Push(usize, String),
@@ -66,6 +71,7 @@ pub enum Action {
 }
 
 impl Action {
+    #[allow(dead_code)]
     pub fn apply(&self, remote: &Repository, locals: &mut Vec<Repository>, tool: Tool) -> bool {
         match self {
             &Action::Commit(repo_num, ref message) => git::commit(&locals[repo_num], message),
@@ -88,10 +94,12 @@ impl Action {
     }
 }
 
+#[allow(dead_code)]
 pub fn commits_as_hash_set(commits: &Vec<Commit>) -> HashSet<Commit> {
     HashSet::from_iter(commits.iter().cloned())
 }
 
+#[allow(dead_code)]
 pub fn ff_possible(from: &Vec<Commit>, onto: &Vec<Commit>) -> bool {
     let f_set = commits_as_hash_set(from);
     let o_set = commits_as_hash_set(onto);
@@ -99,6 +107,7 @@ pub fn ff_possible(from: &Vec<Commit>, onto: &Vec<Commit>) -> bool {
     f_set.is_subset(&o_set)
 }
 
+#[allow(dead_code)]
 pub fn branch_contains_unique_commit(from: &Vec<Commit>, onto: &Vec<Commit>) -> bool {
     let f_set = commits_as_hash_set(from);
     let o_set = commits_as_hash_set(onto);
@@ -127,6 +136,7 @@ impl fmt::Debug for State {
 }
 
 impl State {
+    #[allow(dead_code)]
     pub fn allowable_verification_actions(&self, target_branch: String) -> Vec<Action> {
         let mut actions = Vec::new();
 
@@ -155,6 +165,7 @@ impl State {
         actions
     }
 
+    #[allow(dead_code)]
     pub fn allowable_attacks(&self) -> Vec<Action> {
         let mut attacks = Vec::new();
 
@@ -186,6 +197,7 @@ impl State {
         attacks
     }
 
+    #[allow(dead_code)]
     pub fn allowable_actions(
         &self,
         repo: usize,
@@ -271,6 +283,7 @@ impl State {
         }
     }
 
+    #[allow(dead_code)]
     pub fn apply(&mut self, action: &Action) -> State {
         let old_state = self.clone();
 

@@ -7,15 +7,24 @@ use git2::Repository;
 use git_rsl::utils::test_helper::*;
 use utils::model::{Action, Repo, State, Tool};
 
+#[allow(dead_code)]
 pub const NUM_STARTING_ACTIONS_LOW: usize = 5;
+
+#[allow(dead_code)]
 pub const NUM_STARTING_ACTIONS_HIGH: usize = 10;
+
+#[allow(dead_code)]
 pub const NUM_INTERMEDIATE_ACTIONS_LOW: usize = 2;
+
+#[allow(dead_code)]
 pub const NUM_INTERMEDIATE_ACTIONS_HIGH: usize = 5;
 
+#[allow(dead_code)]
 pub fn repo_has_unique_state(repo: &Repo) -> bool {
     repo.branches["master"].commits.len() > 1 || repo.branches.len() > 1
 }
 
+#[allow(dead_code)]
 pub fn collect_actions(state: &State) -> Vec<Action> {
     let mut actions: Vec<Action> = Vec::new();
 
@@ -48,6 +57,7 @@ pub fn setup_local_repos(context: &Context, num_clones: usize) -> Vec<Repository
     locals
 }
 
+#[allow(dead_code)]
 pub fn apply_actions_to_system(
     remote: &Repository,
     locals: &mut Vec<Repository>,
