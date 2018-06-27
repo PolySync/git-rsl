@@ -93,7 +93,7 @@ pub fn pull(repo: &Repository, branch_name: &str) -> bool {
     Command::new("git")
         .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .args(&["pull", "--ff-only"])
+        .args(&["pull", "--ff-only", "origin", branch_name])
         .current_dir(repo.workdir().expect("failed to get workdir of repo"))
         .status()
         .expect("failed to perform git pull")
