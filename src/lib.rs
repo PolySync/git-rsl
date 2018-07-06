@@ -80,27 +80,27 @@ pub fn rsl_init_with_cleanup(repo: &mut Repository, remote_name: &RemoteName) ->
 pub fn secure_fetch_with_cleanup(
     repo: &mut Repository,
     remote_name: &RemoteName,
-    branch: &ReferenceName,
+    ref_name: &ReferenceName,
 ) -> Result<()> {
     ensure!(remote_name.0 == "origin", "Remote name must be \"origin\"");
     let ws = Workspace::new(repo)?;
     let mut remote = ws.repo
         .find_remote(remote_name.as_ref())
         .chain_err(|| format!("unable to find remote named {}", remote_name.as_ref()))?;
-    fetch::secure_fetch(ws.repo, &mut remote, &[branch.as_ref()])
+    fetch::secure_fetch(ws.repo, &mut remote, &[ref_name.as_ref()])
 }
 
 pub fn secure_push_with_cleanup(
     repo: &mut Repository,
     remote_name: &RemoteName,
-    branch: &ReferenceName,
+    ref_name: &ReferenceName,
 ) -> Result<()> {
     ensure!(remote_name.0 == "origin", "Remote name must be \"origin\"");
     let ws = Workspace::new(repo)?;
     let mut remote = ws.repo
         .find_remote(remote_name.as_ref())
         .chain_err(|| format!("unable to find remote named {}", remote_name.as_ref()))?;
-    push::secure_push(ws.repo, &mut remote, &[branch.as_ref()])
+    push::secure_push(ws.repo, &mut remote, &[ref_name.as_ref()])
 }
 
 pub struct Workspace<'repo> {

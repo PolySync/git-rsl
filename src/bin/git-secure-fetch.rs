@@ -14,13 +14,13 @@ use git_rsl::{secure_fetch_with_cleanup, ReferenceName, RemoteName};
 fn main() {
     let matches = App::new("git-secure-fetch")
         .bin_name("git secure-fetch")
-        .about("Securely fetch <BRANCH> from <REMOTE> checking the reference state log to protect against metadata attacks")
+        .about("Securely fetch <REFERENCE> from <REMOTE> checking the reference state log to protect against metadata attacks")
         .arg(Arg::with_name("REMOTE")
             .help("The remote repository that is the source of the fetch operation.")
             .takes_value(false)
             .required(true))
-        .arg(Arg::with_name("BRANCH")
-            .help("The target branch to fetch.")
+        .arg(Arg::with_name("REFERENCE")
+            .help("The target ref (branch or tag) to fetch.")
             .takes_value(false)
             .required(true))
         .version(crate_version!())
@@ -32,8 +32,8 @@ fn main() {
         Some(v) => v.to_owned(),
     };
 
-    let branch = match matches.value_of("BRANCH") {
-        None => panic!("Must supply a BRANCH argument"),
+    let reference = match matches.value_of("REFERENCE") {
+        None => panic!("Must supply a REFERENCE argument"),
         Some(v) => v.to_owned(),
     };
     // TODO - reduce code duplication across the top level of the binaries
@@ -43,7 +43,7 @@ fn main() {
     if let Err(ref e) = secure_fetch_with_cleanup(
         &mut repo,
         &RemoteName::new(&remote),
-        &ReferenceName::new(&branch),
+        &ReferenceName::new(&reference),
     ) {
         handle_error(e);
         process::exit(1);
