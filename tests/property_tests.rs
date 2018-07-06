@@ -18,7 +18,7 @@ mod utils;
 use utils::model::{Action, Branch, Commit, Repo, State, Tool};
 
 use git_rsl::utils::test_helper::*;
-use git_rsl::{BranchName, RemoteName};
+use git_rsl::{ReferenceName, RemoteName};
 use proptest::prelude::*;
 use proptest::sample::select;
 use std::collections::HashMap;
@@ -232,7 +232,7 @@ proptest!{
             let remote_name = RemoteName::new("origin");
 
             git_rsl::rsl_init_with_cleanup(&mut context.local, &remote_name).expect("failed to init rsl");
-            git_rsl::secure_push_with_cleanup(&mut context.local, &remote_name, &BranchName::new("master")).expect("failed to secure push initial commit");
+            git_rsl::secure_push_with_cleanup(&mut context.local, &remote_name, &ReferenceName::new("master")).expect("failed to secure push initial commit");
 
             let mut locals = utils::setup_local_repos(&context, state.locals.len());
 
@@ -266,7 +266,7 @@ proptest!{
         let num_successful_rsl_actions = {
             let remote_name = RemoteName::new("origin");
             git_rsl::rsl_init_with_cleanup(&mut context.local, &remote_name).expect("failed to init rsl");
-            git_rsl::secure_push_with_cleanup(&mut context.local, &remote_name, &BranchName::new("master")).expect("failed to secure push initial commit");
+            git_rsl::secure_push_with_cleanup(&mut context.local, &remote_name, &ReferenceName::new("master")).expect("failed to secure push initial commit");
 
             let mut locals = utils::setup_local_repos(&context, state.locals.len());
 

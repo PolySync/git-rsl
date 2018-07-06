@@ -7,7 +7,7 @@ extern crate git_rsl;
 use clap::{App, Arg};
 use git_rsl::errors::*;
 use git_rsl::utils::git;
-use git_rsl::{secure_push_with_cleanup, BranchName, RemoteName};
+use git_rsl::{secure_push_with_cleanup, ReferenceName, RemoteName};
 use std::process;
 
 fn main() {
@@ -42,7 +42,7 @@ fn main() {
     if let Err(ref e) = secure_push_with_cleanup(
         &mut repo,
         &RemoteName::new(&remote),
-        &BranchName::new(&branch),
+        &ReferenceName::new(&branch),
     ) {
         handle_error(e);
         process::exit(1);

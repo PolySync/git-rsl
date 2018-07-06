@@ -31,18 +31,18 @@ use git2::{Oid, Repository};
 use std::env;
 use std::path::PathBuf;
 
-/// Wrapper around a string reference to a branch name to reduce the odds of
+/// Wrapper around a string reference to a typed reference to reduce the odds of
 /// parameter mismatch
 #[derive(Clone, Debug)]
-pub struct BranchName<'a>(&'a str);
+pub struct ReferenceName<'a>(&'a str);
 
-impl<'a> BranchName<'a> {
-    pub fn new(source: &'a str) -> BranchName<'a> {
-        BranchName(source)
+impl<'a> ReferenceName<'a> {
+    pub fn new(source: &'a str) -> ReferenceName<'a> {
+        ReferenceName(source)
     }
 }
 
-impl<'a> AsRef<str> for BranchName<'a> {
+impl<'a> AsRef<str> for ReferenceName<'a> {
     fn as_ref(&self) -> &str {
         self.0
     }
@@ -80,7 +80,7 @@ pub fn rsl_init_with_cleanup(repo: &mut Repository, remote_name: &RemoteName) ->
 pub fn secure_fetch_with_cleanup(
     repo: &mut Repository,
     remote_name: &RemoteName,
-    branch: &BranchName,
+    branch: &ReferenceName,
 ) -> Result<()> {
     ensure!(remote_name.0 == "origin", "Remote name must be \"origin\"");
     let ws = Workspace::new(repo)?;
@@ -93,7 +93,7 @@ pub fn secure_fetch_with_cleanup(
 pub fn secure_push_with_cleanup(
     repo: &mut Repository,
     remote_name: &RemoteName,
-    branch: &BranchName,
+    branch: &ReferenceName,
 ) -> Result<()> {
     ensure!(remote_name.0 == "origin", "Remote name must be \"origin\"");
     let ws = Workspace::new(repo)?;

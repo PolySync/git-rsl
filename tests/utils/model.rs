@@ -1,5 +1,5 @@
 extern crate git_rsl;
-use self::git_rsl::BranchName;
+use self::git_rsl::ReferenceName;
 use git2::Repository;
 use names::Generator;
 use std::collections::{HashMap, HashSet};
@@ -77,11 +77,11 @@ impl Action {
             &Action::Commit(repo_num, ref message) => git::commit(&locals[repo_num], message),
             &Action::Push(repo_num, ref branch) => match tool {
                 Tool::Git => git::push(&locals[repo_num], branch),
-                Tool::RSL => rsl::push(&mut locals[repo_num], &BranchName::new(branch)),
+                Tool::RSL => rsl::push(&mut locals[repo_num], &ReferenceName::new(branch)),
             },
             &Action::Pull(repo_num, ref branch) => match tool {
                 Tool::Git => git::pull(&locals[repo_num], branch),
-                Tool::RSL => rsl::pull(&mut locals[repo_num], &BranchName::new(branch)),
+                Tool::RSL => rsl::pull(&mut locals[repo_num], &ReferenceName::new(branch)),
             },
             &Action::Branch(repo_num, ref name) => git::branch(&locals[repo_num], name),
             &Action::Checkout(repo_num, ref branch) => git::checkout(&locals[repo_num], branch),
