@@ -10,7 +10,7 @@ use super::git;
 use fs_extra::dir::*;
 use tempdir::TempDir;
 
-use git2::Repository;
+use git2::{Repository, Object, ObjectType, Reference};
 
 pub struct Context {
     pub local: Repository,
@@ -85,6 +85,13 @@ pub fn create_file_with_text<P: AsRef<Path>>(path: P, text: &str) -> () {
     //let file_path = path.as_path();
     let mut file = File::create(path.as_ref()).unwrap();
     file.write_all(text.as_bytes()).unwrap();
+}
+
+
+pub fn tag_lightweight<'repo>(repo: &'repo Repository, tag_name: &str) -> Reference<'repo> {
+    let tag_target = &repo.head().expect("failed to get head").peel(ObjectType::Commit).expect("failed to peel");
+    let tag_oid = repo.tag_lightweight(tag_name, tag_target, false);
+    repo.find_reference(&format!("refs/tags/{}", tag_name)).expect("tag ref not found")
 }
 
 pub fn do_work_on_branch(repo: &Repository, branch_name: &str) -> () {

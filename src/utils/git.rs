@@ -1,11 +1,11 @@
-use std::env;
+use std::{env, str};
 use std::path::Path;
 
 use git2;
 use git2::BranchType;
 use git2::build::CheckoutBuilder;
 use git2::{Commit, DiffOptions, FetchOptions, Oid, PushOptions, Remote, RemoteCallbacks,
-           Repository, RepositoryState, Signature, Tree};
+           Repository, RepositoryState, Signature, Tree, Reference};
 
 use git2::CredentialType;
 use git2::MergeAnalysis;
@@ -267,21 +267,31 @@ pub fn fetch(
     })
 }
 
+fn get_ref_from_name<'repo>(repo: &'repo Repository, name: &str) -> Option<Reference<'repo>> {
+    match repo.find_branch(name, BranchType::Local) {
+        Ok(branch) => Some(branch.into_reference()),
+        Err(e) => { // toDo may be other errors here...
+            let tag_ref = repo.find_reference(&format!("refs/tags/{}", name)).expect("reference not found");
+            if tag_ref.is_tag() {
+                Some(tag_ref)
+            } else { // not a branch or a tag
+                None
+            }
+        }
+    }
+}
+
 /// Push the branches or tags given in ref_names
 pub fn push(repo: &Repository, remote: &mut Remote, ref_names: &[&str]) -> Result<()> {
-    let refs: Vec<String> = ref_names
-        .iter()
-        .map(|name: &&str| {
-            format!(
-                "refs/heads/{}:refs/heads/{}",
-                name.to_string(),
-                name.to_string()
-            )
-        })
-        .collect();
+    let mut full_names: Vec<String> = vec![];
+    for name in ref_names {
+        let reference = get_ref_from_name(&repo, name).expect("failed to find reference from name");
+        let full_name = String::from(reference.name().expect("failed to get full name of ref"));
+        full_names.push(full_name)
+    }
 
     let mut refspecs: Vec<&str> = vec![];
-    for name in &refs {
+    for name in &full_names {
         refspecs.push(name)
     }
 
