@@ -53,15 +53,12 @@ impl PushEntry {
         prev: String,
         nonce_bag: NonceBag,
     ) -> PushEntry {
-        let branch_head = repo.find_branch(branch_str, BranchType::Local)
-            .unwrap()
-            .get()
-            .target()
-            .unwrap();
+        let full_ref = utils::git::get_ref_from_name(repo, branch_str).expect("failed to get reference");
+        let target_oid = full_ref.target().expect("failed to get target oid");
 
         PushEntry {
-            ref_name: format!("refs/heads/{}", branch_str),
-            oid: branch_head,
+            ref_name: String::from(full_ref.name().expect("failed to get ref's full name")),
+            oid: target_oid,
             prev_hash: prev,
             nonce_bag,
         }

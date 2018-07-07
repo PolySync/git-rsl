@@ -267,7 +267,7 @@ pub fn fetch(
     })
 }
 
-fn get_ref_from_name<'repo>(repo: &'repo Repository, name: &str) -> Option<Reference<'repo>> {
+pub fn get_ref_from_name<'repo>(repo: &'repo Repository, name: &str) -> Option<Reference<'repo>> {
     match repo.find_branch(name, BranchType::Local) {
         Ok(branch) => Some(branch.into_reference()),
         Err(e) => { // toDo may be other errors here...

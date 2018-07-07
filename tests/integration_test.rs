@@ -60,12 +60,10 @@ sequential_test! {
             assert_eq!((), git_rsl::rsl_init_with_cleanup(&mut context.local, &RemoteName::new("origin"))
                 .expect("Could not rsl-init"));
             do_work_on_branch(&context.local, "refs/heads/master");
-            // let local_tag = tag_lightweight(&mut context.local, "v6.66");
+            tag_lightweight(&mut context.local, "v6.66");
 
-            // git_rsl::utils::git::push(&context.local, &mut context.local.find_remote("origin").expect("failed to find remote"), &["v6.66"]);
             assert_eq!((), git_rsl::secure_push_with_cleanup(&mut context.local, &RemoteName::new("origin"), &ReferenceName::new("v6.66")).expect("Could not run third push"));
             let remote_tag = &context.remote.find_reference("refs/tags/v6.66").expect("reference not found");
-            // assert_eq!(local_tag.target(), remote_tag.target())
             assert!(remote_tag.is_tag());
         }
     }
