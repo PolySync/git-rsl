@@ -87,12 +87,13 @@ pub fn create_file_with_text<P: AsRef<Path>>(path: P, text: &str) -> () {
     file.write_all(text.as_bytes()).unwrap();
 }
 
-pub fn tag_lightweight<'repo>(repo: &'repo Repository, tag_name: &str) -> Reference<'repo> {
+pub fn tag_latest_commit<'repo>(repo: &'repo Repository, tag_name: &str, tag_msg: &str) -> Reference<'repo> {
     let tag_target = &repo.head()
         .expect("failed to get head")
         .peel(ObjectType::Commit)
         .expect("failed to peel");
-    let _tag_oid = repo.tag_lightweight(tag_name, tag_target, false);
+    let sig = repo.signature().expect("failed to get signature");
+    let _tag_oid = repo.tag(tag_name, tag_target, &sig, tag_msg, false);
     repo.find_reference(&format!("refs/tags/{}", tag_name))
         .expect("tag ref not found")
 }

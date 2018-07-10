@@ -78,7 +78,7 @@ sequential_test! {
             assert_ok!(git_rsl::rsl_init_with_cleanup(&mut context.local, &remote),
                 "Could not rsl-init");
             do_work_on_branch(&context.local, "refs/heads/master");
-            tag_lightweight(&mut context.local, "v6.66");
+            tag_latest_commit(&mut context.local, "v6.66", "coolest release ever");
 
             assert_ok!(
                 git_rsl::secure_push_with_cleanup(&mut context.local, &remote, &tag), 
