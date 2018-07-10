@@ -27,7 +27,7 @@ fn main() {
         None => panic!("Must supply a REMOTE argument"),
         Some(v) => v.to_owned(),
     };
-    // TODO - reduce code duplication across the top level of the binaries
+
     let mut repo = git::discover_repo()
         .expect("You don't appear to be in a git project. Please check yourself and try again");
 
