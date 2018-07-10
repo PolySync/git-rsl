@@ -62,9 +62,11 @@ sequential_test! {
             do_work_on_branch(&context.local, "refs/heads/master");
             tag_lightweight(&mut context.local, "v6.66");
 
-            assert_eq!((), git_rsl::secure_push_with_cleanup(&mut context.local, &RemoteName::new("origin"), &ReferenceName::new("v6.66")).expect("Could not run third push"));
+            assert_eq!((), git_rsl::secure_push_with_cleanup(&mut context.local, &RemoteName::new("origin"), &ReferenceName::new("v6.66")).expect("Could not push tag"));
             let remote_tag = &context.remote.find_reference("refs/tags/v6.66").expect("reference not found");
             assert!(remote_tag.is_tag());
+
+            assert_eq!((), git_rsl::secure_fetch_with_cleanup(&mut context.local, &RemoteName::new("origin"), &ReferenceName::new("v6.66")).expect("could not fetch tag"));
         }
     }
 }
