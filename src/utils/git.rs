@@ -1,11 +1,11 @@
-use std::{env, str};
 use std::path::Path;
+use std::{env, str};
 
 use git2;
-use git2::BranchType;
 use git2::build::CheckoutBuilder;
-use git2::{Commit, DiffOptions, FetchOptions, Oid, PushOptions, Remote, RemoteCallbacks,
-           Repository, RepositoryState, Signature, Tree, Reference};
+use git2::BranchType;
+use git2::{Commit, DiffOptions, FetchOptions, Oid, PushOptions, Reference, Remote,
+           RemoteCallbacks, Repository, RepositoryState, Signature, Tree};
 
 use git2::CredentialType;
 use git2::MergeAnalysis;
@@ -270,11 +270,13 @@ pub fn fetch(
 pub fn get_ref_from_name<'repo>(repo: &'repo Repository, name: &str) -> Option<Reference<'repo>> {
     match repo.find_branch(name, BranchType::Local) {
         Ok(branch) => Some(branch.into_reference()),
-        Err(e) => { // toDo may be other errors here...
-            let tag_ref = repo.find_reference(&format!("refs/tags/{}", name)).expect("reference not found");
+        Err(_) => {
+            let tag_ref = repo.find_reference(&format!("refs/tags/{}", name))
+                .expect("reference not found");
             if tag_ref.is_tag() {
                 Some(tag_ref)
-            } else { // not a branch or a tag
+            } else {
+                // not a branch or a tag
                 None
             }
         }

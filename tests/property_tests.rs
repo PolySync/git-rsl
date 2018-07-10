@@ -29,11 +29,9 @@ pub fn repos(repo_count: Range<usize>) -> BoxedStrategy<Vec<Repo>> {
 }
 
 pub fn repo() -> BoxedStrategy<Repo> {
-    let commits = vec![
-        Commit {
-            message: "Initial Commit".to_string(),
-        },
-    ];
+    let commits = vec![Commit {
+        message: "Initial Commit".to_string(),
+    }];
 
     let mut branches = HashMap::new();
     branches.insert("master".to_string(), Branch { commits });

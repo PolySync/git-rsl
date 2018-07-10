@@ -2,8 +2,7 @@ use std::fmt;
 
 use crypto::digest::Digest;
 use crypto::sha3::Sha3;
-use git2::{self, BranchType, Oid, Reference, Repository};
-//use libgit2_sys::GIT_OID_RAWSZ;
+use git2::{self, Oid, Reference, Repository};
 
 use nonce_bag::NonceBag;
 
@@ -14,8 +13,11 @@ use utils;
 #[serde(remote = "Oid")]
 #[derive(Serialize, Deserialize)]
 struct OidDef {
-    #[serde(serialize_with = "utils::buffer_to_hex", deserialize_with = "utils::hex_to_buffer",
-            getter = "get_raw_oid")]
+    #[serde(
+        serialize_with = "utils::buffer_to_hex",
+        deserialize_with = "utils::hex_to_buffer",
+        getter = "get_raw_oid"
+    )]
     raw: Vec<u8>,
 }
 
@@ -53,7 +55,8 @@ impl PushEntry {
         prev: String,
         nonce_bag: NonceBag,
     ) -> PushEntry {
-        let full_ref = utils::git::get_ref_from_name(repo, branch_str).expect("failed to get reference");
+        let full_ref =
+            utils::git::get_ref_from_name(repo, branch_str).expect("failed to get reference");
         let target_oid = full_ref.target().expect("failed to get target oid");
 
         PushEntry {

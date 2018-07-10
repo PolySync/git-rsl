@@ -38,11 +38,9 @@ pub fn all_push_entries_in_fetch_head(repo: &Repository, rsl: &RSL, ref_names: &
             println!("ref_name: {:?}", ref_name);
             match repo.find_branch(&format!("origin/{}", ref_name), BranchType::Remote) {
                 Ok(branch) => branch.get().target(),
-                Err(_) => {
-                    match repo.find_reference(&format!("refs/tags/{}", ref_name)) {
-                        Ok(tag_ref) => tag_ref.target(),
-                        Err(_) => None
-                    }
+                Err(_) => match repo.find_reference(&format!("refs/tags/{}", ref_name)) {
+                    Ok(tag_ref) => tag_ref.target(),
+                    Err(_) => None,
                 },
             }
         })
@@ -238,7 +236,7 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
         revwalk.push(self.remote_head)?;
         let mut current = Some(self.remote_head);
         let reference = git::get_ref_from_name(self.repo, reference).expect("failed to get ref");
-        let  ref_name = reference.name().expect("failed to get ref name");
+        let ref_name = reference.name().expect("failed to get ref name");
         while current != None {
             if let Some(pe) = PushEntry::from_oid(self.repo, &current.unwrap())? {
                 if pe.ref_name() == ref_name {
