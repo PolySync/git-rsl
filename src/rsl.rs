@@ -20,18 +20,18 @@ pub enum RSLType {
 }
 
 pub fn all_push_entries_in_fetch_head(repo: &Repository, rsl: &RSL, ref_names: &[&str]) -> bool {
-    // find the last push entry for each branch
+    // find the last push entry for each reference
     let latest_push_entries: Vec<Oid> = ref_names
         .into_iter()
         .filter_map(
-            |ref_name| match rsl.find_last_remote_push_entry_for_branch(ref_name).ok() {
+            |ref_name| match rsl.find_last_remote_push_entry_for_reference(ref_name).ok() {
                 Some(Some(pe)) => Some(pe.oid()),
                 Some(None) | None => None,
             },
         )
         .collect();
 
-    // find the Oid of the tip of each remote fetched branch
+    // find the Oid of the tip of each remote fetched reference
     let fetch_heads: Vec<Oid> = ref_names
         .into_iter()
         .filter_map(|ref_name| {
@@ -230,14 +230,14 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
         Ok(())
     }
 
-    pub fn find_last_remote_push_entry_for_branch(
+    pub fn find_last_remote_push_entry_for_reference(
         &self,
-        branch: &str,
+        reference: &str,
     ) -> Result<Option<PushEntry>> {
         let mut revwalk: Revwalk = self.repo.revwalk()?;
         revwalk.push(self.remote_head)?;
         let mut current = Some(self.remote_head);
-        let reference = git::get_ref_from_name(self.repo, branch).expect("failed to get ref");
+        let reference = git::get_ref_from_name(self.repo, reference).expect("failed to get ref");
         let  ref_name = reference.name().expect("failed to get ref name");
         while current != None {
             if let Some(pe) = PushEntry::from_oid(self.repo, &current.unwrap())? {

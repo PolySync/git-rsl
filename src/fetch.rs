@@ -35,8 +35,8 @@ pub fn secure_fetch<'remote, 'repo: 'remote>(
             let mut rsl = RSL::read(repo, &mut remote_2).chain_err(|| "couldn't read RSL")?;
 
             // reject if one of the branches has no rsl push entry
-            for branch in ref_names {
-                match rsl.find_last_remote_push_entry_for_branch(&branch) {
+            for reference in ref_names {
+                match rsl.find_last_remote_push_entry_for_reference(&reference) {
                     Ok(None) => bail!("no push records for the ref you are attempting to fetch"),
                     Err(e) => {
                         return Err(e.chain_err(|| "couldn't check that provided refs are valid"))
