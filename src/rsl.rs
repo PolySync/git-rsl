@@ -173,7 +173,7 @@ impl<'remote, 'repo> RSL<'remote, 'repo> {
             ref_names.first().unwrap(),
             prev_hash,
             self.nonce_bag.clone(),
-        );
+        )?;
 
         // commit new pushentry (TODO commit to detached HEAD instead of local RSL branch, in case someone else has updated and a fastforward is not possible)
         self.repo
@@ -363,7 +363,7 @@ impl<'repo> HasRSL<'repo> for Repository {
         self.commit_nonce_bag()?;
 
         // create initial bootstrapping push entry
-        let initial_pe = PushEntry::new(self, "RSL", String::from("First Push Entry"), nonce_bag);
+        let initial_pe = PushEntry::new(self, "RSL", String::from("First Push Entry"), nonce_bag)?;
         self.commit_push_entry(&initial_pe, "refs/heads/RSL")?;
 
         // push new rsl branch
@@ -563,7 +563,7 @@ mod tests {
                 &"master",                              // branch
                 String::from("hash_of_last_pushentry"), // prev
                 NonceBag::default(),
-            );
+            ).unwrap();
             let oid = repo.commit_push_entry(&entry, "refs/heads/RSL").unwrap();
 
             // we are on the correct branch with new commit at the tip
@@ -609,7 +609,7 @@ mod tests {
 
                 // create push entry manuallly and commit it to the remote rsl branch
                 let prev_hash = rsl.last_remote_push_entry.hash();
-                let push_entry = PushEntry::new(&repo, &"master", prev_hash, rsl.nonce_bag);
+                let push_entry = PushEntry::new(&repo, &"master", prev_hash, rsl.nonce_bag).unwrap();
                 let oid = repo.commit_push_entry(&push_entry, "refs/remotes/origin/RSL")
                     .unwrap();
 

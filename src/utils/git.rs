@@ -285,18 +285,13 @@ pub fn get_ref_from_name<'repo>(repo: &'repo Repository, name: &str) -> Option<R
 
 /// Push the branches or tags given in ref_names
 pub fn push(repo: &Repository, remote: &mut Remote, ref_names: &[&str]) -> Result<()> {
-    let refs: Vec<String> = ref_names
-        .iter()
-        .map(|name: &&str| {
-            let reference = get_ref_from_name(&repo, name).expect("failed to find reference from name");
-            String::from(reference.name().expect("failed to get full name of ref"))
-        })
-        .collect();
-
-    let mut refspecs: Vec<&str> = vec![];
-    for name in &refs {
-        refspecs.push(name)
+    let mut refs: Vec<String> = vec![];
+    for name in ref_names {
+        let reference = get_ref_from_name(&repo, name).ok_or("couldn't find reference")?;
+        refs.push(reference.name().ok_or("couldn't get name from reference")?.to_string())
     }
+
+    let refspecs: Vec<&str> = refs.iter().map(AsRef::as_ref).collect();
 
     push_refspecs(repo, remote, &refspecs)
 }

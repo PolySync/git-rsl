@@ -54,17 +54,19 @@ impl PushEntry {
         branch_str: &str,
         prev: String,
         nonce_bag: NonceBag,
-    ) -> PushEntry {
+    ) -> Result<PushEntry> {
+        // NONE OF THIS IS FINE bc this method doesn't return an error :P
         let full_ref =
-            utils::git::get_ref_from_name(repo, branch_str).expect("failed to get reference");
-        let target_oid = full_ref.target().expect("failed to get target oid");
+            utils::git::get_ref_from_name(repo, branch_str).ok_or("failed to get reference")?;
+        let target_oid = full_ref.target().ok_or("failed to get target oid")?;
+        let ref_name = String::from(full_ref.name().ok_or("failed to get ref's full name")?);
 
-        PushEntry {
-            ref_name: String::from(full_ref.name().expect("failed to get ref's full name")),
+        Ok(PushEntry {
+            ref_name: ref_name,
             oid: target_oid,
             prev_hash: prev,
             nonce_bag,
-        }
+        })
     }
 
     pub fn prev_hash(&self) -> String {
@@ -186,7 +188,7 @@ mod tests {
                 &"master",
                 String::from("fwjjk42ofw093j"),
                 NonceBag::default(),
-            );
+            ).unwrap();
             let oid = repo.commit_push_entry(&entry, "refs/heads/RSL").unwrap();
 
             assert_eq!(PushEntry::from_oid(&repo, &oid).unwrap().unwrap(), entry);
