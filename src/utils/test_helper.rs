@@ -18,13 +18,6 @@ pub struct Context {
     pub repo_dir: PathBuf,
 }
 
-impl Drop for Context {
-    fn drop(&mut self) {
-        rm_rf(self.local.path().parent().unwrap());
-        rm_rf(self.remote.path());
-    }
-}
-
 pub fn setup_fresh() -> Context {
     // create temporary directory
     let temp_dir = TempDir::new("rsl_test")
@@ -90,10 +83,6 @@ pub fn create_file_with_text<P: AsRef<Path>>(path: P, text: &str) -> () {
 pub fn do_work_on_branch(repo: &Repository, branch_name: &str) -> () {
     git::checkout_branch(&repo, branch_name).unwrap();
     git::add_and_commit(&repo, None, "a commit with some work", branch_name).unwrap();
-}
-
-fn rm_rf(path: &Path) {
-    fs::remove_dir_all(&path).unwrap();
 }
 
 #[cfg(test)]
