@@ -1,15 +1,16 @@
 #[macro_use]
 extern crate clap;
+#[macro_use]
+extern crate error_chain;
 
 extern crate git2;
 extern crate git_rsl;
 
-use std::process;
+mod cli;
 
 use clap::{App, Arg};
-use git_rsl::errors::*;
-use git_rsl::utils::git;
-use git_rsl::{rsl_init_with_cleanup, RemoteName};
+use cli::{collect_args, handle_error};
+use git_rsl::rsl_init_with_cleanup;
 
 fn main() {
     let matches = App::new("git-rsl-init")
@@ -23,25 +24,13 @@ fn main() {
         .author(crate_authors!())
         .get_matches();
 
-    let remote = match matches.value_of("REMOTE") {
-        None => panic!("Must supply a REMOTE argument"),
-        Some(v) => v.to_owned(),
+    match collect_args(&matches) {
+        Ok((remote, _, mut repo)) => {
+            if let Err(ref e) = rsl_init_with_cleanup(&mut repo, &remote) {
+                cli::handle_error(e);
+            }
+            println!("Success!")
+        }
+        Err(ref e) => handle_error(e),
     };
-    // TODO - reduce code duplication across the top level of the binaries
-    let mut repo = git::discover_repo()
-        .expect("You don't appear to be in a git project. Please check yourself and try again");
-
-    if let Err(ref e) = rsl_init_with_cleanup(&mut repo, &RemoteName::new(&remote)) {
-        handle_error(e);
-        process::exit(1);
-    }
-    println!("Success!")
-}
-
-fn handle_error(e: &Error) -> () {
-    report_error(&e);
-    match *e {
-        Error(ErrorKind::ReadError(_), _) => process::exit(1),
-        Error(_, _) => process::exit(2),
-    }
 }
